@@ -1,0 +1,35 @@
+.pixel-chart { margin: 4rem 0; padding: 8rem; border: 1rem solid var(--line); background: var(--panel); display: grid; gap: 8rem; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.pixel-chart-title { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4rem 12rem; }
+.pixel-chart-kind, .pixel-chart-caption { color: var(--muted); }
+.pixel-chart-legend, .pixel-chart-selection { display: flex; flex-wrap: wrap; gap: 4rem 12rem; }
+.pixel-chart-legend > span, .pixel-chart-selection > span { display: flex; align-items: center; gap: 4rem; min-width: 0; overflow-wrap: anywhere; }
+.pixel-chart-legend i, .pixel-chart-selection i { display: inline-block; width: 8rem; height: 8rem; flex: 0 0 8rem; background: var(--series-color); }
+.pixel-chart-viewport, .pixel-chart-table-scroll { min-width: 0; max-width: 100%; overflow: auto; }
+.pixel-chart-viewport, .pixel-chart-table-scroll { max-height: 240rem; }
+.pixel-chart-viewport:focus-visible, .pixel-chart-table-scroll:focus-visible, .pixel-chart-data summary:focus-visible { outline: 1rem solid var(--accent); outline-offset: 2rem; }
+.pixel-chart-plot { position: relative; }
+.pixel-chart-plot svg { display: block; }
+.pixel-chart-x-tick, .pixel-chart-y-tick { position: absolute; color: var(--muted); white-space: nowrap; line-height: 16rem; }
+.pixel-chart-x-tick { text-align: center; }
+.pixel-chart-y-tick { text-align: right; }
+.pixel-chart-selection { padding: 4rem; background: var(--selected); }
+.pixel-chart-data summary { cursor: pointer; color: var(--accent); padding: 4rem 0; }
+.pixel-chart-data table { border-collapse: collapse; text-align: left; width: 100%; }
+.pixel-chart-data caption { text-align: left; padding: 4rem 0; color: var(--muted); }
+.pixel-chart-data th, .pixel-chart-data td { font-weight: 400; border: 1rem solid var(--line); padding: 4rem 8rem; white-space: nowrap; }
+.pixel-chart-data thead { background: var(--elevated); }
+.pixel-chart-data td { text-align: right; }
+.pixel-chart-unavailable { margin: 4rem 0; padding: 8rem; border: 1rem solid var(--line); color: var(--danger); }
+.pixel-chart-pie { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8rem 16rem; min-width: 0; overflow-x: auto; }
+.pixel-chart-pie > svg { flex: 0 0 160rem; }
+.pixel-chart-pie > p { flex-basis: 100%; }
+.pixel-chart-pie-legend { display: grid; gap: 4rem; flex: 1 1 160rem; min-width: 0; }
+.pixel-chart-pie-legend button { display: flex; align-items: baseline; gap: 4rem; padding: 4rem; text-align: left; border: 1rem solid var(--line); }
+.pixel-chart-pie-legend button.is-selected { background: var(--selected); border-color: var(--accent); }
+.pixel-chart-pie-legend button > span { min-width: 0; }
+.pixel-chart-pie-legend i, .pixel-chart-heat-key { display: inline-block; width: 12rem; height: 12rem; flex: 0 0 12rem; background: var(--series-color); }
+.pixel-chart-demo { padding: 4rem; width: var(--viewport-width); min-height: var(--viewport-height); display: grid; align-content: start; gap: 8rem; }
+.pixel-chart-demo > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8rem; }
+.pixel-chart-demo a { color: var(--accent); text-decoration: underline; }
+.pixel-chart-demo select { font: inherit; color: var(--text); background: var(--panel); border: 1rem solid var(--line); border-radius: 0; padding: 4rem; }
+.pixel-chart-demo > * { min-width: 0; }

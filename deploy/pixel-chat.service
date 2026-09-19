@@ -1,0 +1,22 @@
+[Unit]
+Description=Pixel Chat API and Pi workers
+After=network.target
+
+[Service]
+Type=simple
+User=pixel-chat
+Group=pixel-chat
+WorkingDirectory=/srv/pixel-chat
+Environment=NODE_ENV=production
+Environment=PIXEL_DATA_DIR=/var/lib/pixel-chat
+EnvironmentFile=/etc/pixel-chat.env
+ExecStart=/usr/bin/node /srv/pixel-chat/backend/dist/main.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+# Also clean up any tool process which deliberately detached from pi's group.
+KillMode=control-group
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

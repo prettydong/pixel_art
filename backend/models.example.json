@@ -1,0 +1,25 @@
+{
+  "models": [
+    { "id": "team-default", "label": "团队默认模型", "provider": "team", "model": "your-model-id", "pricingKnown": false }
+  ],
+  "providers": {
+    "team": {
+      "baseUrl": "https://your-openai-compatible-provider.example/v1",
+      "api": "openai-completions",
+      "apiKey": "$TEAM_MODEL_API_KEY",
+      "models": [
+        {
+          "id": "your-model-id",
+          "name": "Team Model",
+          "reasoning": false,
+          "input": ["text"],
+          "contextWindow": 128000,
+          "maxTokens": 16384,
+          "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 }
+        }
+      ]
+    }
+  },
+  "env": ["TEAM_MODEL_API_KEY"],
+  "skills": []
+}
