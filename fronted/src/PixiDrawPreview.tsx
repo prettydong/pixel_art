@@ -61,10 +61,12 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
       const { rows, cols } = drawing.grid;
       let scale = 1; let offsetX = 0; let offsetY = 0; let fitting = true;
       let frame = 0;
-      const fitScale = () => Math.min(Math.max(1, width - 48) / cols, Math.max(1, height - 64) / rows);
+      const padX = () => Math.min(48, Math.floor(width / 4));
+      const padY = Math.min(48, Math.floor(height / 4));
+      const fitScale = () => Math.min(Math.max(1, width - padX() * 2) / cols, Math.max(1, height - padY * 2) / rows);
       const bound = () => {
-        offsetX = Math.round(cols * scale < width - 32 ? (width - cols * scale) / 2 : Math.min(16, Math.max(width - 16 - cols * scale, offsetX)));
-        offsetY = Math.round(rows * scale < height - 48 ? (height - rows * scale) / 2 : Math.min(24, Math.max(height - 24 - rows * scale, offsetY)));
+        offsetX = Math.round(cols * scale < width - padX() * 2 ? (width - cols * scale) / 2 : Math.min(padX(), Math.max(width - padX() - cols * scale, offsetX)));
+        offsetY = Math.round(rows * scale < height - padY * 2 ? (height - rows * scale) / 2 : Math.min(padY, Math.max(height - padY - rows * scale, offsetY)));
       };
       const toScreen = (x: number, y: number) => ({ x: Math.round(offsetX + x * scale), y: Math.round(offsetY + y * scale) });
       const paint = () => {
@@ -141,14 +143,14 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
   return <div className="architecture-preview">
     <div className="panel-actions"><strong>{drawing.grid.rows} 行 × {drawing.grid.cols} 列</strong><span>{(drawing.grid.rows * drawing.grid.cols).toLocaleString()} 个单元</span></div>
     <div className="panel-actions draw-controls">
-      <button disabled={!ready} onClick={() => controls.current?.fit()}>全图</button>
-      <button disabled={!ready} aria-label="缩小架构" onClick={() => controls.current?.zoom(0.5)}>缩小</button>
-      <button disabled={!ready} aria-label="放大架构" onClick={() => controls.current?.zoom(2)}>放大</button>
-      <button disabled={!ready} onClick={() => controls.current?.cell()}>单元格</button>
+      <button className="action-button" disabled={!ready} onClick={() => controls.current?.fit()}>全图</button>
+      <button className="action-button" disabled={!ready} aria-label="缩小架构" onClick={() => controls.current?.zoom(0.5)}>缩小</button>
+      <button className="action-button" disabled={!ready} aria-label="放大架构" onClick={() => controls.current?.zoom(2)}>放大</button>
+      <button className="action-button" disabled={!ready} onClick={() => controls.current?.cell()}>单元格</button>
       <form onSubmit={event => { event.preventDefault(); controls.current?.go(Number(row), Number(col)); }}>
         <label>行<input aria-label="定位行" type="number" required min={0} max={drawing.grid.rows - 1} step={1} value={row} onChange={event => setRow(event.target.value)} /></label>
         <label>列<input aria-label="定位列" type="number" required min={0} max={drawing.grid.cols - 1} step={1} value={col} onChange={event => setCol(event.target.value)} /></label>
-        <button disabled={!ready} type="submit">定位</button>
+        <button className="action-button" disabled={!ready} type="submit">定位</button>
       </form>
     </div>
     <div ref={hostRef} className="architecture-canvas pixi-draw-canvas" data-render-state={error ? 'error' : ready ? 'ready' : 'loading'} style={{ height: `${scene.canvas.height + 2}rem`, maxWidth: `${scene.canvas.width}rem` }} />
