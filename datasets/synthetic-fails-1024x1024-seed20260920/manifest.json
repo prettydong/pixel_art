@@ -1,0 +1,90 @@
+{
+  "data_kind": "synthetic",
+  "seed": 20260920,
+  "generator": "scripts/generate-synthetic-fails.mjs",
+  "description": "Artificial mixed-pattern demonstration; not measured silicon data or a fitted statistical population.",
+  "array": {
+    "rows": 1024,
+    "cols": 1024,
+    "coordinate_base": 0
+  },
+  "samples": 100,
+  "zero_fail_samples": 10,
+  "fail_count": 18329,
+  "files": {
+    "roster.csv": {
+      "bytes": 3497,
+      "sha256": "c0914265dde7159a29c588dc89364d912be2c6d301246ea9812938b57f6709b2"
+    },
+    "fails.csv": {
+      "bytes": 692504,
+      "sha256": "4c78bff254896f57fc5f05a3d3cbefc980776361d11a1bcbfe337cef62528535"
+    }
+  },
+  "groups": [
+    {
+      "pattern": "zero",
+      "samples": 10,
+      "fail_count": 0,
+      "min": 0,
+      "max": 0
+    },
+    {
+      "pattern": "random_sparse",
+      "samples": 20,
+      "fail_count": 203,
+      "min": 1,
+      "max": 16
+    },
+    {
+      "pattern": "random_dense",
+      "samples": 10,
+      "fail_count": 794,
+      "min": 38,
+      "max": 128
+    },
+    {
+      "pattern": "row_concentrated",
+      "samples": 15,
+      "fail_count": 1878,
+      "min": 69,
+      "max": 186
+    },
+    {
+      "pattern": "column_concentrated",
+      "samples": 15,
+      "fail_count": 2103,
+      "min": 65,
+      "max": 192
+    },
+    {
+      "pattern": "local_cluster",
+      "samples": 10,
+      "fail_count": 722,
+      "min": 48,
+      "max": 113
+    },
+    {
+      "pattern": "mixed",
+      "samples": 10,
+      "fail_count": 2389,
+      "min": 164,
+      "max": 293
+    },
+    {
+      "pattern": "full_row",
+      "samples": 5,
+      "fail_count": 5120,
+      "min": 1024,
+      "max": 1024
+    },
+    {
+      "pattern": "full_column",
+      "samples": 5,
+      "fail_count": 5120,
+      "min": 1024,
+      "max": 1024
+    }
+  ],
+  "repair_configuration": null
+}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ArchitecturePreview } from '@pixel/contracts';
 import type * as Pixi from 'pixi.js';
 import { fileUrl } from './api';
+import { getPixelDensity, getPixelUnit } from './pixelGrid';
 
 // Logical coordinates: x = column, y = row. One world unit is one real cell.
 export type DrawView = { x: number; y: number; width: number; height: number; scale: number; gridStep: number; viewportWidth: number; viewportHeight: number };
@@ -52,10 +53,10 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
       if (cancelled) return;
       const app = new PIXI.Application();
       let width = 640; const height = scene.canvas.height;
-      const measure = () => Math.max(80, Math.floor(host.clientWidth / parseFloat(getComputedStyle(document.documentElement).fontSize)));
+      const measure = () => Math.max(80, Math.floor(host.clientWidth / getPixelUnit()));
       width = measure();
       canvas.style.width = `${width}rem`; canvas.style.height = `${height}rem`;
-      try { await app.init({ canvas, width, height, resolution: 3, preference: 'webgl', antialias: false, roundPixels: true, autoDensity: false, autoStart: false, sharedTicker: false }); }
+      try { await app.init({ canvas, width, height, resolution: getPixelDensity(), preference: 'webgl', antialias: false, roundPixels: true, autoDensity: false, autoStart: false, sharedTicker: false }); }
       catch (err) { app.stage.destroy({ children: true }); app.renderer?.destroy(); throw err; }
       if (cancelled) { app.destroy(); return; }
       const { rows, cols } = drawing.grid;
@@ -94,7 +95,7 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
           const world = new PIXI.Container(); world.position.set(offsetX, offsetY); world.scale.set(scale); app.stage.addChild(world);
           const overlay = new PIXI.Container(); app.stage.addChild(overlay);
           const text: DrawContext['text'] = (value, px, py, color = colors.ink || style.getPropertyValue('--text').trim()) => {
-            const label = new PIXI.Text({ text: value, resolution: 3, style: { fontFamily: 'Fusion Pixel', fontSize: 12, fontWeight: '400', fill: color } });
+            const label = new PIXI.Text({ text: value, resolution: getPixelDensity(), style: { fontFamily: 'Fusion Pixel', fontSize: 12, fontWeight: '400', fill: color } });
             label.roundPixels = true; label.position.set(Math.round(px), Math.round(py)); overlay.addChild(label); return label;
           };
           draw({ PIXI, world, overlay, grid: { rows, cols }, colors,
@@ -126,10 +127,10 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
       canvas.addEventListener('wheel', wheel, { passive: false }); canvas.addEventListener('pointerdown', down); canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up); canvas.addEventListener('lostpointercapture', up);
       const resize = new ResizeObserver(() => {
         const next = measure(); if (next === width) return;
-        offsetX += (next - width) / 2; width = next; canvas.style.width = `${width}rem`; app.renderer.resize(width, height);
+        offsetX += (next - width) / 2; width = next; canvas.style.width = `${width}rem`; app.renderer.resize(width, height, getPixelDensity());
         if (fitting) fit(); else schedule();
       }); resize.observe(host);
-      const theme = new MutationObserver(schedule); theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style'] });
+      const theme = new MutationObserver(() => { app.renderer.resize(width, height, getPixelDensity()); schedule(); }); theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-pixel-ratio'] });
       const lost = (event: Event) => { event.preventDefault(); setError('图形上下文丢失，请重新打开预览'); setReady(false); };
       canvas.addEventListener('webglcontextlost', lost);
       cleanup = () => {
@@ -160,7 +161,7 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
     <p className="task-note">{scene.description}</p>
     {scene.assumptions.length > 0 && <ul>{scene.assumptions.map((item, i) => <li key={i}>{item}</li>)}</ul>}
     <details className="drawing-record"><summary>绘图记录 · draw 函数 · {drawing.grid.rows} × {drawing.grid.cols}</summary>
-      <p>真实坐标：列为 x、行为 y，每单位 1 个单元。视口上限 {scene.canvas.width} × {scene.canvas.height} 格，1 格 = 3 × 3 物理像素；网格线 1 格。Fusion Pixel 12 格。</p>
+      <p>真实坐标：列为 x、行为 y，每单位 1 个单元。视口上限 {scene.canvas.width} × {scene.canvas.height} 格，1 格对应当前像素网格；网格线 1 格。Fusion Pixel 12 格。</p>
       <p>架构指纹：<code>{scene.fingerprint}</code></p>
       <p>draw SHA256：<code>{preview.draw?.sha256}</code></p>
       <div className="drawing-table"><table><thead><tr><th>区域 / 分割线</th><th>尺寸与位置（Agent 记录）</th><th>颜色角色</th></tr></thead><tbody>{drawing.records.map((record, i) => <tr key={i}><td>{record.label}</td><td>{record.geometry}</td><td>{record.color}</td></tr>)}</tbody></table></div>

@@ -1,4 +1,4 @@
-/* One grid, one font size. 1rem = one design pixel = 3 device pixels.
+/* One grid, one font size. 1rem = one design pixel = 2 or 3 device pixels.
    pixelGrid.ts updates the unit before React mounts and when density changes. */
 @font-face {
   font-family: "Fusion Pixel";
@@ -231,10 +231,11 @@ a { color: inherit; text-decoration: none; }
 .welcome { flex: 1; min-height: 0; overflow: auto; container-type: inline-size; padding: 20rem 16rem 16rem; }
 .evaluation-panels {
   display: grid;
-  grid-template-columns: repeat(3, round(down, calc((100% - 32rem) / 3), 1rem));
+  /* Keep desktop cards portrait-shaped when the shared pixel grid gets smaller. */
+  grid-template-columns: repeat(var(--card-columns, 3), var(--card-width, 240rem));
   gap: 16rem;
 }
-.evaluation-slot { position: relative; min-width: 0; display: flex; }
+.evaluation-slot { position: relative; min-width: 0; min-height: var(--card-min-height, 300rem); display: flex; }
 .evaluation-card-motion { flex: 1; min-width: 0; display: flex; pointer-events: none; }
 .evaluation-hit-area { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; }
 .evaluation-hit-area:focus-visible { outline: none; }
@@ -250,7 +251,7 @@ a { color: inherit; text-decoration: none; }
 .evaluation-panel.selected { border-color: var(--card-accent); }
 .evaluation-card-top { display: flex; align-items: flex-start; gap: 4rem; color: var(--card-accent); }
 .evaluation-figure { margin: 0; padding: 8rem 0; background: var(--card-surface); border: 1rem solid var(--line); }
-.evaluation-diagram { display: block; width: 144rem; height: 112rem; margin-left: round(down, calc((100% - 144rem) / 2), 1rem); }
+.evaluation-diagram { display: block; width: 144rem; height: 112rem; margin-left: var(--card-diagram-left, 0rem); }
 .diagram-frame { fill: var(--line); }
 .diagram-ground { fill: var(--panel); }
 .diagram-cell { fill: var(--diagram-cell); }
@@ -259,9 +260,9 @@ a { color: inherit; text-decoration: none; }
 .diagram-fault { fill: var(--danger); }
 .evaluation-heading { flex: 1; min-width: 0; color: var(--card-accent); }
 .evaluation-indicator { flex: 0 0 16rem; }
-.evaluation-details { display: grid; gap: 8rem; margin: 0; }
-.evaluation-details > div { display: grid; grid-template-columns: 24rem minmax(0, 1fr); gap: 8rem; }
-.evaluation-details dt { color: var(--muted); }
+.evaluation-details { display: grid; gap: 8rem; margin: auto 0 0; }
+.evaluation-details > div { display: grid; grid-template-columns: minmax(24rem, max-content) minmax(0, 1fr); gap: 8rem; }
+.evaluation-details dt { color: var(--muted); white-space: nowrap; }
 .evaluation-details dd { margin: 0; }
 .diagram-resource { fill: var(--card-accent); }
 .diagram-scan, .diagram-packet { fill: var(--text); opacity: 0; pointer-events: none; }
@@ -329,9 +330,6 @@ a { color: inherit; text-decoration: none; }
   50% { transform: translate(10px, -18px); }
   75%, 100% { transform: translate(26px, -18px); }
 }
-@container (width < 584rem) {
-  .evaluation-panels { grid-template-columns: minmax(0, 1fr); }
-}
 /* The composer has the same fixed height on the homepage and in a conversation.
    Only the area above it scrolls; attachments share the existing editor space. */
 .composer-area { flex: 0 0 116rem; height: 116rem; min-height: 0; display: flex; flex-direction: column; }
@@ -350,7 +348,7 @@ a { color: inherit; text-decoration: none; }
 .dropdown-anchor { position: relative; }
 .dropdown { position: absolute; z-index: 10; padding: 4rem; border: 1rem solid var(--line); background: var(--elevated); width: 152rem; box-shadow: 3rem 3rem 0 var(--shadow); }
 .mode-dropdown { bottom: 28rem; left: 0; }
-.model-dropdown { bottom: 28rem; left: 0; }
+.model-dropdown { bottom: 28rem; left: 0; max-height: max(64rem, min(240rem, calc(var(--viewport-height) - 180rem))); overflow-y: auto; overscroll-behavior: contain; }
 .dropdown button { display: flex; align-items: center; justify-content: space-between; width: 100%; text-align: left; min-height: 32rem; padding: 6rem; }
 .dropdown button:hover { background: var(--hover); }
 .dropdown small { display: block; padding: 6rem; color: var(--muted); }
@@ -416,7 +414,7 @@ a { color: inherit; text-decoration: none; }
 .attachments { flex: 0 1 auto; min-height: 0; max-height: 32rem; overflow: auto; }
 .attachments > span, .message-files > span { display: flex; align-items: center; gap: 4rem; padding: 4rem; border: 1rem solid var(--line); overflow-wrap: anywhere; min-width: 0; }
 .attachments small, .message-files small { display: block; flex-basis: 100%; color: var(--muted); }
-.modal { position: fixed; inset: 24rem auto auto round(down, calc((var(--viewport-width) - var(--dialog-width)) / 2), 1rem); width: var(--dialog-width); max-width: none; max-height: calc(var(--viewport-height) - 48rem); padding: 0; margin: 0; border: 1rem solid var(--line); color: var(--text); background: var(--panel); font: inherit; box-shadow: 3rem 3rem 0 var(--shadow); }
+.modal { position: fixed; inset: 24rem auto auto var(--dialog-left, 8rem); width: var(--dialog-width); max-width: none; max-height: calc(var(--viewport-height) - 48rem); overflow: auto; padding: 0; margin: 0; border: 1rem solid var(--line); color: var(--text); background: var(--panel); font: inherit; box-shadow: 3rem 3rem 0 var(--shadow); }
 .modal::backdrop { background: var(--overlay); }
 .modal-inner { padding: 16rem; }
 .modal-heading { display: flex; align-items: center; justify-content: space-between; gap: 8rem; margin-bottom: 16rem; }
@@ -449,7 +447,6 @@ a { color: inherit; text-decoration: none; }
 [data-layout="compact"] .sidebar.mobile-open { display: flex; position: fixed; top: 0; left: 0; z-index: 30; width: min(144rem, calc(var(--viewport-width) - 24rem)); }
 [data-narrow="true"] .topbar { padding-left: 4rem; padding-right: 4rem; }
 [data-narrow="true"] .topbar-right { gap: 0; }
-[data-narrow="true"] .topbar-right > button:last-child { display: none; }
 [data-narrow="true"] .composer-area { flex-basis: 148rem; height: 148rem; }
 [data-narrow="true"] .composer { padding: 4rem; }
 [data-narrow="true"] .composer-tools { gap: 4rem; }
@@ -481,7 +478,8 @@ h3 { margin: 4rem 0; }
 .user-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4rem; padding: 4rem 0; border-bottom: 1rem solid var(--line); }
 .user-row > span { flex: 1; overflow-wrap: anywhere; }
 .user-row small, .usage-table small { display: block; color: var(--muted); }
-.wide-modal { --dialog-width: min(760rem, calc(var(--viewport-width) - 16rem)); }
+.wide-modal { --dialog-width: min(760rem, calc(var(--viewport-width) - 16rem)); --dialog-left: var(--wide-dialog-left, 8rem); }
+.sidebar-content { display: contents; }
 .usage-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160rem, 100%), 1fr)); gap: 8rem; }
 .usage-summary { display: flex; flex-wrap: wrap; gap: 8rem; padding: 8rem 0; border-bottom: 1rem solid var(--line); }
 .usage-table-wrap { width: 100%; overflow: auto; }

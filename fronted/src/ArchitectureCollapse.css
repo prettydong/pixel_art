@@ -1,0 +1,21 @@
+.architecture-record-heading h2 { min-width: 0; }
+.architecture-fold-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: 2rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.architecture-fold-toggle:hover { color: var(--accent); }
+.architecture-fold-toggle:focus-visible { outline: 1rem solid var(--accent); outline-offset: 2rem; }
+.architecture-fold-toggle svg { flex-shrink: 0; }
+.architecture-fold-toggle span,
+.architecture-collapsed-status { overflow-wrap: anywhere; }
+.architecture-record-body { display: grid; gap: 8rem; min-width: 0; }
+.architecture-record-body[hidden] { display: none; }

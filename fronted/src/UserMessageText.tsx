@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
+import { getPixelUnit } from "./pixelGrid";
 
 /** Clip a second ink layer; the original text stays selectable and readable. */
 export function UserMessageText({ text }: { text: string }) {
@@ -8,7 +9,7 @@ export function UserMessageText({ text }: { text: string }) {
     const element = ref.current;
     if (!element) return;
     const measure = () => {
-      const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const unit = getPixelUnit();
       const width = Math.ceil(element.getBoundingClientRect().width / unit);
       // Both ends and every animation step land on an integer design pixel.
       element.style.setProperty("--shine-end", `${width}rem`);

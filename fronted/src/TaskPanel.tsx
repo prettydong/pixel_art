@@ -1,28 +1,52 @@
 import { ArchitecturePreview } from './ArchitecturePreview';
+import { ArchitectureDrawingProgress, findArchitectureDrawing, statusText } from './ArchitectureDrawingProgress';
+import { ArchitectureEditor } from './ArchitectureEditor';
+import { architectureSummary } from './architectureTemplates';
+import { DataPreview } from './DataPreview';
 import { useEffect, useRef, useState } from 'react';
 import type { FileRecord, ListResponse, TaskDetail, TaskArchitecture } from '@pixel/contracts';
+import { isActiveRun } from '@pixel/contracts';
 import type { Conversation } from './chatTypes';
 import { api, errorText, fileUrl } from './api';
 import { MarkdownMessage } from './MarkdownMessage';
 import { groupReplyMessages } from './replyMessages';
-import { Download, Plus } from './PixelIcons';
+import { ChevronDown, ChevronRight, Download, Plus } from './PixelIcons';
 import { taskViewLabels, type TaskView } from './TaskNavigation';
+import './ArchitectureCollapse.css';
 
-type Props = { taskId: string; view: Exclude<TaskView, 'chat'>; revision: number; conversations: Conversation[]; onRefresh: () => Promise<void>; onChat: (id: string) => void; onCreateChat: (taskId: string) => Promise<void>; onGeneratePreview: (architecture: TaskArchitecture) => Promise<void>; previewAvailable: boolean };
-export function TaskPanel({ taskId, view, revision, conversations, onRefresh, onChat, onCreateChat, onGeneratePreview, previewAvailable }: Props) {
+function readCollapsedArchitectures(taskId: string): Set<string> {
+  try {
+    const ids: unknown = JSON.parse(localStorage.getItem(`pixel:collapsed-architectures:${taskId}`) ?? '[]');
+    return new Set(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string').slice(0, 1000) : []);
+  } catch { return new Set(); }
+}
+
+type Props = { taskId: string; view: Exclude<TaskView, 'chat'>; revision: number; conversations: Conversation[]; connections: Record<string, string>; onRefresh: () => Promise<void>; onChat: (id: string) => void; onCreateChat: (taskId: string) => Promise<void>; onGeneratePreview: (architecture: TaskArchitecture) => Promise<void>; previewAvailable: boolean };
+export function TaskPanel({ taskId, view, revision, conversations, connections, onRefresh, onChat, onCreateChat, onGeneratePreview, previewAvailable }: Props) {
   const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState('');
   const [pending, setPending] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [startingArchitecture, setStartingArchitecture] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ id: string; name: string; description: string } | null>(null);
   const [shared, setShared] = useState<FileRecord[] | null>(null);
   const [reload, setReload] = useState(0);
+  const [collapsedArchitectures, setCollapsedArchitectures] = useState(() => readCollapsedArchitectures(taskId));
   const uploadRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    let alive = true; setLoading(true);
+    try { localStorage.setItem(`pixel:collapsed-architectures:${taskId}`, JSON.stringify([...collapsedArchitectures])); }
+    catch { /* Storage restrictions must not prevent folding in this session. */ }
+  }, [taskId, collapsedArchitectures]);
+  function toggleArchitecture(id: string) {
+    setCollapsedArchitectures(previous => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  useEffect(() => {
+    let alive = true; setDetail(previous => previous?.id === taskId ? previous : null); setLoading(true);
     api<TaskDetail>(`/tasks/${taskId}`).then(result => { if (alive) { setDetail(result); setLoadError(''); } })
       .catch(err => { if (alive) setLoadError(errorText(err)); }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
@@ -31,39 +55,64 @@ export function TaskPanel({ taskId, view, revision, conversations, onRefresh, on
     if (pending) return; setPending(true); setError('');
     try { await work(); }
     catch (err) { setError(errorText(err)); }
-    finally { await onRefresh(); setReload(value => value + 1); setPending(false); }
+    finally { try { await onRefresh(); setReload(value => value + 1); } finally { setPending(false); } }
   }
-  const uploads = detail?.files.filter(file => file.kind === 'upload') ?? [];
+  const uploads = detail?.id === taskId ? detail.files.filter(file => file.kind === 'upload') : [];
   const artifacts = detail?.files.filter(file => file.kind === 'artifact') ?? [];
   const chats = conversations.filter(chat => chat.taskId === taskId);
-  const isDrawing = (id: string) => chats.some(chat => chat.activeRun && chat.messages.some(message => message.role === 'user' && message.text.includes(id)));
   const downloads = (files: FileRecord[]) => <ul className="task-files">{files.map(file => <li key={file.id}><a href={fileUrl(file)} download><Download /><span>{file.name}</span></a></li>)}</ul>;
   return <section className="task-panel" aria-label={taskViewLabels[view]} aria-busy={loading || pending}>
     <div className="task-panel-heading"><h1>{taskViewLabels[view]}</h1><span>{detail?.name}</span></div>
     {loading && !detail && <p role="status">正在读取任务资料…</p>}
     {(error || loadError) && <div className="workspace-error" role="alert">{error || loadError}<button onClick={() => { setError(''); setReload(value => value + 1); }}>重新读取</button></div>}
     {view === 'architecture' && <>
-      <div className="panel-actions"><button className="action-button" disabled={pending} onClick={() => { setEditing('new'); setName(''); setDescription(''); }}><Plus />添加架构</button></div>
-      {editing && <form className="task-architecture-form account-form" onSubmit={event => {
-        event.preventDefault(); void action(async () => {
-          await api(`/tasks/${taskId}/architectures${editing === 'new' ? '' : `/${editing}`}`, { method: editing === 'new' ? 'POST' : 'PATCH', body: JSON.stringify({ name: name.trim(), description: description.trim() }) });
+      <div className="panel-actions">
+        <button className="action-button" disabled={pending || !!editing} onClick={() => setEditing({ id: 'new', name: '', description: '' })}><Plus />新建架构</button>
+        {!!detail?.architectures.length && <>
+          <button type="button" className="action-button" disabled={detail.architectures.every(architecture => !collapsedArchitectures.has(architecture.id))} onClick={() => setCollapsedArchitectures(new Set())}>全部展开</button>
+          <button type="button" className="action-button" disabled={detail.architectures.every(architecture => collapsedArchitectures.has(architecture.id))} onClick={() => setCollapsedArchitectures(new Set(detail.architectures.map(architecture => architecture.id)))}>全部折叠</button>
+        </>}
+      </div>
+      {editing && <ArchitectureEditor key={editing.id} initial={editing.id === 'new' ? undefined : editing} pending={pending} onCancel={() => setEditing(null)} onSave={async (name, description) => {
+        if (pending) return;
+        setPending(true); setError('');
+        try {
+          await api(`/tasks/${taskId}/architectures${editing.id === 'new' ? '' : `/${editing.id}`}`, { method: editing.id === 'new' ? 'POST' : 'PATCH', body: JSON.stringify({ name, description }) });
           setEditing(null);
-        });
-      }}>
-        <label>架构名称<input required maxLength={120} value={name} onChange={event => setName(event.target.value)} disabled={pending} placeholder="例如：8组列冗余方案" /></label>
-        <label>架构定义<textarea required maxLength={30000} rows={8} value={description} onChange={event => setDescription(event.target.value)} disabled={pending} placeholder="填写阵列规模、备用行列、资源共享范围与约束；也可以粘贴 JSON。" /></label>
-        <div className="panel-actions"><button className="action-button" disabled={pending || !name.trim() || !description.trim()}>保存架构</button><button className="action-button" type="button" disabled={pending} onClick={() => setEditing(null)}>取消</button></div>
-      </form>}
+          await onRefresh().catch(err => setError(`架构已保存，但刷新失败：${errorText(err)}`));
+          setReload(value => value + 1);
+        } finally { setPending(false); }
+      }} />}
       {!loading && !detail?.architectures.length && <p className="task-empty">暂无架构。添加本次评估的架构；执行后使用过的架构快照也会列在这里。</p>}
-      {detail?.architectures.map(architecture => <article className="task-record" key={architecture.id}>
-        <div className="task-record-heading"><h2>{architecture.name}</h2>{architecture.sourceFile ? <span>已执行的架构快照</span> : <button className="action-button" disabled={pending} onClick={() => { setEditing(architecture.id); setName(architecture.name); setDescription(architecture.description); }}>编辑</button>}</div>
-        <div className="panel-actions"><button className="action-button" disabled={pending || !previewAvailable || isDrawing(architecture.id)} onClick={() => void action(() => onGeneratePreview(architecture))}>{isDrawing(architecture.id) ? 'Agent 正在绘制…' : architecture.previews?.length ? '让 Agent 重新绘制' : '让 Agent 绘制预览'}</button></div>
+      {detail?.architectures.map(architecture => {
+        const starting = startingArchitecture === architecture.id;
+        const drawing = starting ? undefined : findArchitectureDrawing(chats, architecture.id);
+        const drawingActive = starting || !!(drawing && isActiveRun(drawing.run.status));
+        const previewReady = !!drawing && !!architecture.previews?.some(preview => preview.file.conversationId === drawing.conversation.id && preview.createdAt >= drawing.run.createdAt);
+        const collapsed = collapsedArchitectures.has(architecture.id);
+        const bodyId = `architecture-body-${architecture.id}`;
+        return <article className="task-record" key={architecture.id}>
+        <div className="task-record-heading architecture-record-heading"><h2><button type="button" className="architecture-fold-toggle" aria-expanded={!collapsed} aria-controls={bodyId} aria-label={`${collapsed ? '展开' : '折叠'}架构：${architecture.name}`} onClick={() => toggleArchitecture(architecture.id)}>{collapsed ? <ChevronRight /> : <ChevronDown />}<span>{architecture.name}</span></button></h2>{architecture.sourceFile ? <span>已执行的架构快照</span> : <button className="action-button" disabled={pending || !!editing} onClick={() => setEditing({ id: architecture.id, name: architecture.name, description: architecture.description })}>编辑</button>}</div>
+        {architectureSummary(architecture.description) && <p className="task-note">{architectureSummary(architecture.description)}</p>}
+        {collapsed && <p className={drawing?.run.error ? 'error-text architecture-collapsed-status' : 'task-note architecture-collapsed-status'} role="status">
+          {drawing || starting ? statusText(drawing?.run, starting, previewReady) : architecture.previews?.length ? `${architecture.previews.length} 份预览` : '尚无预览'}
+          {drawingActive && drawing && connections[drawing.conversation.id] ? ` · ${connections[drawing.conversation.id]}` : ''}
+          {drawing?.run.error ? ` · ${drawing.run.error}` : ''}
+          {architecture.previewIssues?.length ? ' · 预览存在校验提示，请展开查看。' : ''}
+        </p>}
+        <div id={bodyId} className="architecture-record-body" hidden={collapsed}>{!collapsed && <>
+        <div className="panel-actions"><button className="action-button" disabled={pending || !previewAvailable || drawingActive} onClick={() => {
+          setStartingArchitecture(architecture.id);
+          void action(() => onGeneratePreview(architecture)).finally(() => setStartingArchitecture(null));
+        }}>{drawingActive ? 'Agent 正在绘制…' : architecture.previews?.length ? '让 Agent 重新绘制' : '让 Agent 绘制预览'}</button></div>
+        <ArchitectureDrawingProgress key={starting ? 'starting' : drawing?.run.id ?? 'idle'} drawing={drawing} starting={starting} connection={drawing ? connections[drawing.conversation.id] : undefined} previewReady={previewReady} onOpenChat={onChat} />
         {architecture.previews?.length ? <ArchitecturePreview previews={architecture.previews} /> : <p className="task-empty">尚无预览，Agent 会为这份架构设计图形与布局。</p>}
         {architecture.previewIssues?.length ? <p className="task-note">{[...new Set(architecture.previewIssues)].join(' ')}</p> : null}
         <details><summary>架构定义</summary><pre className="architecture-definition">{architecture.description}</pre></details>
         {architecture.sourceConversationId && <button className="action-button" onClick={() => onChat(architecture.sourceConversationId!)}>查看来源聊天</button>}
         {architecture.sourceFile && downloads([architecture.sourceFile])}
-      </article>)}
+        </>}</div>
+      </article>; })}
     </>}
     {view === 'data' && <>
       <div className="panel-actions">
@@ -83,6 +132,7 @@ export function TaskPanel({ taskId, view, revision, conversations, onRefresh, on
       </div>
       <p className="task-note">同一任务下的聊天可以读取这些数据。</p>
       {!loading && !uploads.length && <p className="task-empty">暂无数据。上传文件或从已有上传中添加。</p>}
+      {!!uploads.length && <DataPreview key={taskId} taskId={taskId} files={uploads} />}
       {downloads(uploads)}
       {shared && <section className="task-record"><div className="task-record-heading"><h2>已有上传</h2><button className="action-button" onClick={() => setShared(null)}>收起</button></div>
         <ul className="task-files">{shared.map(file => <li key={file.id}><span>{file.name}</span><button className="action-button" disabled={pending || uploads.some(upload => upload.id === file.id)} onClick={() => void action(() => api(`/tasks/${taskId}/files`, { method: 'POST', body: JSON.stringify({ fileId: file.id }) }))}>{uploads.some(upload => upload.id === file.id) ? '已添加' : '添加'}</button></li>)}</ul>

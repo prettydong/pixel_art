@@ -1,0 +1,57 @@
+.architecture-drawing-progress {
+  display: grid;
+  gap: 8rem;
+  padding: 8rem;
+  border: 1rem solid var(--line);
+  background: var(--panel);
+  min-width: 0;
+}
+
+.architecture-drawing-progress-heading,
+.architecture-drawing-meta,
+.architecture-drawing-tool summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8rem;
+  min-width: 0;
+}
+
+.architecture-drawing-progress h3,
+.architecture-drawing-progress p { margin: 0; }
+.architecture-drawing-status,
+.architecture-drawing-meta,
+.architecture-drawing-elapsed,
+.architecture-drawing-waiting { color: var(--muted); }
+.architecture-drawing-elapsed { white-space: nowrap; }
+.architecture-drawing-meta { flex-wrap: wrap; justify-content: flex-start; overflow-wrap: anywhere; }
+
+.architecture-drawing-output {
+  display: grid;
+  gap: 8rem;
+  max-height: 160rem;
+  overflow: auto;
+  padding: 8rem;
+  border: 1rem solid var(--line);
+  background: var(--bg);
+  min-width: 0;
+  overscroll-behavior: contain;
+}
+
+.architecture-drawing-text,
+.architecture-drawing-tool pre,
+.architecture-drawing-tool p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+
+.architecture-drawing-tool { border-left: 1rem solid var(--line); min-width: 0; }
+.architecture-drawing-tool[open] { border-color: var(--architecture-accent); }
+.architecture-drawing-tool summary { cursor: pointer; padding: 4rem 8rem; color: var(--muted); }
+.architecture-drawing-tool summary:hover { background: var(--hover); color: var(--text); }
+.architecture-drawing-tool pre,
+.architecture-drawing-tool p { padding: 4rem 8rem 8rem; color: var(--text); }
+.architecture-drawing-follow { justify-self: start; }

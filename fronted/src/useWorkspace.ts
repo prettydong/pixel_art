@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isActiveRun, type Conversation, type Message, type ModelOption, type Run, type RunEvent, type ListResponse, type EvaluationTask } from '@pixel/contracts';
-import { api, errorText, RequestError } from './api';
+import { api, apiUrl, errorText, RequestError } from './api';
 import { mergeMessage } from './replyMessages';
 export function useWorkspace(enabled = true) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -58,9 +58,9 @@ export function useWorkspace(enabled = true) {
       const oldest = streams.current.entries().next().value;
       if (!oldest) break;
       oldest[1].source.close(); streams.current.delete(oldest[0]);
-      setConnections(prev => ({ ...prev, [oldest[1].run.conversationId]: '后台运行' }));
+      setConnections(prev => ({ ...prev, [oldest[1].run.conversationId]: '后台更新（每 3 秒）' }));
     }
-    const source = new EventSource(`/api/runs/${run.id}/events?after=0`);
+    const source = new EventSource(apiUrl(`/runs/${run.id}/events?after=0`));
     streams.current.set(run.id, { source, run });
     let cursor = 0;
     let checking = false;
@@ -164,10 +164,16 @@ export function useWorkspace(enabled = true) {
           const current = await api<Run>(`/runs/${run.id}`);
           if (cancelled || removed.current.has(run.conversationId) || latestRuns.current.get(run.conversationId)?.id !== run.id) return;
           updateRun(current);
-          if (!isActiveRun(current.status)) await refresh(run.conversationId);
+          // Background drawings must expose partial text/tools as well as status.
+          // Keep the one-SSE budget for the visible run and refresh the others.
+          await refresh(run.conversationId);
+          if (!cancelled && latestRuns.current.get(run.conversationId)?.id === run.id && !streams.current.has(run.id)) {
+            setConnections(prev => ({ ...prev, [run.conversationId]: isActiveRun(current.status) ? '后台更新（每 3 秒）' : '' }));
+          }
         } catch (e) {
           if (cancelled || removed.current.has(run.conversationId)) return;
           if (e instanceof RequestError && (e.status === 404 || e.status === 403)) forget(run.conversationId);
+          else if (!streams.current.has(run.id)) setConnections(prev => ({ ...prev, [run.conversationId]: '后台更新失败，正在重试…' }));
           setError(errorText(e));
         }
       })).finally(() => { polling = false; });

@@ -14,11 +14,13 @@ import { AuthGate } from "./AuthGate";
 import { AccountPanel, UsersPanel, UsagePanel } from "./AccountPanels";
 import { TaskNavigation, taskViewLabels, type TaskView } from "./TaskNavigation";
 import { TaskPanel } from "./TaskPanel";
+import { findArchitectureDrawing } from "./ArchitectureDrawingProgress";
 import { useTasks } from "./useTasks";
 import { useWorkspace } from "./useWorkspace";
 import { useTheme } from "./theme";
 import { EvaluationDiagram } from "./EvaluationDiagram";
 import { PixelTransition } from "./PixelTransition";
+import { getPixelUnit } from "./pixelGrid";
 import type { ShatterRequest } from "./pixelShatter";
 import {
   ArrowRight,
@@ -121,9 +123,11 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   const [enteredId, setEnteredId] = useState<string | null>(null);
   const [transition, setTransition] = useState<(ShatterRequest & {
     panel: (typeof evaluationPanels)[number];
+    conversationId: string;
   }) | null>(null);
   const transitioning = useRef(false);
   const cardViewportRef = useRef<HTMLDivElement>(null);
+  const cardGridRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [toast, setToast] = useState("");
   const [copied, setCopied] = useState("");
@@ -141,6 +145,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   const activeTaskId = selectedTaskId || active.taskId || taskState.tasks[0]?.id || '';
   const activeTask = taskState.tasks.find(task => task.id === activeTaskId);
   const currentRun = runs[active.id] || active.activeRun || active.lastRun;
+  const drawingRun = taskView === 'architecture' ? findArchitectureDrawing(conversations.filter(chat => chat.taskId === activeTaskId))?.run : undefined;
+  const visibleRun = taskView === 'architecture' ? drawingRun : taskView === 'chat' ? currentRun : undefined;
   const busy = demoMode ? demo.busyIds.has(active.id) : !!currentRun && isActiveRun(currentRun.status);
   const visibleMessages: ReplyMessage[] = demoMode ? active.messages : groupReplyMessages(active.messages).filter(message =>
     message.role !== 'assistant' || message.text || message.toolCalls?.length || message.files.length || (busy && message.runId === currentRun?.id));
@@ -149,6 +155,32 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   }
   const submitting = pending.has(active.id);
   const showCards = !active.messages.length && enteredId !== active.id;
+  useLayoutEffect(() => {
+    const grid = cardGridRef.current;
+    if (!grid) return;
+    const layout = () => {
+      const unit = getPixelUnit();
+      const available = Math.floor(grid.clientWidth / unit);
+      if (!Number.isFinite(available) || available <= 0) return;
+      // A card needs 144 grid units for its drawing and 24 for padding/borders.
+      // Choose columns from that actual minimum, including the gaps.
+      const columns = available >= 536 ? 3 : available >= 352 ? 2 : 1;
+      const height = Math.floor((cardViewportRef.current?.clientHeight ?? 0) / unit) - 36;
+      const heightLimitedWidth = Math.max(168, Math.floor(height / 1.25));
+      const width = Math.min(240, heightLimitedWidth, Math.floor((available - (columns - 1) * 16) / columns));
+      grid.style.setProperty('--card-columns', String(columns));
+      grid.style.setProperty('--card-width', `${width}rem`);
+      grid.style.setProperty('--card-min-height', `${Math.max(224, Math.ceil(width * 1.25))}rem`);
+      grid.style.setProperty('--card-diagram-left', `${Math.max(0, Math.floor((width - 24 - 144) / 2))}rem`);
+    };
+    layout();
+    const resize = new ResizeObserver(layout);
+    resize.observe(grid);
+    if (cardViewportRef.current) resize.observe(cardViewportRef.current);
+    const density = new MutationObserver(layout);
+    density.observe(document.documentElement, { attributes: true, attributeFilter: ['data-pixel-ratio', 'data-dpr'] });
+    return () => { resize.disconnect(); density.disconnect(); };
+  }, [showCards, active.id, taskView]);
   const sidebarVisible = compact ? mobileOpen : !sidebarCollapsed;
   const activeIdRef = useRef(active.id);
   activeIdRef.current = active.id;
@@ -171,7 +203,17 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   useEffect(() => {
     if (!transition && enteredId === active.id) inputRef.current?.focus({ preventScroll: true });
   }, [transition, enteredId, active.id]);
-  useEffect(() => { if (!demoMode && currentRun && isActiveRun(currentRun.status)) attach(currentRun); }, [active.id, currentRun?.id, attach, demoMode]);
+  useEffect(() => {
+    if (!transition) return;
+    // The parent owns unlocking the UI even if the animation unmounts or fails.
+    if (!motion || transition.conversationId !== active.id) {
+      completePanelTransition();
+      return;
+    }
+    const deadline = window.setTimeout(completePanelTransition, 1500);
+    return () => window.clearTimeout(deadline);
+  }, [transition, motion, active.id]);
+  useEffect(() => { if (!demoMode && visibleRun && isActiveRun(visibleRun.status)) attach(visibleRun); }, [taskView, activeTaskId, visibleRun?.id, visibleRun?.status, attach, demoMode]);
   useEffect(() => { if (!model && models.length) setModel(models[0].id); }, [models, model]);
   useEffect(() => { if (error) setToast(error); }, [error]);
   useEffect(() => {
@@ -261,7 +303,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     if (!model || uploading || loading) return;
     const chat = await api<Conversation>('/conversations', { method: 'POST', body: JSON.stringify({ taskId: activeTaskId, title: `架构预览 · ${architecture.name}`.slice(0, 120), mode: '产品架构设置' }) });
     upsert(chat);
-    const text = `请为当前任务中的架构 ${architecture.name}（ID：${architecture.id}，指纹：${architecture.fingerprint}）独立设计并生成 Pixi 架构预览。读取本轮任务上下文和架构预览 Harness README。由你编写实际执行的 draw.mjs（export function draw(ctx)）和绘图元数据生成脚本。使用 draw 模式，nodes 为空；真实行列数完整保存在 draw.grid，由前端自动画可缩放网格，不要逐单元创建对象。保存画布尺寸、区域位置、分割线颜色与宽度、字号、图例和必要的示意说明。调用 Harness 的 --draw 发布函数及场景 JSON，由前端 Pixi 执行；不要生成 SVG、PNG，不要修改前端或数据库。不执行修补求解。若校验失败，调整脚本和布局后再发布。返回实际尺寸及产物路径。`;
+    const text = `请为当前任务中的架构 ${architecture.name}（ID：${architecture.id}，指纹：${architecture.fingerprint}）独立设计并生成 Pixi 架构预览。开始时先用一句中文说明正在做什么；读取架构、编写绘图、校验和发布等关键步骤也请简短说明当前进展，不编造百分比。读取本轮任务上下文和架构预览 Harness README。由你编写实际执行的 draw.mjs（export function draw(ctx)）和绘图元数据生成脚本。使用 draw 模式，nodes 为空；真实行列数完整保存在 draw.grid，由前端自动画可缩放网格，不要逐单元创建对象。保存画布尺寸、区域位置、分割线颜色与宽度、字号、图例和必要的示意说明。调用 Harness 的 --draw 发布函数及场景 JSON，由前端 Pixi 执行；不要生成 SVG、PNG，不要修改前端或数据库。不执行修补求解。若校验失败，调整脚本和布局后再发布。返回实际尺寸及产物路径。`;
     try {
       const run = await api<Run>(`/conversations/${chat.id}/runs`, { method: 'POST', body: JSON.stringify({ text, mode: chat.mode, modelId: model, fileIds: [], idempotencyKey: requestId() }) });
       await refresh(chat.id); attach(run); if (run.status === 'failed') throw new Error(run.error || 'Agent 启动失败'); setToast('Agent 正在绘制，可在任务下的架构预览聊天中查看进度');
@@ -380,7 +422,13 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       return;
     }
     transitioning.current = true;
-    setTransition({ panel, selectedIndex, origin });
+    setTransition({ panel, selectedIndex, origin, conversationId: active.id });
+  }
+  function completePanelTransition() {
+    if (!transition || !transitioning.current) return;
+    transitioning.current = false;
+    setTransition(null);
+    if (transition.conversationId === active.id) prompt(transition.panel.mode, transition.panel.prompt);
   }
   async function copy(message: Message) {
     try {
@@ -416,7 +464,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
           onClick={() => setMobileOpen(false)}
         />
       )}
-      <aside id="chat-sidebar" className={`sidebar ${mobileOpen ? "mobile-open" : ""}`} inert={!!transition}>
+      <aside id="chat-sidebar" className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}>
+        <div className="sidebar-content" inert={!!transition}>
         <div className="sidebar-header">
           <a
             className="brand"
@@ -491,6 +540,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
           )}
         </div>
         </>}
+        </div>
         <div className="sidebar-bottom">
           <button className="profile" onClick={() => setDialog("settings")}>
             <span>设置</span>
@@ -500,8 +550,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       </aside>
 
       <main className="main-shell">
-        <header className="topbar" inert={!!transition}>
-          <div className="breadcrumbs">
+        <header className="topbar">
+          <div className="breadcrumbs" inert={!!transition}>
             <button
               ref={sidebarToggleRef}
               className="icon-button"
@@ -519,11 +569,11 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
           </div>
           <div className="topbar-right">
             {taskView === 'chat' && !showCards && !active.messages.length && (
-              <button className="return-directions" onClick={() => setEnteredId(null)}>选择方向</button>
+              <button className="return-directions" disabled={!!transition} onClick={() => setEnteredId(null)}>选择方向</button>
             )}
             <button
               className="icon-button"
-              disabled={taskView !== 'chat' || !active.id}
+              disabled={!!transition || taskView !== 'chat' || !active.id}
               aria-label="导出当前对话"
               title="导出当前对话"
               onClick={exportChat}
@@ -552,11 +602,11 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             {error && <div className="workspace-error" role="alert">{error}<button onClick={() => window.location.reload()}>重新连接</button><button onClick={() => setError('')}>关闭</button></div>}
             {loading && <p role="status">正在读取会话…</p>}
 
-            {!demoMode && taskView !== 'chat' ? (activeTaskId ? <TaskPanel key={activeTaskId} taskId={activeTaskId} view={taskView} revision={taskState.revision} conversations={conversations} onRefresh={taskState.refresh} onChat={selectChat} onCreateChat={createChat} onGeneratePreview={generateArchitecturePreview} previewAvailable={!!model && !loading && !uploading} /> : <p>请先新建任务。</p>) : <>
+            {!demoMode && taskView !== 'chat' ? (activeTaskId ? <TaskPanel key={activeTaskId} taskId={activeTaskId} view={taskView} revision={taskState.revision} conversations={conversations} connections={connections} onRefresh={taskState.refresh} onChat={selectChat} onCreateChat={createChat} onGeneratePreview={generateArchitecturePreview} previewAvailable={!!model && !loading && !uploading} /> : <p>请先新建任务。</p>) : <>
             {showCards ? (
               <div ref={cardViewportRef} className="card-stage">
                 <section className="welcome" aria-label="内存冗余架构评估工作台">
-                  <div className="evaluation-panels">
+                  <div ref={cardGridRef} className="evaluation-panels">
                     {evaluationPanels.map((panel, index) => (
                       <section
                         key={panel.mode}
@@ -598,12 +648,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                     cards={cardRefs}
                     viewport={cardViewportRef}
                     request={transition}
-                    onComplete={() => {
-                      if (!transition) return;
-                      prompt(transition.panel.mode, transition.panel.prompt);
-                      transitioning.current = false;
-                      setTransition(null);
-                    }}
+                    onComplete={completePanelTransition}
                   />
                 )}
               </div>
@@ -613,7 +658,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                 ref={messagesRef}
                 onScroll={event => {
                   const element = event.currentTarget;
-                  const grid = parseFloat(getComputedStyle(document.documentElement).fontSize);
+                  const grid = getPixelUnit();
                   followMessages.current = element.scrollHeight - element.scrollTop - element.clientHeight <= 16 * grid;
                 }}
                 aria-label="对话消息"

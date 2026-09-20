@@ -9,10 +9,11 @@
       content="Pixel Chat — 简洁的像素聊天工作台。"
     />
     <title>Pixel Chat · 你的灵感主场</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script defer src="%BASE_URL%layout-diagnostics.js"></script>
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <link
       rel="preload"
-      href="/fonts/fusion-pixel-12px-proportional-sc.woff2"
+      href="%BASE_URL%fonts/fusion-pixel-12px-proportional-sc.woff2"
       as="font"
       type="font/woff2"
       crossorigin
@@ -21,6 +22,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

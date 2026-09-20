@@ -1,0 +1,17 @@
+.data-preview { border: 1rem solid var(--line); background: var(--panel); padding: 8rem; display: grid; gap: 8rem; min-width: 0; }
+.data-preview-heading, .data-preview-heading label, .data-sample { display: flex; gap: 8rem; align-items: center; flex-wrap: wrap; }
+.data-preview-heading h2 { flex: 1; }
+.data-preview select { max-width: min(100%, 360rem); min-width: 120rem; border: 1rem solid var(--line); background: var(--input-surface); color: var(--input-text); padding: 4rem; }
+.data-summary { color: var(--data-accent); }
+.data-preview strong { font-weight: 400; }
+.data-fail-map { margin: 0; display: grid; gap: 4rem; max-width: 100%; }
+.data-fail-map svg { width: min(256rem, 100%); height: auto; aspect-ratio: 1; image-rendering: pixelated; border: 1rem solid var(--line); background: var(--data-surface); }
+.data-fail-map rect { fill: var(--data-accent); }
+.data-fail-map figcaption { color: var(--muted); }
+.data-table-wrap { overflow: auto; max-width: 100%; border: 1rem solid var(--line); }
+.data-table { border-collapse: collapse; min-width: max-content; width: 100%; }
+.data-table th, .data-table td { border-right: 1rem solid var(--line); border-bottom: 1rem solid var(--line); padding: 4rem; text-align: left; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
+.data-table th { color: var(--data-accent); background: var(--data-surface); font-weight: 400; }
+.data-table tr:last-child td { border-bottom: 0; }
+.data-table th:last-child, .data-table td:last-child { border-right: 0; }
+@media (max-width: 640px) { .data-preview-heading { align-items: stretch; } .data-preview-heading h2 { flex-basis: 100%; } .data-preview select { width: 100%; max-width: none; } }

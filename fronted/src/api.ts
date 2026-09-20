@@ -3,8 +3,9 @@ import type { ApiError, FileRecord } from '@pixel/contracts';
 export class RequestError extends Error {
   constructor(message: string, public status: number, public code: string) { super(message); }
 }
+export const apiUrl = (path: string) => `${import.meta.env.BASE_URL}api${path}`;
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(apiUrl(path), {
     credentials: 'same-origin', ...options,
     headers: { ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}), ...options.headers },
   });
@@ -16,8 +17,8 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   return response.json() as Promise<T>;
 }
 export const fileUrl = (file: FileRecord) => file.kind === 'upload'
-  ? `/api/uploads/${encodeURIComponent(file.id)}`
-  : `/api/conversations/${encodeURIComponent(file.conversationId ?? '')}/files/${encodeURIComponent(file.id)}`;
+  ? apiUrl(`/uploads/${encodeURIComponent(file.id)}`)
+  : apiUrl(`/conversations/${encodeURIComponent(file.conversationId ?? '')}/files/${encodeURIComponent(file.id)}`);
 export const errorText = (error: unknown) => error instanceof Error ? error.message : '请求失败，请重试';
 // getRandomValues also works on an internal HTTP development origin.
 export function requestId(): string {

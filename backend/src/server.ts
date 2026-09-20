@@ -4,7 +4,7 @@ import multipart from "@fastify/multipart";
 import staticFiles from "@fastify/static";
 import { ZodError } from "zod";
 import { randomUUID } from "node:crypto";
-import { constants, createWriteStream, existsSync, statSync, unlinkSync, renameSync } from "node:fs";
+import { createWriteStream, existsSync, statSync, unlinkSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { changePasswordSchema, createConversationSchema, createRunSchema, idSchema, loginSchema, updateConversationSchema } from "@pixel/contracts";
@@ -147,7 +147,8 @@ export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
     const temporary = join(incoming, id);
     let published = false;
     try {
-      await pipeline(part.file, createWriteStream(temporary, { flags: constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, mode: 0o600 }));
+      // Exclusive creation also rejects an existing symbolic link at this path.
+      await pipeline(part.file, createWriteStream(temporary, { flags: "wx", mode: 0o600 }));
       if (part.file.truncated) throw new HttpError(413, "FILE_TOO_LARGE", "附件超过上传限制");
       const latest = currentUser(db, request);
       if (latest.id !== user.id) throw missing();

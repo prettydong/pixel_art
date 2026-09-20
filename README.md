@@ -91,6 +91,6 @@ Pi 固定版本为 `@earendil-works/pi-coding-agent@0.85.1`，RPC 适配封装�
 
 ## 像素网格与外观
 
-`fronted/src/pixelGrid.ts` 在首次渲染及屏幕、窗口、DPR 变化时计算网格：一个设计像素对应 3×3 个设备像素，CSS 基础单位为 `3 / devicePixelRatio`。正文统一 Fusion Pixel 12px、字号 12 格；图标为 16×16 整数方格 SVG。默认跟随系统，也可切换亮色、暗色，选择保存在当前浏览器。
+`fronted/src/pixelGrid.ts` 在首次渲染及窗口、可见视口、DPR 变化时计算网格：1440p 等常规窗口使用 2×2 个设备像素；仅当可见视口达到物理宽 2880、高 1800 像素时使用 3×3。CSS 基础单位为该整数倍数除以 `devicePixelRatio`，Canvas 使用相同倍数。正文统一 Fusion Pixel 12px、字号 12 格；图标为 16×16 整数方格 SVG。默认跟随系统，也可切换亮色、暗色，选择保存在当前浏览器。
 
-这是固定设备像素比例，不是固定视觉字号；系统额外缩放仍可能影响显示。字体来源 [Fusion Pixel Font](https://github.com/TakWolf/fusion-pixel-font)，许可保存在 `fronted/public/fonts/licenses/12/`。具体设计约定见 [AGENTS.md](AGENTS.md)。
+这是整数设备像素比例，不是固定视觉字号；系统额外缩放仍可能影响显示。字体来源 [Fusion Pixel Font](https://github.com/TakWolf/fusion-pixel-font)，许可保存在 `fronted/public/fonts/licenses/12/`。具体设计约定见 [AGENTS.md](AGENTS.md)。

@@ -1,0 +1,89 @@
+.architecture-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8rem;
+}
+
+.architecture-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4rem;
+  min-width: 0;
+}
+
+.architecture-editor-field input,
+.architecture-editor-field select,
+.architecture-editor-field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 28rem;
+  padding: 4rem;
+  border: 1rem solid var(--line);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.architecture-editor-field textarea { resize: vertical; }
+.architecture-editor-field small { color: var(--muted); font: inherit; }
+
+.architecture-editor-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rem;
+  min-width: 0;
+  margin: 0;
+  padding: 8rem;
+  border: 1rem solid var(--line);
+}
+
+.architecture-editor-mode legend { padding: 0 4rem; }
+.architecture-editor-mode label { display: inline-flex; align-items: center; gap: 4rem; }
+.architecture-editor-mode input { appearance: none; width: 12rem; height: 12rem; margin: 0; border: 1rem solid var(--line); border-radius: 0; background: var(--bg); }
+.architecture-editor-mode input:checked { background: var(--accent); box-shadow: inset 0 0 0 2rem var(--bg); }
+
+.architecture-editor-template {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: 4rem 8rem;
+  padding: 8rem;
+  border: 1rem solid var(--line);
+  background: var(--panel);
+}
+
+.architecture-editor-template .task-note { grid-column: 1 / -1; }
+.architecture-editor-template .architecture-editor-confirm { grid-column: 1 / -1; }
+
+.architecture-editor-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220rem), 1fr));
+  gap: 8rem;
+}
+
+.architecture-editor-notes { grid-column: 1 / -1; }
+
+.architecture-editor-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4rem 8rem;
+  padding: 8rem;
+  border: 1rem solid var(--danger);
+  background: var(--architecture-surface);
+}
+
+.architecture-editor-confirm p { flex: 1 1 180rem; }
+
+.architecture-editor-generated {
+  border-top: 1rem solid var(--line);
+  padding-top: 4rem;
+}
+
+.architecture-editor-generated pre {
+  margin: 4rem 0 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

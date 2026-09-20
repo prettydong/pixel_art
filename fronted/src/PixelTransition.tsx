@@ -8,6 +8,10 @@ type Props = {
   onComplete: () => void;
 };
 
+const FALLBACK_DURATION = 144;
+const FALLBACK_STAGGER = 24;
+const FALLBACK_DEADLINE_SLACK = 100;
+
 // Mounted with the cards, so importing Pixi, capturing fonts and GPU upload all
 // happen before a click. React only handles the beginning/end of the effect.
 export function PixelTransition({ cards, viewport, request, onComplete }: Props) {
@@ -36,6 +40,12 @@ export function PixelTransition({ cards, viewport, request, onComplete }: Props)
     let timeout = 0;
     let readyBy = 0;
     let preparationFrame = 0;
+    let preparing = false;
+    let prepareQueued = false;
+    let fallbackPlaying = false;
+    let fallbackDeadline = 0;
+    let fallbackAnimations: Animation[] = [];
+    let interactionCard: HTMLDivElement | null = null;
     const debug = (event: string, detail?: unknown) => {
       if (import.meta.env.DEV) {
         host.dataset.transitionState = event;
@@ -50,19 +60,53 @@ export function PixelTransition({ cards, viewport, request, onComplete }: Props)
       catch (error) { console.warn("Unable to release card transition renderer", error); }
     };
 
-    const finish = (reason = "complete") => {
+    const clearFallback = (preserve = false) => {
+      window.clearTimeout(fallbackDeadline);
+      fallbackDeadline = 0;
+      if (!preserve) {
+        fallbackAnimations.forEach((animation) => animation.cancel());
+        fallbackAnimations = [];
+      }
+      fallbackPlaying = false;
+    };
+    const finish = (reason = "complete", preserveFallback = false) => {
       if (disposed || completed || !pending) return;
       debug("finish", reason);
       completed = true;
       window.clearTimeout(timeout);
+      clearFallback(preserveFallback);
       // Keep the DOM cards hidden until React commits the new view.
       releaseRenderer(false);
       canvas.style.visibility = "hidden";
       completeRef.current();
     };
+    const startFallback = (reason: string) => {
+      if (disposed || completed || playing || fallbackPlaying || !pending) return;
+      fallbackPlaying = true;
+      playing = true;
+      window.clearTimeout(timeout);
+      debug("fallback", reason);
+      try { fallbackAnimations = nodes.map((node, index) => node.animate([
+        { opacity: 1, transform: "translate(0, 0)" },
+        { opacity: 1, transform: "translate(0, -4rem)", offset: 0.5 },
+        { opacity: 0, transform: "translate(0, -8rem)" },
+      ], {
+        duration: FALLBACK_DURATION,
+        delay: index * FALLBACK_STAGGER,
+        easing: "steps(4, end)",
+        fill: "forwards",
+      })); } catch { finish("fallback-unavailable"); return; }
+      fallbackDeadline = window.setTimeout(
+        () => finish("fallback-deadline", true),
+        FALLBACK_DURATION + Math.max(0, nodes.length - 1) * FALLBACK_STAGGER + FALLBACK_DEADLINE_SLACK,
+      );
+      void Promise.allSettled(fallbackAnimations.map((animation) => animation.finished))
+        .then(() => finish("fallback-complete", true));
+    };
     const attempt = () => {
-      if (disposed || completed || playing || !pending) return;
-      if (failed || contextLost || performance.now() > readyBy) { finish("not-ready"); return; }
+      if (disposed || completed || playing || fallbackPlaying || !pending) return;
+      if (failed || contextLost) { startFallback("not-ready"); return; }
+      if (performance.now() > readyBy) { startFallback("ready-timeout"); return; }
       if (!renderer?.ready) return;
       try {
         playing = renderer.play(pending, area, () => finish("complete"));
@@ -71,7 +115,9 @@ export function PixelTransition({ cards, viewport, request, onComplete }: Props)
       } catch (error) { debug("play-error", error); finish("play-error"); }
     };
     const prepare = () => {
-      if (disposed || completed || playing || contextLost || !renderer) return;
+      if (disposed || completed || playing || contextLost || !renderer || preparing) return;
+      prepareQueued = false;
+      preparing = true;
       debug("prepare");
       void renderer.prepare(nodes, area).then(() => {
         debug("prepared", renderer?.ready);
@@ -82,6 +128,18 @@ export function PixelTransition({ cards, viewport, request, onComplete }: Props)
         // A previous, valid hover snapshot can still be used if refresh fails.
         if (!renderer?.ready) failed = true;
         attempt();
+      }).finally(() => {
+        preparing = false;
+        if (prepareQueued) schedulePrepare();
+      });
+    };
+    const schedulePrepare = () => {
+      if (disposed || completed || playing || contextLost || !renderer) return;
+      prepareQueued = true;
+      if (preparing || preparationFrame) return;
+      preparationFrame = requestAnimationFrame(() => {
+        preparationFrame = 0;
+        prepare();
       });
     };
     const refresh = () => {
@@ -89,13 +147,22 @@ export function PixelTransition({ cards, viewport, request, onComplete }: Props)
       if (pending) { finish("invalidated"); return; }
       renderer?.invalidate();
       failed = false;
-      cancelAnimationFrame(preparationFrame);
-      preparationFrame = requestAnimationFrame(prepare);
+      schedulePrepare();
     };
-    const refreshHover = () => {
+    const cardFor = (target: EventTarget | null) => target instanceof Node
+      ? nodes.find((node) => node.parentElement?.contains(target)) ?? null
+      : null;
+    const refreshHover = (event: Event) => {
       if (pending || disposed || completed) return;
-      cancelAnimationFrame(preparationFrame);
-      preparationFrame = requestAnimationFrame(prepare);
+      const related = event instanceof MouseEvent || event instanceof FocusEvent ? event.relatedTarget : null;
+      const next = event.type.endsWith("out") ? cardFor(related) : cardFor(event.target);
+      // pointerover/out bubble from card children. Recapture only when the
+      // actual card state changes, then merge any later event into one pass.
+      if (next === interactionCard) return;
+      interactionCard = next;
+      // Keep the last valid image available while the hover snapshot refreshes.
+      failed = false;
+      schedulePrepare();
     };
     const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
     const start = (value: ShatterRequest) => {
@@ -103,8 +170,12 @@ export function PixelTransition({ cards, viewport, request, onComplete }: Props)
       pending = value;
       readyBy = performance.now() + 100;
       debug("request", { ready: renderer?.ready, failed });
-      timeout = window.setTimeout(() => finish("ready-timeout"), 100);
-      if (preference.matches || document.hidden) failed = true;
+      timeout = window.setTimeout(() => startFallback("ready-timeout"), 100);
+      if (preference.matches || document.hidden) {
+        failed = true;
+        finish(preference.matches ? "reduced-motion" : "hidden");
+        return;
+      }
       attempt();
     };
     startRef.current = start;
@@ -126,7 +197,7 @@ export function PixelTransition({ cards, viewport, request, onComplete }: Props)
     nodes.forEach((node) => resizeObserver.observe(node));
     const themeObserver = new MutationObserver(refresh);
     themeObserver.observe(document.documentElement, { attributes: true,
-      attributeFilter: ["data-theme", "data-dpr", "data-motion"] });
+      attributeFilter: ["data-theme", "data-dpr", "data-pixel-ratio", "data-motion"] });
     const contentObserver = new MutationObserver((changes) => {
       // Ignore only our own visibility class, not other changes to the wrapper.
       const withoutHidden = (value: string) => value.split(/\s+/).filter((name) => name && name !== "pixel-shatter-hidden").join(" ");
@@ -154,7 +225,7 @@ export function PixelTransition({ cards, viewport, request, onComplete }: Props)
       debug("renderer-created");
       if (disposed || completed || contextLost) { next.destroy(); return; }
       renderer = next;
-      prepare();
+      schedulePrepare();
     }).catch((error) => { debug("init-error", error); failed = true; attempt(); });
 
     return () => {
@@ -162,6 +233,7 @@ export function PixelTransition({ cards, viewport, request, onComplete }: Props)
       if (startRef.current === start) startRef.current = null;
       window.clearTimeout(timeout);
       cancelAnimationFrame(preparationFrame);
+      clearFallback();
       resizeObserver.disconnect();
       themeObserver.disconnect();
       contentObserver.disconnect();

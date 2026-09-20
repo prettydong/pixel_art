@@ -1,5 +1,6 @@
-import { Application, Particle, ParticleContainer, ParticleShader, Rectangle, Texture } from "pixi.js";
+import { Application, Particle, ParticleContainer, ParticleShader, Rectangle, Texture, isWebGLSupported } from "pixi.js";
 import { getFontEmbedCSS, toSvg } from "html-to-image";
+import { getPixelDensity, getPixelUnit } from "./pixelGrid";
 
 export type ShatterRequest = {
   selectedIndex: number;
@@ -56,7 +57,7 @@ function tiles(width: number, height: number, scale: number): Tile[] {
   return result;
 }
 
-async function capture(node: HTMLDivElement, unit: number, fontEmbedCSS: string) {
+async function capture(node: HTMLDivElement, unit: number, density: number, fontEmbedCSS: string) {
   const bounds = node.getBoundingClientRect();
   const width = Math.round(bounds.width / unit) + PADDING;
   const height = Math.round(bounds.height / unit) + PADDING;
@@ -98,8 +99,8 @@ async function capture(node: HTMLDivElement, unit: number, fontEmbedCSS: string)
     image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(snapshot))}`;
   });
   const source = document.createElement("canvas");
-  source.width = width * 3;
-  source.height = height * 3;
+  source.width = width * density;
+  source.height = height * density;
   const sourceContext = source.getContext("2d");
   if (!sourceContext) throw new Error("Card snapshot canvas unavailable");
   sourceContext.drawImage(image, 0, 0, source.width, source.height);
@@ -108,7 +109,7 @@ async function capture(node: HTMLDivElement, unit: number, fontEmbedCSS: string)
   canvas.height = height;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Card texture canvas unavailable");
-  // Store one texel per design pixel; the GPU expands it to 3 physical pixels.
+  // Store one texel per design pixel; the GPU expands it to the current physical pixel grid.
   context.imageSmoothingEnabled = false;
   context.drawImage(source, 0, 0, width, height);
   source.width = source.height = 0;
@@ -116,9 +117,11 @@ async function capture(node: HTMLDivElement, unit: number, fontEmbedCSS: string)
 }
 
 export async function createShatterRenderer(canvas: HTMLCanvasElement) {
+  // This particle shader requires WebGL. Managed browsers may only expose Canvas.
+  if (!isWebGLSupported()) throw new Error("WebGL unavailable for the card particle renderer");
   const app = new Application();
   try {
-    await app.init({ canvas, width: 1, height: 1, resolution: 3,
+    await app.init({ canvas, width: 1, height: 1, resolution: getPixelDensity(),
       preference: "webgl", antialias: false, backgroundAlpha: 0,
       autoDensity: false, autoStart: false, sharedTicker: false });
   } catch (error) {
@@ -136,6 +139,18 @@ export async function createShatterRenderer(canvas: HTMLCanvasElement) {
   let prepared = false;
   let fontCSS: Promise<string> | undefined;
 
+  function loadFontCSS(node: HTMLDivElement) {
+    if (!fontCSS) {
+      fontCSS = getFontEmbedCSS(node, { preferredFontFormat: "woff2" }).catch((error) => {
+        // Do not retain a transient font-export failure forever: a later
+        // hover/resize preparation must be able to fetch it again.
+        fontCSS = undefined;
+        throw error;
+      });
+    }
+    return fontCSS;
+  }
+
   function clearCards() {
     prepared = false;
     for (const card of cards) {
@@ -150,7 +165,7 @@ export async function createShatterRenderer(canvas: HTMLCanvasElement) {
     const bounds = viewport.getBoundingClientRect();
     const width = Math.max(1, Math.floor(bounds.width / unit));
     const height = Math.max(1, Math.floor(bounds.height / unit));
-    app.renderer.resize(width, height, 3);
+    app.renderer.resize(width, height, getPixelDensity());
     // autoDensity would use logical pixels as CSS pixels, breaking our grid.
     canvas.style.width = `${width * unit}px`;
     canvas.style.height = `${height * unit}px`;
@@ -171,11 +186,11 @@ export async function createShatterRenderer(canvas: HTMLCanvasElement) {
       if (!document.fonts.check('12px "Fusion Pixel"', "数据分析")) {
         throw new Error("Pixel font unavailable for card capture");
       }
-      fontCSS ??= getFontEmbedCSS(nodes[0], { preferredFontFormat: "woff2" });
-      const css = await fontCSS;
+      const css = await loadFontCSS(nodes[0]);
       if (destroyed || ticket !== generation) return;
-      const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
-      const captures = await Promise.all(nodes.map((node) => capture(node, unit, css)));
+      const unit = getPixelUnit();
+      const density = getPixelDensity();
+      const captures = await Promise.all(nodes.map((node) => capture(node, unit, density, css)));
       if (destroyed || ticket !== generation) return;
       let scale = 1;
       let layouts = captures.map((image) => tiles(image.width, image.height, scale));
@@ -215,7 +230,7 @@ export async function createShatterRenderer(canvas: HTMLCanvasElement) {
       if (destroyed || playing || !prepared) return false;
       generation++; // Discard a hover capture that is still in flight.
       playing = true;
-      const unit = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const unit = getPixelUnit();
       const { bounds, width, height } = resize(viewport, unit);
       const cardBounds = cards.map((card) => card.node.getBoundingClientRect());
       const selected = cardBounds[request.selectedIndex];

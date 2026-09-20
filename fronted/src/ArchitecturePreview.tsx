@@ -3,6 +3,7 @@ import type { ArchitecturePreview as PreviewRecord } from '@pixel/contracts';
 import { validateArchitectureScene } from '@pixel/contracts/architecture-scene';
 import { fileUrl } from './api';
 import { PixiDrawPreview } from './PixiDrawPreview';
+import { getPixelDensity } from './pixelGrid';
 
 export function ArchitecturePreview({ previews }: { previews: PreviewRecord[] }) {
   const [selected, setSelected] = useState('');
@@ -44,7 +45,7 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
       if (cancelled) return;
       const app = new Application();
       try {
-        await app.init({ canvas, width: scene.canvas.width, height: scene.canvas.height, resolution: 3,
+        await app.init({ canvas, width: scene.canvas.width, height: scene.canvas.height, resolution: getPixelDensity(),
           preference: 'webgl', antialias: false, roundPixels: true, autoDensity: false, autoStart: false, sharedTicker: false });
       } catch (err) { app.stage.destroy({ children: true }); app.renderer?.destroy(); throw err; }
       if (cancelled) { app.destroy(); return; }
@@ -65,7 +66,7 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
         for (const node of scene.nodes) {
           if (node.type === 'text') {
             graphics = undefined;
-            const label = new Text({ text: node.text, resolution: 3, style: { fontFamily: 'Fusion Pixel', fontSize: 12, fontWeight: '400', fill: color(node.color) } });
+            const label = new Text({ text: node.text, resolution: getPixelDensity(), style: { fontFamily: 'Fusion Pixel', fontSize: 12, fontWeight: '400', fill: color(node.color) } });
             label.roundPixels = true; label.position.set(node.x, node.y);
             if (Math.ceil(label.width) > node.width || Math.ceil(label.height) > node.height) {
               label.destroy(); throw new Error(`文字超出预留尺寸：${node.id}，请让Agent调整布局`);
@@ -82,8 +83,8 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
         app.render(); canvas.style.visibility = 'visible'; setReady(true); setError('');
       };
       const redraw = () => { try { paint(); } catch (err) { canvas.style.visibility = 'hidden'; setReady(false); setError(err instanceof Error ? err.message : '预览绘制失败'); } };
-      const observer = new MutationObserver(redraw);
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+      const observer = new MutationObserver(() => { app.renderer.resize(scene.canvas.width, scene.canvas.height, getPixelDensity()); redraw(); });
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-pixel-ratio'] });
       const lost = (event: Event) => { event.preventDefault(); setError('图形上下文丢失，请重新打开预览'); setReady(false); };
       canvas.addEventListener('webglcontextlost', lost);
       cleanup = () => { observer.disconnect(); canvas.removeEventListener('webglcontextlost', lost); app.destroy(); };
@@ -102,7 +103,7 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
     <p className="task-note">{scene.description}</p>
     {scene.assumptions.length > 0 && <ul>{scene.assumptions.map((item, i) => <li key={i}>{item}</li>)}</ul>}
     <details className="drawing-record"><summary>绘图记录 · {scene.canvas.width} × {scene.canvas.height} 格 · {scene.nodes.length} 个图元</summary>
-      <p>1 格 = 3 × 3 物理像素；Fusion Pixel 12 格，行高 16 格。</p>
+      <p>1 格对应当前像素网格；Fusion Pixel 12 格，行高 16 格。</p>
       <p>架构指纹：<code>{scene.fingerprint}</code></p>
       <div className="drawing-table"><table><thead><tr><th>颜色角色</th><th>主题变量</th><th>亮色记录</th><th>暗色记录</th></tr></thead><tbody>{Object.entries(scene.palette).map(([role, token]) => <tr key={role}><td>{role}</td><td>{token}</td><td>{preview.themeSnapshot[token]?.light}</td><td>{preview.themeSnapshot[token]?.dark}</td></tr>)}</tbody></table></div>
       <div className="drawing-table"><table><thead><tr><th>区域 / 分割线</th><th>起点</th><th>尺寸 / 网格</th><th>颜色角色</th></tr></thead><tbody>{scene.nodes.filter(node => node.type !== 'text').map(node => <tr key={node.id}><td>{node.label || node.id}</td><td>{node.x}, {node.y}</td><td>{node.type === 'grid' ? `${node.rows} × ${node.cols}；单元 ${node.cellWidth} × ${node.cellHeight}；线宽 ${node.lineWidth}` : `${node.width} × ${node.height}`}</td><td>{node.type === 'grid' ? node.lineColor : node.type === 'rect' ? node.fill : node.color}</td></tr>)}</tbody></table></div>
