@@ -17,6 +17,7 @@ import { ensureWorkspace, fileById, listFiles, listUploads, scanUploads, openDow
 import { ensureDirectory, ensureUserWorkspace } from "./workspace/index.js";
 import { queryUsage } from "./usage/index.js";
 import { registerUserRoutes } from "./users/index.js";
+import { createTask, registerTaskRoutes, taskRow } from "./tasks/index.js";
 import type { Runs } from "./runs/index.js";
 
 export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
@@ -70,14 +71,36 @@ export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
     db.prepare("DELETE FROM login_sessions WHERE user_id=?").run(user.id); logout(db, request, reply); return { ok: true };
   });
   registerUserRoutes(app, db, runs);
+  registerTaskRoutes(app, db);
   app.get("/api/models", async request => { currentUser(db, request); return { items: models.models.map(({ id, label, provider, model }) => ({ id, label, provider, model })) }; });
   app.get("/api/conversations", async request => {
     const user = currentUser(db, request); const q = String((request.query as Record<string, unknown>).q ?? "").slice(0, 200);
-    return { items: (db.prepare("SELECT * FROM conversations WHERE user_id=? AND deleted_at IS NULL AND (title LIKE ? ESCAPE '\\' OR EXISTS(SELECT 1 FROM messages m WHERE m.conversation_id=conversations.id AND m.text LIKE ? ESCAPE '\\')) ORDER BY updated_at DESC").all(user.id, `%${q.replace(/[\\%_]/g, "\\$&")}%`, `%${q.replace(/[\\%_]/g, "\\$&")}%`) as ConversationRow[]).map(row => conversation(db, row)) };
+    const term = `%${q.replace(/[\\%_]/g, "\\$&")}%`;
+    return { items: (db.prepare("SELECT * FROM conversations WHERE user_id=? AND deleted_at IS NULL AND (title LIKE ? ESCAPE '\\' OR EXISTS(SELECT 1 FROM messages m WHERE m.conversation_id=conversations.id AND m.text LIKE ? ESCAPE '\\') OR EXISTS(SELECT 1 FROM tasks t WHERE t.id=conversations.task_id AND t.name LIKE ? ESCAPE '\\')) ORDER BY updated_at DESC").all(user.id, term, term, term) as ConversationRow[]).map(row => conversation(db, row)) };
   });
-  app.post("/api/conversations", async (request, reply) => { const user = currentUser(db, request); const body = createConversationSchema.parse(request.body); const id = randomUUID(); ensureWorkspace(user.id, id); db.prepare("INSERT INTO conversations(id,user_id,title,mode,updated_at) VALUES(?,?,?,?,?)").run(id, user.id, body.title, body.mode, Date.now()); reply.code(201); return conversation(db, conversationRow(db, id, user.id)); });
+  app.post("/api/conversations", async (request, reply) => {
+    const user = currentUser(db, request); const body = createConversationSchema.parse(request.body); const id = randomUUID();
+    ensureWorkspace(user.id, id);
+    db.transaction(() => {
+      const task = body.taskId ? taskRow(db, body.taskId, user.id) : createTask(db, user.id, body.title);
+      db.prepare("INSERT INTO conversations(id,user_id,title,mode,updated_at,task_id) VALUES(?,?,?,?,?,?)").run(id, user.id, body.title, body.mode, Date.now(), task.id);
+    })();
+    reply.code(201); return conversation(db, conversationRow(db, id, user.id));
+  });
   app.get("/api/conversations/:id", async request => { const user = currentUser(db, request); return conversation(db, conversationRow(db, param(request), user.id)); });
-  app.patch("/api/conversations/:id", async request => { const user = currentUser(db, request); const row = conversationRow(db, param(request), user.id); const body = updateConversationSchema.parse(request.body); db.prepare("UPDATE conversations SET title=?,mode=?,updated_at=? WHERE id=?").run(body.title ?? row.title, body.mode ?? row.mode, Date.now(), row.id); return conversation(db, conversationRow(db, row.id, user.id)); });
+  app.patch("/api/conversations/:id", async request => {
+    const user = currentUser(db, request); const row = conversationRow(db, param(request), user.id); const body = updateConversationSchema.parse(request.body);
+    if (body.taskId && body.taskId !== row.task_id) {
+      taskRow(db, body.taskId, user.id);
+      if (conversation(db, row).activeRun) throw new HttpError(409, "CONVERSATION_BUSY", "请等待当前聊天执行完成后再移动");
+    }
+    db.transaction(() => {
+      db.prepare("UPDATE conversations SET title=?,mode=?,task_id=?,updated_at=? WHERE id=?").run(body.title ?? row.title, body.mode ?? row.mode, body.taskId ?? row.task_id, Date.now(), row.id);
+      if (body.taskId) db.prepare(`INSERT OR IGNORE INTO task_files SELECT ?,f.id FROM messages m,json_each(m.file_ids) j
+        JOIN files f ON f.id=j.value WHERE m.conversation_id=? AND f.user_id=? AND f.kind='upload'`).run(body.taskId, row.id, user.id);
+    })();
+    return conversation(db, conversationRow(db, row.id, user.id));
+  });
   const deleting = new Set<string>();
   app.delete("/api/conversations/:id", async request => { const user = currentUser(db, request); const row = conversationRow(db, param(request), user.id); deleting.add(row.id); try { const active = conversation(db, row).activeRun; if (active) await runs.cancel(active.id); db.prepare("UPDATE conversations SET deleted_at=? WHERE id=?").run(Date.now(), row.id); } finally { deleting.delete(row.id); } return { ok: true }; });
   app.post("/api/conversations/:id/runs", async (request, reply) => { const user = currentUser(db, request); const row = conversationRow(db, param(request), user.id); if (deleting.has(row.id)) throw new HttpError(409, "CONVERSATION_DELETING", "会话正在删除"); const body = createRunSchema.parse(request.body); const run = runs.create(row.id, user.id, body); reply.code(202); return run; });
@@ -131,8 +154,15 @@ export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
       if (conversationId) conversationRow(db, conversationId, user.id);
       ensureUserWorkspace(user.id); ensureDirectory(incoming);
       renameSync(temporary, destination); published = true;
-      db.prepare("INSERT INTO files(id,user_id,conversation_id,name,relative_path,size,kind,created_at) VALUES(?,?,?,?,?,?,?,?)")
-        .run(id, user.id, null, safeName, `uploads/${filename}`, statSync(destination).size, "upload", Date.now());
+      db.transaction(() => {
+        db.prepare("INSERT INTO files(id,user_id,conversation_id,name,relative_path,size,kind,created_at) VALUES(?,?,?,?,?,?,?,?)")
+          .run(id, user.id, null, safeName, `uploads/${filename}`, statSync(destination).size, "upload", Date.now());
+        if (conversationId) {
+          const conversation = conversationRow(db, conversationId, user.id);
+          db.prepare("INSERT OR IGNORE INTO task_files VALUES(?,?)").run(conversation.task_id, id);
+          db.prepare("UPDATE tasks SET updated_at=? WHERE id=?").run(Date.now(), conversation.task_id);
+        }
+      })();
     } catch (error) { try { unlinkSync(published ? destination : temporary); } catch {} throw error; }
     reply.code(201); return publicFile(fileById(db, user.id, null, id));
   };

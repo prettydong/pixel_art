@@ -12,6 +12,8 @@ Pi 在 `users/<userId>/` 启动，`PI_CODING_AGENT_DIR` 指向该用户的 `.pi/
 
 用户技能位于 `.pi/skills/`，首次使用时从 `backend/skills/data-analysis/` 补齐数据分析 skill；已有文件不覆盖。用户可以自行维护这些技能，新 run 会重新加载。Pi 使用 `--no-skills` 加显式 `--skill` 加载用户技能和管理员配置的技能目录，避免自动引入宿主机其它技能。`--no-approve --no-context-files` 关闭项目资源信任及祖先 AGENTS/CLAUDE 自动发现，不触发 RPC 无法回答的信任询问。数据分析模式会明确要求读取用户的 `data-analysis/SKILL.md`。技能内容按需读取，上传内容不视为指令。
 
+同时补齐 `backend/skills/repair-evaluation/`；修补/良率任务由追加系统提示引导读取该 skill。每个会话从 `backend/repair-evaluation/` 补齐到 `work/repair-evaluation/`，`PIXEL_REPAIR_DIR` 指向这里，已有 device 与框架文件不覆盖。数据校验、HiGHS、规则扩展与输出见 [评估框架说明](repair-evaluation/README.md)。这是当前 Pi 的脚本工作流，不是新的交互式 UI 或常驻 Python 服务。
+
 若模型请求需要代理，在根目录 `.env` 配置 `HTTPS_PROXY`、`NO_PROXY` 和 `NODE_USE_ENV_PROXY=1`，使用支持该开关的 Node 运行时。后端会将这些网络变量（含 HTTP/HTTPS/NO_PROXY 的小写形式）传给 Pi 子进程，不必加入模型配置的凭据 `env` 列表。Node 不会自动使用 macOS 系统代理；代理配置变更后重启后端。
 
 首次启动前创建管理员（服务必须停止）：
@@ -30,7 +32,7 @@ unset PIXEL_ADMIN_PASSWORD
 
 ## 数据与生命周期
 
-数据库 `pixel.sqlite` 只有 Node 主服务写入，登录会话、聊天会话、run 分离。目录相对于 `PIXEL_DATA_DIR`：
+数据库 `pixel.sqlite` 只有 Node 主服务写入，登录会话、评估任务、聊天会话、run 分离。任务表保存名称，`task_architectures` 保存多份架构定义，`task_files` 关联输入；会话通过 `task_id` 归属任务。启动迁移 v4 将未删除的旧会话各自归入同名任务，原消息、产物和原生会话路径不变。每次执行在当前 work 生成独立的 `task-context-<runId>.json`，包含任务架构、输入及同任务历史产物清单，由 Pi 读取；不共享可写 work 或 session。目录相对于 `PIXEL_DATA_DIR`：
 
 ```text
 users/<userId>/                   Pi 启动目录
@@ -70,3 +72,7 @@ Pi 0.85 的 `message_update` 不包含完整 `message`；后端从 `message_star
 生产使用独立服务账号、反向代理 HTTPS、绝对 PIXEL_DATA_DIR。备份时停止服务并整体复制数据目录（数据库、WAL/SHM、原生会话和文件必须一致）；不要只复制正在写入的 sqlite 文件。恢复时同样停服整体恢复。
 
 接口与手动验收场景见根目录 contracts README 和 MANUAL_CHECKS.md。遵循项目约定，本次未运行测试、构建、类型检查或浏览器自动验收；需用户手动验证。
+
+## 架构预览 Harness
+
+Agent 读取每轮任务上下文中的架构 ID 与指纹，自行编写浏览器执行的 `draw.mjs` 及元数据生成脚本；`PIXEL_ARCHITECTURE_HARNESS` 指向校验/归档命令，`PIXEL_NODE` 指向执行它的 Node，`PIXEL_TASK_CONTEXT` 指向本轮资料。前端注入 Pixi、可缩放的默认网格、视野与主题颜色，实时执行 `draw(ctx)`。真实阵列尺寸与显示视口分开，支持大阵列按视野绘制。Harness 检查元数据与颜色引用，保留函数源码、脚本、SHA256、主题颜色快照及各次发布版本。后端再次校验文件归属和完整性；这些检查不证明器件语义正确。流程与 draw 接口见 [README](architecture-preview/README.md)。

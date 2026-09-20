@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { modes, isActiveRun, type Mode, type User, type FileRecord, type Run, type CreateRunInput, type ListResponse } from "@pixel/contracts";
+import { modes, isActiveRun, type Mode, type User, type FileRecord, type Run, type CreateRunInput, type ListResponse, type EvaluationTask, type TaskArchitecture } from "@pixel/contracts";
 import type { Message, Conversation } from "./chatTypes";
 import { messageMarkdown } from "./chatTools";
 import { useDemoWorkspace } from "./useDemoWorkspace";
@@ -12,6 +12,9 @@ import { groupReplyMessages, type ReplyMessage } from "./replyMessages";
 import { api, errorText, fileUrl, RequestError, requestId } from "./api";
 import { AuthGate } from "./AuthGate";
 import { AccountPanel, UsersPanel, UsagePanel } from "./AccountPanels";
+import { TaskNavigation, taskViewLabels, type TaskView } from "./TaskNavigation";
+import { TaskPanel } from "./TaskPanel";
+import { useTasks } from "./useTasks";
 import { useWorkspace } from "./useWorkspace";
 import { useTheme } from "./theme";
 import { EvaluationDiagram } from "./EvaluationDiagram";
@@ -87,10 +90,13 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   const demo = useDemoWorkspace(demoMode);
   const { models, loading, error, setError, runs, connections, refresh, attach, forget, upsert } = server;
   const conversations: Conversation[] = demoMode ? demo.conversations : server.conversations;
+  const taskState = useTasks(!demoMode, conversations);
+  const [selectedTaskId, setSelectedTaskId] = useState('');
+  const [taskView, setTaskView] = useState<TaskView>('chat');
+  const [moveTaskId, setMoveTaskId] = useState('');
   const [activeId, setActiveId] = useState("");
   const [draft, setDraft] = useState("");
   const [files, setFiles] = useState<FileRecord[]>([]);
-  const [conversationFiles, setConversationFiles] = useState<FileRecord[]>([]);
   const [uploading, setUploading] = useState(false);
   const [pending, setPending] = useState<Set<string>>(() => new Set());
   const pendingRequests = useRef(new Map<string, CreateRunInput>());
@@ -131,7 +137,9 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   const followMessages = useRef(true);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const active =
-    conversations.find((c) => c.id === activeId) || conversations[0] || emptyConversation;
+    conversations.find((c) => c.id === activeId) || conversations.find(c => c.taskId === selectedTaskId) || conversations[0] || emptyConversation;
+  const activeTaskId = selectedTaskId || active.taskId || taskState.tasks[0]?.id || '';
+  const activeTask = taskState.tasks.find(task => task.id === activeTaskId);
   const currentRun = runs[active.id] || active.activeRun || active.lastRun;
   const busy = demoMode ? demo.busyIds.has(active.id) : !!currentRun && isActiveRun(currentRun.status);
   const visibleMessages: ReplyMessage[] = demoMode ? active.messages : groupReplyMessages(active.messages).filter(message =>
@@ -167,16 +175,6 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   useEffect(() => { if (!model && models.length) setModel(models[0].id); }, [models, model]);
   useEffect(() => { if (error) setToast(error); }, [error]);
   useEffect(() => {
-    if (!active.id || demoMode) return;
-    let alive = true;
-    const load = () => api<ListResponse<FileRecord>>(`/conversations/${active.id}/files`).then(result => { if (alive) setConversationFiles(result.items); }).catch(err => { if (alive) setToast(errorText(err)); });
-    setConversationFiles([]);
-    void load();
-    const onFiles = (event: Event) => { if ((event as CustomEvent<string>).detail === active.id) void load(); };
-    window.addEventListener('pixel:files', onFiles);
-    return () => { alive = false; window.removeEventListener('pixel:files', onFiles); };
-  }, [active.id, currentRun?.status, demoMode]);
-  useEffect(() => {
     if (dialog !== 'search') return;
     if (demoMode) {
       setSearchResults(conversations.filter(c => `${c.title}\n${c.messages.map(messageMarkdown).join('\n')}`.toLowerCase().includes(query.toLowerCase())));
@@ -188,11 +186,11 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     }, 200);
     return () => { alive = false; clearTimeout(timer); };
   }, [query, dialog, demoMode, demo.conversations]);
-  useLayoutEffect(() => { followMessages.current = true; }, [active.id]);
+  useLayoutEffect(() => { followMessages.current = true; }, [active.id, taskView]);
   useEffect(() => {
     const element = messagesRef.current;
     if (element && followMessages.current) element.scrollTop = element.scrollHeight;
-  }, [active.id, active.messages, busy]);
+  }, [active.id, active.messages, busy, taskView]);
   useEffect(() => {
     if (demoMode && demo.storageError) setToast(demo.storageError);
   }, [demoMode, demo.storageError]);
@@ -236,7 +234,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   }
 
   function rememberDraft() { if (active.id) drafts.current.set(active.id, { text: draft, files }); }
-  async function createChat() {
+  async function createChat(taskId = activeTaskId) {
     if (uploading || loading) return;
     if (demoMode) {
       rememberDraft(); const next = demo.create();
@@ -246,12 +244,36 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     }
     try {
       rememberDraft();
-      const empty = conversations.find(c => !c.messages.length && !c.activeRun && !pending.has(c.id));
-      const next = empty || await api<Conversation>('/conversations', { method: 'POST', body: '{}' });
+      const next = await api<Conversation>('/conversations', { method: 'POST', body: JSON.stringify({ taskId: taskId || undefined }) });
+      setSelectedTaskId(next.taskId || ''); setTaskView('chat');
       upsert(next); setActiveId(next.id); setEnteredId(null);
       const saved = drafts.current.get(next.id); setDraft(saved?.text || ''); setFiles(saved?.files || []);
       setMobileOpen(false); inputRef.current?.focus();
     } catch (err) { setToast(errorText(err)); }
+  }
+  async function createEvaluationTask(name: string) {
+    const task = await api<EvaluationTask>('/tasks', { method: 'POST', body: JSON.stringify({ name }) });
+    setSelectedTaskId(task.id); setTaskView('architecture');
+    await taskState.refresh();
+    await createChat(task.id);
+  }
+  async function generateArchitecturePreview(architecture: TaskArchitecture) {
+    if (!model || uploading || loading) return;
+    const chat = await api<Conversation>('/conversations', { method: 'POST', body: JSON.stringify({ taskId: activeTaskId, title: `架构预览 · ${architecture.name}`.slice(0, 120), mode: '产品架构设置' }) });
+    upsert(chat);
+    const text = `请为当前任务中的架构 ${architecture.name}（ID：${architecture.id}，指纹：${architecture.fingerprint}）独立设计并生成 Pixi 架构预览。读取本轮任务上下文和架构预览 Harness README。由你编写实际执行的 draw.mjs（export function draw(ctx)）和绘图元数据生成脚本。使用 draw 模式，nodes 为空；真实行列数完整保存在 draw.grid，由前端自动画可缩放网格，不要逐单元创建对象。保存画布尺寸、区域位置、分割线颜色与宽度、字号、图例和必要的示意说明。调用 Harness 的 --draw 发布函数及场景 JSON，由前端 Pixi 执行；不要生成 SVG、PNG，不要修改前端或数据库。不执行修补求解。若校验失败，调整脚本和布局后再发布。返回实际尺寸及产物路径。`;
+    try {
+      const run = await api<Run>(`/conversations/${chat.id}/runs`, { method: 'POST', body: JSON.stringify({ text, mode: chat.mode, modelId: model, fileIds: [], idempotencyKey: requestId() }) });
+      await refresh(chat.id); attach(run); if (run.status === 'failed') throw new Error(run.error || 'Agent 启动失败'); setToast('Agent 正在绘制，可在任务下的架构预览聊天中查看进度');
+    } catch (err) { await refresh(chat.id).catch(() => {}); throw err; }
+  }
+  async function renameEvaluationTask(id: string, name: string) {
+    await api(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+    await taskState.refresh();
+  }
+  function openTask(id: string, view: TaskView) {
+    if (uploading) { setToast('请等待附件上传完成'); return; }
+    setSelectedTaskId(id); setTaskView(view); setMobileOpen(false); setRenaming(false);
   }
   async function updateMode(mode: Mode) {
     setModeOpen(false);
@@ -264,6 +286,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   function selectChat(id: string) {
     if (uploading) { setToast('请等待附件上传完成'); return; }
     rememberDraft();
+    setSelectedTaskId(conversations.find(c => c.id === id)?.taskId || searchResults.find(c => c.id === id)?.taskId || ''); setTaskView('chat');
     setEnteredId(id); setActiveId(id);
     const saved = drafts.current.get(id); setDraft(saved?.text || ''); setFiles(saved?.files || []);
     setDialog(null); setMobileOpen(false); setRenaming(false);
@@ -286,8 +309,11 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       await api(`/conversations/${id}`, { method: 'DELETE' });
       drafts.current.delete(id); pendingRequests.current.delete(id);
       forget(id);
-      if (activeIdRef.current === id) { setActiveId(''); setDraft(''); setFiles([]); setEnteredId(null); }
-      if (conversations.length === 1) upsert(await api<Conversation>('/conversations', { method: 'POST', body: '{}' }));
+      if (activeIdRef.current === id) {
+        setSelectedTaskId(conversations.find(chat => chat.id === id)?.taskId || '');
+        setActiveId(''); setDraft(''); setFiles([]); setEnteredId(null); setTaskView('architecture');
+      }
+      await taskState.refresh();
       setToast('对话已删除');
     } catch (err) { setToast(errorText(err)); }
   }
@@ -333,10 +359,10 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     try {
       for (const file of selected) {
         const form = new FormData(); form.append('file', file);
-        const uploaded = await api<FileRecord>('/uploads', { method: 'POST', body: form });
-        setFiles(prev => [...prev, uploaded]); setConversationFiles(prev => [...prev, uploaded]);
+        const uploaded = await api<FileRecord>(`/conversations/${active.id}/files`, { method: 'POST', body: form });
+        setFiles(prev => [...prev, uploaded]);
       }
-    } catch (err) { setToast(errorText(err)); } finally { setUploading(false); }
+    } catch (err) { setToast(errorText(err)); } finally { setUploading(false); void taskState.refresh(); }
   }
   function prompt(mode: Mode, value: string) {
     updateMode(mode);
@@ -414,7 +440,14 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             <PanelLeftClose />
           </button>
         </div>
-        <button className="new-chat" onClick={createChat}>
+        {!demoMode ? <>
+          <button className="search-trigger" onClick={() => setDialog('search')}><Search /><span>搜索任务和聊天</span></button>
+          <TaskNavigation tasks={taskState.tasks} conversations={conversations} runs={runs} activeTaskId={activeTaskId} activeChatId={active.id} view={taskView}
+            disabled={loading || uploading || pending.size > 0 || !!transition}
+            onView={openTask} onChat={selectChat} onCreateChat={createChat} onCreateTask={createEvaluationTask} onRenameTask={renameEvaluationTask} onDeleteChat={deleteChat} />
+          {taskState.error && <div className="workspace-error" role="alert">{taskState.error}<button onClick={() => void taskState.refresh()}>重试</button></div>}
+        </> : <>
+        <button className="new-chat" onClick={() => createChat()}>
           <Plus />
           <span>新建评估</span>
         </button>
@@ -457,6 +490,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             <p className="history-empty">暂无对话</p>
           )}
         </div>
+        </>}
         <div className="sidebar-bottom">
           <button className="profile" onClick={() => setDialog("settings")}>
             <span>设置</span>
@@ -480,14 +514,16 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             >
               {sidebarVisible ? <PanelLeftClose /> : <Menu />}
             </button>
-            <button className="current-title" title="重命名对话" onClick={() => { setRenameTitle(active.title); setRenaming(true); }}>{active.messages.length ? active.title : showCards ? "内存冗余架构评估" : active.mode}</button>
+            {!demoMode && <span className="task-breadcrumb" title={activeTask?.name}>{activeTask?.name}</span>}
+            {taskView === 'chat' ? <button className="current-title" title="重命名或移动聊天" onClick={() => { setRenameTitle(active.title); setMoveTaskId(active.taskId || ''); setRenaming(true); }}>{active.messages.length ? active.title : showCards ? "内存冗余架构评估" : active.mode}</button> : <span>{taskViewLabels[taskView]}</span>}
           </div>
           <div className="topbar-right">
-            {!showCards && !active.messages.length && (
+            {taskView === 'chat' && !showCards && !active.messages.length && (
               <button className="return-directions" onClick={() => setEnteredId(null)}>选择方向</button>
             )}
             <button
               className="icon-button"
+              disabled={taskView !== 'chat' || !active.id}
               aria-label="导出当前对话"
               title="导出当前对话"
               onClick={exportChat}
@@ -508,14 +544,15 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
           aria-busy={!!transition}
         >
           <div className="workspace-content" inert={!!transition}>
-            {renaming && <form className="rename-form account-form" onSubmit={async e => {
+            {taskView === 'chat' && renaming && <form className="rename-form account-form" onSubmit={async e => {
               e.preventDefault();
               if (demoMode) { demo.update(active.id, { title: renameTitle.trim() }); setRenaming(false); return; }
-              try { upsert(await api<Conversation>(`/conversations/${active.id}`, { method: 'PATCH', body: JSON.stringify({ title: renameTitle.trim() }) })); setRenaming(false); } catch (err) { setToast(errorText(err)); }
-            }}><input aria-label="对话标题" value={renameTitle} onChange={e => setRenameTitle(e.target.value)} autoFocus required maxLength={120} /><button className="action-button" disabled={!renameTitle.trim()}>保存</button><button type="button" className="action-button" onClick={() => setRenaming(false)}>取消</button></form>}
+              try { upsert(await api<Conversation>(`/conversations/${active.id}`, { method: 'PATCH', body: JSON.stringify({ title: renameTitle.trim(), taskId: moveTaskId || undefined }) })); if (moveTaskId) setSelectedTaskId(moveTaskId); setRenaming(false); void taskState.refresh(); } catch (err) { setToast(errorText(err)); }
+            }}><input aria-label="对话标题" value={renameTitle} onChange={e => setRenameTitle(e.target.value)} autoFocus required maxLength={120} />{!demoMode && <select aria-label="所属任务" value={moveTaskId} disabled={busy || submitting} onChange={event => setMoveTaskId(event.target.value)}>{taskState.tasks.map(task => <option key={task.id} value={task.id}>{task.name}</option>)}</select>}<button className="action-button" disabled={!renameTitle.trim() || submitting}>保存</button><button type="button" className="action-button" onClick={() => setRenaming(false)}>取消</button></form>}
             {error && <div className="workspace-error" role="alert">{error}<button onClick={() => window.location.reload()}>重新连接</button><button onClick={() => setError('')}>关闭</button></div>}
             {loading && <p role="status">正在读取会话…</p>}
 
+            {!demoMode && taskView !== 'chat' ? (activeTaskId ? <TaskPanel key={activeTaskId} taskId={activeTaskId} view={taskView} revision={taskState.revision} conversations={conversations} onRefresh={taskState.refresh} onChat={selectChat} onCreateChat={createChat} onGeneratePreview={generateArchitecturePreview} previewAvailable={!!model && !loading && !uploading} /> : <p>请先新建任务。</p>) : <>
             {showCards ? (
               <div ref={cardViewportRef} className="card-stage">
                 <section className="welcome" aria-label="内存冗余架构评估工作台">
@@ -634,21 +671,6 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               {demoMode && <div className="run-status" role="status">{busy ? '本地演示回复中 · 可停止' : '本地工具演示 · 仅保存在当前浏览器，未连接模型'}</div>}
               {demoMode && demo.storageError && <div className="workspace-error" role="alert">{demo.storageError}</div>}
               {(currentRun || submitting || uploading) && <div className="run-status" role="status">{uploading ? '附件上传中' : submitting ? '正在提交…' : `${statusLabel[currentRun!.status]}${busy && connections[active.id] ? ` · ${connections[active.id]}` : ''}`}{currentRun?.error && <span className="error-text">{currentRun.error}</span>}</div>}
-              {!!conversationFiles.filter(file => file.kind === 'upload').length && <details className="file-details">
-                <summary>共享上传（{conversationFiles.filter(file => file.kind === 'upload').length}）</summary>
-                <div className="message-files">{conversationFiles.filter(file => file.kind === 'upload').map(file => <span key={file.id} className="shared-upload">
-                  <a href={fileUrl(file)} download><Paperclip />{file.name}</a>
-                  <button type="button" disabled={busy || submitting || uploading || files.some(f => f.id === file.id)}
-                    aria-label={`添加 ${file.name} 到本次分析`}
-                    onClick={() => { if (files.length >= 20) { setToast('每次提交最多附带 20 个文件'); return; } setFiles(prev => prev.some(f => f.id === file.id) ? prev : [...prev, file]); }}>
-                    {files.some(f => f.id === file.id) ? '已添加' : '添加到本次分析'}
-                  </button>
-                </span>)}</div>
-              </details>}
-              {!!conversationFiles.filter(file => file.kind === 'artifact').length && <details className="file-details">
-                <summary>本会话产物（{conversationFiles.filter(file => file.kind === 'artifact').length}）</summary>
-                <div className="message-files">{conversationFiles.filter(file => file.kind === 'artifact').map(file => <a key={file.id} href={fileUrl(file)} download><Paperclip />{file.name}</a>)}</div>
-              </details>}
 
             </div>
             <div className="composer-area">
@@ -689,7 +711,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                         </button>
                       </span>
                     ))}
-                    <small>{demoMode ? '仅记录文件名，未上传或解析内容' : '上传文件在你的会话间共享，本次仅提交已选附件'}</small>
+                    <small>{demoMode ? '仅记录文件名，未上传或解析内容' : '附件已归入当前任务，本次提交所选文件'}</small>
                   </div>
                 )}
                 <div className="composer-bottom">
@@ -784,6 +806,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                 </div>
               </div>
             </div>
+            </>}
           </div>
         </div>
       </main>
@@ -812,7 +835,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                 <Search />
                 <input
                   autoFocus
-                  placeholder="搜索对话标题或内容…"
+                  placeholder="搜索任务名、聊天标题或内容…"
                   aria-label="搜索对话"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -825,7 +848,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                       <span>
                         {c.title}
                         <small>
-                          {c.mode} · {c.messages.length} 条消息
+                          {taskState.tasks.find(task => task.id === c.taskId)?.name || c.mode} · {c.messages.length} 条消息
                         </small>
                       </span>
                       <ArrowRight />

@@ -509,3 +509,65 @@ h3 { margin: 4rem 0; }
 .rename-form input { flex: 1; }
 .rename-form button { flex-shrink: 0; }
 .current-title { text-align: left; }
+
+/* Task navigation uses the same integer pixel grid in both themes. */
+.task-list { flex: 1; min-height: 0; overflow: auto; }
+.task-group + .task-group { margin-top: 4rem; border-top: 1rem solid var(--line); padding-top: 4rem; }
+.task-heading, .task-chat-heading { display: flex; align-items: center; min-width: 0; }
+.task-name { display: flex; align-items: center; gap: 4rem; flex: 1; min-width: 0; padding: 4rem 0; text-align: left; }
+.task-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.current-task > .task-heading { color: var(--accent); }
+.task-children { margin-left: 4rem; border-left: 1rem solid var(--line); padding-left: 3rem; }
+.task-resource { width: 100%; display: flex; align-items: center; gap: 4rem; padding: 4rem; text-align: left; }
+.task-resource:hover:not(:disabled), .task-name:hover, .history-item > button:first-child:hover { background: var(--hover); }
+.task-resource.selected { background: var(--selected); color: var(--accent); }
+.task-resource:disabled { color: var(--muted); opacity: 1; }
+.task-chat-heading { justify-content: space-between; padding-left: 4rem; color: var(--muted); margin-top: 4rem; border-top: 1rem solid var(--line); }
+.task-name-form { display: grid; gap: 4rem; padding: 4rem 0; }
+.task-name-form input, .task-architecture-form textarea, .rename-form select { border: 1rem solid var(--line); padding: 4rem; background: var(--bg); color: var(--text); width: 100%; min-width: 0; font: inherit; border-radius: 0; }
+.task-name-form > div { display: flex; gap: 4rem; }
+.task-name-form p { color: var(--danger); overflow-wrap: anywhere; }
+.task-breadcrumb { max-width: 160rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.task-panel { flex: 1; min-height: 0; overflow: auto; padding: 4rem; display: flex; flex-direction: column; gap: 8rem; }
+.task-panel > * { flex-shrink: 0; }
+.task-panel-heading, .task-record-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8rem; }
+.task-panel-heading > span, .task-record-heading > span, .task-note, .task-empty { color: var(--muted); }
+.task-record { border: 1rem solid var(--line); padding: 8rem; display: grid; gap: 8rem; min-width: 0; }
+.task-record h2 { overflow-wrap: anywhere; margin: 0; }
+.task-record-heading h2 { flex: 1; }
+.architecture-definition { font: inherit; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.task-architecture-form { border: 1rem solid var(--line); padding: 8rem; }
+.task-architecture-form textarea { resize: vertical; min-height: 96rem; }
+.task-files { margin: 0; padding: 0; list-style: none; }
+.task-files li { display: flex; align-items: center; gap: 8rem; padding: 4rem 0; min-width: 0; border-bottom: 1rem solid var(--line); }
+.task-files li > span { flex: 1; overflow-wrap: anywhere; }
+.task-files a { display: flex; align-items: flex-start; gap: 4rem; min-width: 0; color: var(--accent); }
+.task-files a span { overflow-wrap: anywhere; }
+.task-files a:hover { text-decoration: underline; }
+.task-conclusion { min-width: 0; }
+.task-panel summary { cursor: pointer; color: var(--muted); padding: 4rem 0; }
+[data-layout="compact"] .task-breadcrumb { max-width: 80rem; }
+
+.rename-form { flex-wrap: wrap; }
+.rename-form select { flex: 1; min-width: 96rem; }
+.task-panel .action-button { display: inline-flex; align-items: center; gap: 4rem; }
+.task-panel-heading > span { overflow-wrap: anywhere; }
+
+.architecture-preview { display: grid; gap: 8rem; min-width: 0; }
+.architecture-canvas-scroll { max-width: 100%; overflow: auto; border: 1rem solid var(--line); background: var(--panel); }
+.architecture-canvas { position: relative; }
+.architecture-canvas canvas { display: block; image-rendering: pixelated; }
+.architecture-preview select { font: inherit; padding: 4rem; border: 1rem solid var(--line); background: var(--bg); color: var(--text); min-width: 0; max-width: 100%; }
+.drawing-record { display: grid; gap: 4rem; min-width: 0; }
+.drawing-record code { font: inherit; overflow-wrap: anywhere; }
+.drawing-table { max-width: 100%; overflow: auto; margin: 4rem 0; }
+.drawing-table table { border-collapse: collapse; width: 100%; text-align: left; }
+.drawing-table th, .drawing-table td { font-weight: 400; padding: 4rem; border: 1rem solid var(--line); white-space: nowrap; }
+.drawing-table th { color: var(--muted); }
+
+.pixi-draw-canvas { width: 100%; overflow: hidden; border: 1rem solid var(--line); background: var(--panel); }
+.pixi-draw-canvas canvas { width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.pixi-draw-canvas canvas:active { cursor: grabbing; }
+.draw-controls form, .draw-controls label { display: flex; align-items: center; gap: 4rem; flex-wrap: wrap; }
+.draw-controls input { width: 64rem; min-width: 0; padding: 2rem 4rem; font: inherit; color: var(--text); background: var(--panel); border: 1rem solid var(--line); }
+.draw-source { max-height: 240rem; overflow: auto; padding: 8rem; background: var(--bg); white-space: pre; }

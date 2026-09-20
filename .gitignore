@@ -11,3 +11,6 @@ data/
 config/models.json
 backend/models.json
 *.log
+__pycache__/
+*.py[cod]
+.venv/

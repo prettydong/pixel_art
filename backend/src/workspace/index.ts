@@ -14,7 +14,7 @@ export function paths(userId: string, conversationId: string) {
   const u = userPaths(userId);
   const root = resolve(u.user, "conversations", conversationId);
   const work = resolve(root, "work");
-  return { ...u, root, work, artifacts: resolve(work, "artifacts"), session: resolve(root, "session.jsonl") };
+  return { ...u, root, work, repair: resolve(work, "repair-evaluation"), artifacts: resolve(work, "artifacts"), session: resolve(root, "session.jsonl") };
 }
 export function securePath(root: string, child: string) {
   const result = resolve(root, child);
@@ -39,25 +39,28 @@ export function ensureDirectory(dir: string) {
   }
   securePath(config.dataDir, rel);
 }
-// Seed only missing files, so a user's edited skills survive future runs.
-function seedSkill(source: string, destination: string) {
+// Seed only missing files, preserving user skills and per-conversation devices.
+function seedMissingFiles(source: string, destination: string) {
   ensureDirectory(destination);
   for (const entry of readdirSync(source, { withFileTypes: true })) {
-    if (entry.isSymbolicLink()) continue;
+    if (entry.isSymbolicLink() || entry.name.startsWith(".") || entry.name === "__pycache__") continue;
     const target = join(destination, entry.name);
-    if (entry.isDirectory()) seedSkill(join(source, entry.name), target);
+    if (entry.isDirectory()) seedMissingFiles(join(source, entry.name), target);
     else if (entry.isFile() && !existsSync(target)) copyFileSync(join(source, entry.name), target, constants.COPYFILE_EXCL);
   }
 }
 export function ensureUserWorkspace(userId: string) {
   const p = userPaths(userId);
   for (const dir of [p.user, p.uploads, p.skills, p.agent]) ensureDirectory(dir);
-  seedSkill(resolve(projectRoot, "backend/skills/data-analysis"), resolve(p.skills, "data-analysis"));
+  for (const skill of ["data-analysis", "repair-evaluation"]) {
+    seedMissingFiles(resolve(projectRoot, "backend/skills", skill), resolve(p.skills, skill));
+  }
   return p;
 }
 export function ensureWorkspace(userId: string, conversationId: string) {
   ensureUserWorkspace(userId);
   const p = paths(userId, conversationId);
   for (const dir of [p.root, p.work, p.artifacts]) ensureDirectory(dir);
+  seedMissingFiles(resolve(projectRoot, "backend/repair-evaluation"), p.repair);
   return p;
 }

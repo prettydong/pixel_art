@@ -3,7 +3,7 @@ import type { Db } from "../db/index.js";
 import { listFiles } from "../files/index.js";
 import { missing } from "../errors.js";
 import { messageDetails } from "../runs/messageDetails.js";
-export type ConversationRow = { id: string; user_id: string; title: string; mode: Mode; updated_at: number; deleted_at: number | null };
+export type ConversationRow = { task_id: string; id: string; user_id: string; title: string; mode: Mode; updated_at: number; deleted_at: number | null };
 export type RunRow = { id: string; conversation_id: string; user_id: string; status: RunStatus; model_id: string; provider: string | null; model: string | null; pricing_known: number; idempotency_key: string; request_hash: string; created_at: number; finished_at: number | null; error: string | null; pid: number | null; native_start: number };
 export type MessageRow = { id: string; conversation_id: string; run_id: string; role: "user" | "assistant"; text: string; file_ids: string; created_at: number };
 export const publicRun = (r: RunRow): Run => ({ id: r.id, conversationId: r.conversation_id, status: r.status, modelId: r.model_id, createdAt: r.created_at, finishedAt: r.finished_at, error: r.error });
@@ -39,5 +39,5 @@ export function conversation(db: Db, row: ConversationRow): Conversation {
     const tool = { id: event.toolCallId, name: event.name, status: event.status === "running" && !isActiveRun(record.status) ? "interrupted" as const : event.status, text: event.text ?? previous?.text, input: event.input ?? previous?.input, durationMs: event.durationMs ?? previous?.durationMs, updatedAt: record.created_at };
     message.toolCalls = calls.some(call => call.id === tool.id) ? calls.map(call => call.id === tool.id ? tool : call) : [...calls, tool];
   }
-  return { id: row.id, title: row.title, mode: row.mode, updated: row.updated_at, messages, activeRun: active ? publicRun(active) : null, lastRun: last ? publicRun(last) : null };
+  return { taskId: row.task_id, id: row.id, title: row.title, mode: row.mode, updated: row.updated_at, messages, activeRun: active ? publicRun(active) : null, lastRun: last ? publicRun(last) : null };
 }

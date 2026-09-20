@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { isActiveRun, type Conversation, type Message, type ModelOption, type Run, type RunEvent, type ListResponse } from '@pixel/contracts';
+import { isActiveRun, type Conversation, type Message, type ModelOption, type Run, type RunEvent, type ListResponse, type EvaluationTask } from '@pixel/contracts';
 import { api, errorText, RequestError } from './api';
 import { mergeMessage } from './replyMessages';
 export function useWorkspace(enabled = true) {
@@ -145,7 +145,12 @@ export function useWorkspace(enabled = true) {
     let polling = false;
     Promise.all([api<ListResponse<Conversation>>('/conversations'), api<ListResponse<ModelOption>>('/models')]).then(async ([result, options]) => {
       if (cancelled) return;
-      const items = result.items.length ? result.items : [await api<Conversation>('/conversations', { method: 'POST', body: '{}' })];
+      const items = result.items;
+      if (!items.length) {
+        const tasks = await api<ListResponse<EvaluationTask>>('/tasks');
+        if (cancelled) return;
+        items.push(await api<Conversation>('/conversations', { method: 'POST', body: JSON.stringify({ taskId: tasks.items[0]?.id }) }));
+      }
       if (cancelled) return;
       setConversations(items); setModels(options.items);
       for (const c of items) if (c.activeRun || c.lastRun) updateRun((c.activeRun || c.lastRun)!);

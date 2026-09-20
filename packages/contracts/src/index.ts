@@ -1,3 +1,4 @@
+import type { ArchitectureScene } from "../architecture-scene.js";
 import { z } from "zod";
 
 export const modes = ["数据分析", "产品架构设置", "修补规则设计"] as const;
@@ -10,8 +11,8 @@ export const createUserSchema = z.object({ username: z.string().trim().regex(/^[
 export const updateUserSchema = z.object({ enabled: z.boolean() }).strict();
 export const resetPasswordSchema = z.object({ password: passwordSchema }).strict();
 export const changePasswordSchema = z.object({ currentPassword: z.string().min(1).max(256), password: passwordSchema }).strict();
-export const createConversationSchema = z.object({ title: z.string().trim().min(1).max(120).default("新的评估对话"), mode: modeSchema.default("数据分析") }).strict();
-export const updateConversationSchema = z.object({ title: z.string().trim().min(1).max(120).optional(), mode: modeSchema.optional() }).strict();
+export const createConversationSchema = z.object({ title: z.string().trim().min(1).max(120).default("新的评估对话"), mode: modeSchema.default("数据分析"), taskId: idSchema.optional() }).strict();
+export const updateConversationSchema = z.object({ title: z.string().trim().min(1).max(120).optional(), mode: modeSchema.optional(), taskId: idSchema.optional() }).strict();
 export const createRunSchema = z.object({ text: z.string().trim().min(1).max(100000), mode: modeSchema, modelId: z.string().min(1).max(256), fileIds: z.array(idSchema).max(20).default([]), idempotencyKey: idSchema }).strict();
 export type CreateRunInput = z.infer<typeof createRunSchema>;
 export type User = { id: string; username: string; role: "admin" | "user"; enabled: boolean; createdAt: number };
@@ -26,7 +27,7 @@ export const runStatuses = ["starting", "running", "cancelling", "completed", "f
 export type RunStatus = typeof runStatuses[number];
 export const isActiveRun = (status: RunStatus) => status === "starting" || status === "running" || status === "cancelling";
 export type Run = { id: string; conversationId: string; status: RunStatus; modelId: string; createdAt: number; finishedAt: number | null; error: string | null };
-export type Conversation = { id: string; title: string; mode: Mode; updated: number; messages: Message[]; activeRun: Run | null; lastRun: Run | null };
+export type Conversation = { taskId?: string; id: string; title: string; mode: Mode; updated: number; messages: Message[]; activeRun: Run | null; lastRun: Run | null };
 export type UsageRecord = {
   id: string; userId: string; username: string; conversationId: string; runId: string;
   modelId: string; actualProvider: string | null; actualModel: string | null;
@@ -50,3 +51,11 @@ export type RunEvent = RunEventPayload & { id: number; runId: string; createdAt:
 export type ApiError = { error: { code: string; message: string } };
 // Collections return { items }; details return the entity directly. Authentication returns { user }.
 export type ListResponse<T> = { items: T[] };
+
+export const taskNameSchema = z.object({ name: z.string().trim().min(1).max(120) }).strict();
+export const architectureSchema = z.object({ name: z.string().trim().min(1).max(120), description: z.string().trim().min(1).max(30000) }).strict();
+export const taskFileSchema = z.object({ fileId: idSchema }).strict();
+export type EvaluationTask = { id: string; name: string; updated: number; artifactCount: number };
+export type ArchitecturePreview = { draw?: { source: string; file: FileRecord; sha256: string }; scene: ArchitectureScene; file: FileRecord; recipe: FileRecord; createdAt: number; sceneHash: string; themeSnapshot: Record<string, { light: string; dark: string }> };
+export type TaskArchitecture = { fingerprint: string; previews?: ArchitecturePreview[]; previewIssues?: string[]; id: string; name: string; description: string; sourceConversationId?: string; sourceFile?: FileRecord };
+export type TaskDetail = EvaluationTask & { architectures: TaskArchitecture[]; reports: { fileId: string; text: string }[]; files: FileRecord[] };

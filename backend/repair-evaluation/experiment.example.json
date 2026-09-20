@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "data_kind": "synthetic",
+  "evaluation_unit": "sample",
+  "inputs": {
+    "roster": "REPLACE_WITH_SAMPLE_ROSTER.csv",
+    "fails": ["REPLACE_WITH_FAIL_COORDINATES.csv"],
+    "roster_columns": {"group": "group", "sample_id": "sample_id", "fail_count": "fail_count"},
+    "fail_columns": {"group": "group", "sample_id": "sample_id", "row": "row", "col": "col"}
+  },
+  "array": {"rows": 1024, "cols": 1024, "coordinate_base": 0},
+  "device": {
+    "spare_rows": 2,
+    "column_groups": 8,
+    "spare_cols_per_group": [1, 1, 1, 1, 1, 1, 1, 1],
+    "column_group_offset": 0
+  },
+  "solver": {"time_limit_seconds": 30, "random_seed": 0}
+}

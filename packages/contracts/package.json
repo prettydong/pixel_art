@@ -4,10 +4,26 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-    "./charts": { "types": "./charts.d.ts", "default": "./charts.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./charts": {
+      "types": "./charts.d.ts",
+      "default": "./charts.js"
+    },
+    "./architecture-scene": {
+      "types": "./architecture-scene.d.ts",
+      "default": "./architecture-scene.js"
+    }
   },
-  "scripts": { "build": "tsc -p tsconfig.json" },
-  "dependencies": { "zod": "4.1.12" },
-  "devDependencies": { "typescript": "5.8.3" }
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
+  }
 }
