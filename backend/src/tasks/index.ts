@@ -6,15 +6,14 @@ import type { FastifyInstance } from "fastify";
 import { architectureSchema, idSchema, taskFileSchema, taskNameSchema, type EvaluationTask, type TaskArchitecture, type TaskDetail } from "@pixel/contracts";
 import type { Db } from "../db/index.js";
 import { currentUser } from "../auth/index.js";
-import { missing } from "../errors.js";
+import { HttpError, missing } from "../errors.js";
 import { fileById, filePath, publicFile, type FileRow } from "../files/index.js";
 
 const architectureFingerprint = (id: string, name: string, description: string) => createHash('sha256').update(JSON.stringify([id, name, description])).digest('hex');
 
 type TaskRow = { id: string; user_id: string; name: string; updated_at: number };
 export function migrateTasks(db: Db) {
-  if (db.prepare("SELECT 1 FROM schema_migrations WHERE version=4").get()) return;
-  db.transaction(() => {
+  if (!db.prepare("SELECT 1 FROM schema_migrations WHERE version=4").get()) db.transaction(() => {
     db.exec(`
       CREATE TABLE tasks(id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), name TEXT NOT NULL, updated_at INTEGER NOT NULL);
       ALTER TABLE conversations ADD COLUMN task_id TEXT REFERENCES tasks(id);
@@ -25,7 +24,7 @@ export function migrateTasks(db: Db) {
     const rows = db.prepare("SELECT id,user_id,title,updated_at FROM conversations WHERE deleted_at IS NULL").all() as { id: string; user_id: string; title: string; updated_at: number }[];
     for (const row of rows) {
       const id = randomUUID();
-      db.prepare("INSERT INTO tasks VALUES(?,?,?,?)").run(id, row.user_id, row.title, row.updated_at);
+      db.prepare("INSERT INTO tasks(id,user_id,name,updated_at) VALUES(?,?,?,?)").run(id, row.user_id, row.title, row.updated_at);
       db.prepare("UPDATE conversations SET task_id=? WHERE id=?").run(id, row.id);
       // Only associate inputs actually attached to this evaluation, not every user upload.
       db.prepare(`INSERT OR IGNORE INTO task_files SELECT ?,f.id FROM messages m,json_each(m.file_ids) j
@@ -33,15 +32,19 @@ export function migrateTasks(db: Db) {
     }
     db.prepare("INSERT INTO schema_migrations VALUES(4,?)").run(Date.now());
   })();
+  if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=7').get()) db.transaction(() => {
+    db.exec('ALTER TABLE tasks ADD COLUMN deleted_at INTEGER; CREATE INDEX tasks_user_deleted ON tasks(user_id,deleted_at)');
+    db.prepare('INSERT INTO schema_migrations(version,applied_at) VALUES(7,?)').run(Date.now());
+  })();
 }
 export function taskRow(db: Db, id: string, userId: string) {
-  const row = db.prepare("SELECT * FROM tasks WHERE id=? AND user_id=?").get(id, userId) as TaskRow | undefined;
+  const row = db.prepare("SELECT * FROM tasks WHERE id=? AND user_id=? AND deleted_at IS NULL").get(id, userId) as TaskRow | undefined;
   if (!row) throw missing();
   return row;
 }
 export function createTask(db: Db, userId: string, name: string) {
   const id = randomUUID();
-  db.prepare("INSERT INTO tasks VALUES(?,?,?,?)").run(id, userId, name, Date.now());
+  db.prepare("INSERT INTO tasks(id,user_id,name,updated_at) VALUES(?,?,?,?)").run(id, userId, name, Date.now());
   return taskRow(db, id, userId);
 }
 export function publicTask(db: Db, row: TaskRow): EvaluationTask {
@@ -126,32 +129,64 @@ export function taskDetail(db: Db, row: TaskRow): TaskDetail {
   }
   return { ...publicTask(db, row), architectures, reports, files: files.map(publicFile) };
 }
+export function createTaskArchitecture(db: Db, taskId: string, userId: string, input: unknown, options: { id?: string; reuseIdentical?: boolean } = {}) {
+  const body = architectureSchema.parse(input);
+  const id = options.id ?? randomUUID();
+  return db.transaction(() => {
+    const task = taskRow(db, taskId, userId);
+    const publicArchitecture = (value: { id: string; name: string; description: string }): TaskArchitecture => ({ ...value, fingerprint: architectureFingerprint(value.id, value.name, value.description) });
+    if (options.reuseIdentical) {
+      const previous = db.prepare('SELECT id,name,description FROM task_architectures WHERE id=? AND task_id=?').get(id, task.id) as TaskArchitecture | undefined;
+      if (previous) {
+        if (previous.name !== body.name || previous.description !== body.description) throw new HttpError(409, 'ARCHITECTURE_REQUEST_CONFLICT', '同一工具调用不能用于不同架构内容');
+        return { architecture: publicArchitecture(previous), created: false };
+      }
+      const same = db.prepare('SELECT id,name,description FROM task_architectures WHERE task_id=? AND name=? AND description=? ORDER BY created_at,id LIMIT 1').get(task.id, body.name, body.description) as TaskArchitecture | undefined;
+      if (same) return { architecture: publicArchitecture(same), created: false };
+      if (db.prepare('SELECT 1 FROM task_architectures WHERE task_id=? AND name=?').get(task.id, body.name)) throw new HttpError(409, 'ARCHITECTURE_NAME_CONFLICT', '已有同名架构且内容不同，请使用新名称；新增工具不会覆盖已有架构');
+    }
+    const now = Date.now();
+    db.prepare('INSERT INTO task_architectures(id,task_id,name,description,created_at) VALUES(?,?,?,?,?)').run(id, task.id, body.name, body.description, now);
+    db.prepare('UPDATE tasks SET updated_at=? WHERE id=?').run(now, task.id);
+    return { architecture: publicArchitecture({ id, ...body }), created: true };
+  })();
+}
 export function registerTaskRoutes(app: FastifyInstance, db: Db) {
   const owned = (request: { params: unknown }) => {
     return idSchema.parse((request.params as Record<string, unknown>).id);
   };
   app.get('/api/tasks', async request => {
     const user = currentUser(db, request);
-    return { items: (db.prepare('SELECT * FROM tasks WHERE user_id=?').all(user.id) as TaskRow[]).map(row => publicTask(db, row)).sort((a, b) => b.updated - a.updated) };
+    return { items: (db.prepare('SELECT * FROM tasks WHERE user_id=? AND deleted_at IS NULL').all(user.id) as TaskRow[]).map(row => publicTask(db, row)).sort((a, b) => b.updated - a.updated) };
   });
   app.post('/api/tasks', async (request, reply) => {
     const user = currentUser(db, request); const body = taskNameSchema.parse(request.body);
     reply.code(201); return publicTask(db, createTask(db, user.id, body.name));
   });
   app.get('/api/tasks/:id', async request => taskDetail(db, taskRow(db, owned(request), currentUser(db, request).id)));
+  app.delete('/api/tasks/:id', async request => {
+    const user = currentUser(db, request); const id = owned(request);
+    return db.transaction(() => {
+      const task = taskRow(db, id, user.id);
+      const running = db.prepare(`SELECT 1 FROM runs r JOIN conversations c ON c.id=r.conversation_id
+        WHERE c.task_id=? AND c.user_id=? AND r.status IN ('starting','running','cancelling') LIMIT 1`).get(task.id, user.id);
+      if (running) throw new HttpError(409, 'TASK_BUSY', '任务中有正在执行的聊天，请先停止执行后再删除');
+      if (db.prepare("SELECT 1 FROM repair_jobs WHERE task_id=? AND status IN ('queued','coding','compiling','running') LIMIT 1").get(task.id)) throw new HttpError(409, 'TASK_BUSY', '任务中有待完成的 C++ 求解，请先在任务求解面板取消后再删除');
+      const chats = db.prepare('SELECT id FROM conversations WHERE task_id=? AND user_id=?').all(task.id, user.id) as { id: string }[];
+      const now = Date.now();
+      db.prepare('UPDATE conversations SET deleted_at=?,updated_at=? WHERE task_id=? AND user_id=? AND deleted_at IS NULL').run(now, now, task.id, user.id);
+      db.prepare('UPDATE tasks SET deleted_at=?,updated_at=? WHERE id=? AND user_id=?').run(now, now, task.id, user.id);
+      return { ok: true, conversationIds: chats.map(chat => chat.id) };
+    }).immediate();
+  });
   app.patch('/api/tasks/:id', async request => {
     const row = taskRow(db, owned(request), currentUser(db, request).id); const body = taskNameSchema.parse(request.body);
     db.prepare('UPDATE tasks SET name=?,updated_at=? WHERE id=?').run(body.name, Date.now(), row.id);
     return publicTask(db, taskRow(db, row.id, row.user_id));
   });
   app.post('/api/tasks/:id/architectures', async (request, reply) => {
-    const row = taskRow(db, owned(request), currentUser(db, request).id); const body = architectureSchema.parse(request.body);
-    const id = randomUUID();
-    db.transaction(() => {
-      db.prepare('INSERT INTO task_architectures VALUES(?,?,?,?,?)').run(id, row.id, body.name, body.description, Date.now());
-      db.prepare('UPDATE tasks SET updated_at=? WHERE id=?').run(Date.now(), row.id);
-    })();
-    reply.code(201); return { id, ...body, fingerprint: architectureFingerprint(id, body.name, body.description) };
+    const result = createTaskArchitecture(db, owned(request), currentUser(db, request).id, request.body);
+    reply.code(201); return result.architecture;
   });
   app.patch('/api/tasks/:id/architectures/:architectureId', async request => {
     const row = taskRow(db, owned(request), currentUser(db, request).id); const body = architectureSchema.parse(request.body);

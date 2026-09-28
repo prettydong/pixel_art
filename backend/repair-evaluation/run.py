@@ -55,6 +55,11 @@ def prepare(config_path: Path, device_path: Path):
     samples, inputs = load_samples(spec, config_path.parent)
     device = load_device(device_path)
     device.validate_config(spec["device"])
+    validate_array = getattr(device, "validate_array", None)
+    if validate_array is not None:
+        if not callable(validate_array):
+            raise ValueError("Device validate_array must be callable when provided")
+        validate_array(spec["array"]["rows"], spec["array"]["cols"], spec["device"])
     description = device.describe(spec["device"])
     if not isinstance(description, dict):
         raise ValueError("Device describe() must return a JSON object")

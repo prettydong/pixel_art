@@ -103,7 +103,6 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
     <p className="task-note">{scene.description}</p>
     {scene.assumptions.length > 0 && <ul>{scene.assumptions.map((item, i) => <li key={i}>{item}</li>)}</ul>}
     <details className="drawing-record"><summary>绘图记录 · {scene.canvas.width} × {scene.canvas.height} 格 · {scene.nodes.length} 个图元</summary>
-      <p>1 格对应当前像素网格；Fusion Pixel 12 格，行高 16 格。</p>
       <p>架构指纹：<code>{scene.fingerprint}</code></p>
       <div className="drawing-table"><table><thead><tr><th>颜色角色</th><th>主题变量</th><th>亮色记录</th><th>暗色记录</th></tr></thead><tbody>{Object.entries(scene.palette).map(([role, token]) => <tr key={role}><td>{role}</td><td>{token}</td><td>{preview.themeSnapshot[token]?.light}</td><td>{preview.themeSnapshot[token]?.dark}</td></tr>)}</tbody></table></div>
       <div className="drawing-table"><table><thead><tr><th>区域 / 分割线</th><th>起点</th><th>尺寸 / 网格</th><th>颜色角色</th></tr></thead><tbody>{scene.nodes.filter(node => node.type !== 'text').map(node => <tr key={node.id}><td>{node.label || node.id}</td><td>{node.x}, {node.y}</td><td>{node.type === 'grid' ? `${node.rows} × ${node.cols}；单元 ${node.cellWidth} × ${node.cellHeight}；线宽 ${node.lineWidth}` : `${node.width} × ${node.height}`}</td><td>{node.type === 'grid' ? node.lineColor : node.type === 'rect' ? node.fill : node.color}</td></tr>)}</tbody></table></div>

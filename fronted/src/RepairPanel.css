@@ -1,0 +1,71 @@
+.repair-panel { display: grid; gap: 8rem; min-width: 0; font: inherit; }
+.repair-panel * { font-family: inherit; font-size: inherit; font-weight: 400; }
+.repair-intro h2, .repair-jobs h2, .repair-draft h2, .repair-results h2 { color: var(--repair-accent); margin: 0; }
+.repair-check small, .repair-job > p { color: var(--muted); margin: 4rem 0 0; }
+.repair-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8rem; }
+.repair-picker fieldset, .repair-job, .repair-issues { border: 1rem solid var(--line); background: var(--panel); padding: 8rem; min-width: 0; }
+.repair-picker legend { color: var(--repair-accent); padding: 0 4rem; }
+.repair-picker fieldset { display: grid; align-content: start; gap: 4rem; max-height: 200rem; overflow: auto; }
+.repair-check { display: flex; align-items: start; gap: 4rem; flex-wrap: wrap; }
+.repair-option-name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.repair-check input { appearance: none; width: 10rem; height: 10rem; margin: 2rem 0 0; border: 1rem solid var(--line); background: var(--input-surface); flex: 0 0 auto; }
+.repair-check input:checked { background: var(--repair-accent); border-color: var(--repair-accent); box-shadow: inset 2rem 2rem 0 var(--repair-surface), inset -2rem -2rem 0 var(--repair-surface); }
+.repair-check input:focus-visible { outline: 1rem solid var(--text); outline-offset: 1rem; }
+.repair-check small { width: 100%; margin-left: 16rem; }
+.repair-submit { display: flex; align-items: end; gap: 8rem; flex-wrap: wrap; border: 1rem solid var(--line); background: var(--repair-surface); padding: 8rem; }
+.repair-submit label { display: grid; gap: 4rem; color: var(--muted); }
+.repair-submit select { min-width: 128rem; border: 1rem solid var(--line); border-radius: 0; padding: 4rem; background: var(--input-surface); color: var(--input-text); }
+.repair-submit > span { color: var(--repair-accent); }
+.repair-issues { color: var(--danger); }
+.repair-issues p { margin: 0 0 4rem; overflow-wrap: anywhere; }
+.repair-preview { border: 1rem solid var(--line); background: var(--panel); padding: 4rem 8rem; }
+.repair-preview summary { color: var(--repair-accent); cursor: pointer; }
+.repair-preview ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(160rem, 1fr)); gap: 4rem 8rem; margin: 8rem 0 0; padding-left: 16rem; }
+.repair-jobs { display: grid; gap: 8rem; }
+.repair-job { display: grid; gap: 4rem; }
+.repair-job-heading { display: flex; align-items: center; gap: 8rem; flex-wrap: wrap; }
+.repair-job-heading h3 { margin: 0; flex: 1; overflow-wrap: anywhere; }
+.repair-status { border: 1rem solid var(--line); padding: 2rem 4rem; color: var(--muted); }
+.repair-status-running, .repair-status-coding, .repair-status-compiling, .repair-status-queued { color: var(--busy); border-color: var(--busy); }
+.repair-status-completed { color: var(--repair-accent); border-color: var(--repair-accent); }
+.repair-status-failed, .repair-status-interrupted { color: var(--danger); border-color: var(--danger); }
+.repair-summary { display: flex; gap: 4rem 8rem; flex-wrap: wrap; padding: 4rem; border: 1rem solid var(--line); background: var(--repair-surface); color: var(--text); }
+.repair-job-meta, .repair-history-note { color: var(--muted); }
+.repair-history-note { color: var(--busy); }
+.repair-panel input, .repair-panel select, .repair-panel button { font: inherit; }
+.repair-draft, .repair-results { display: grid; gap: 8rem; min-width: 0; padding: 8rem; border: 1rem solid var(--line); background: var(--panel); }
+.repair-draft > p, .repair-results > p { margin: 0; }
+.repair-draft .repair-job-heading h2, .repair-results .repair-job-heading h2 { display: flex; align-items: center; gap: 4rem; flex: 1; white-space: nowrap; }
+.repair-draft-list { margin: 0; padding: 0; list-style: none; max-height: 224rem; overflow: auto; }
+.repair-draft-list li { display: flex; align-items: center; gap: 8rem; padding: 4rem 0; border-bottom: 1rem solid var(--line); }
+.repair-draft-list li > div { min-width: 0; flex: 1; }
+.repair-draft-list button { flex-shrink: 0; }
+.repair-draft-name { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.repair-draft-list p { margin: 4rem 0 0; }
+.repair-panel .action-button, .repair-submit label { white-space: nowrap; }
+.repair-submit select { max-width: 100%; }
+.repair-analysis-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 8rem; min-width: 0; }
+.repair-analysis-controls > label:not(.repair-check) { display: grid; gap: 4rem; min-width: 0; white-space: nowrap; }
+.repair-wafer-filter { flex: 1 1 200rem; }
+.repair-analysis-controls select { width: 100%; min-width: 0; border: 1rem solid var(--line); border-radius: 0; padding: 4rem; background: var(--input-surface); color: var(--input-text); }
+.repair-analysis-controls .repair-check { align-self: center; flex-wrap: nowrap; white-space: nowrap; }
+.repair-result-insight { padding: 8rem; border-left: 2rem solid var(--repair-accent); background: var(--repair-surface); overflow-wrap: anywhere; }
+.repair-chart-legend, .repair-chart-legend > span { display: flex; align-items: center; gap: 4rem; }
+.repair-chart-legend { flex-wrap: wrap; gap: 4rem 12rem; color: var(--muted); }
+.repair-chart-legend i { display: inline-block; width: 8rem; height: 8rem; }
+.repair-results-scroll { overflow-x: auto; min-width: 0; }
+.repair-results-scroll:focus-visible { outline: 1rem solid var(--accent); outline-offset: 1rem; }
+.repair-results-table { width: 100%; border-collapse: collapse; text-align: left; font-variant-numeric: tabular-nums; }
+.repair-results-table caption { text-align: left; padding-bottom: 4rem; color: var(--muted); }
+.repair-results-table th, .repair-results-table td { border-bottom: 1rem solid var(--line); padding: 4rem 8rem; vertical-align: middle; white-space: nowrap; }
+.repair-results-table th:first-child, .repair-results-table td:first-child { padding-left: 0; }
+.repair-results-table thead { color: var(--muted); }
+.repair-results-table tbody th > span, .repair-results-table small { display: block; }
+.repair-results-table tbody th > span, .repair-results-table tbody th small { max-width: 200rem; overflow: hidden; text-overflow: ellipsis; }
+.repair-results-table small { color: var(--muted); }
+.repair-result-bar { display: flex; width: 160rem; height: 12rem; outline: 1rem solid var(--line); }
+.repair-result-bar i { display: block; flex-shrink: 0; height: 100%; }
+.repair-bar-initial { background: var(--chart-2); }
+.repair-bar-gain { background: var(--chart-1); }
+.repair-bar-unresolved { background: var(--chart-4); }
+@media (max-width: 640px) { .repair-picker { grid-template-columns: 1fr; } }

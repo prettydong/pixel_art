@@ -14,7 +14,7 @@ export function paths(userId: string, conversationId: string) {
   const u = userPaths(userId);
   const root = resolve(u.user, "conversations", conversationId);
   const work = resolve(root, "work");
-  return { ...u, root, work, repair: resolve(work, "repair-evaluation"), artifacts: resolve(work, "artifacts"), session: resolve(root, "session.jsonl") };
+  return { ...u, root, work, repair: resolve(work, "repair-evaluation"), ccrDevice: resolve(work, "repair-evaluation/ccr-device-v3.py"), artifacts: resolve(work, "artifacts"), session: resolve(root, "session.jsonl") };
 }
 export function securePath(root: string, child: string) {
   const result = resolve(root, child);
@@ -62,5 +62,7 @@ export function ensureWorkspace(userId: string, conversationId: string) {
   const p = paths(userId, conversationId);
   for (const dir of [p.root, p.work, p.artifacts]) ensureDirectory(dir);
   seedMissingFiles(resolve(projectRoot, "backend/repair-evaluation"), p.repair);
+  // Supply the CCR contract to existing sessions without overwriting their custom device.py.
+  if (!existsSync(p.ccrDevice)) copyFileSync(resolve(projectRoot, 'backend/repair-evaluation/device.py'), p.ccrDevice, constants.COPYFILE_EXCL);
   return p;
 }

@@ -1,0 +1,41 @@
+{
+  "format": "PXLWAF1",
+  "dataKind": "synthetic",
+  "generator": "generate-wafer-fails/spatial-v2",
+  "geometry": "disk-grid-v1",
+  "layout": {
+    "chipCount": 1000,
+    "regionCount": 16,
+    "rows": 32768,
+    "cols": 2048
+  },
+  "generation": {
+    "pattern": "edge-ring",
+    "seed": 20260926,
+    "meanFails": 1600,
+    "strength": 12,
+    "dispersion": 4
+  },
+  "waferCount": 1,
+  "wafers": [
+    {
+      "name": "DEJOA-edge-ring-001",
+      "file": "DEJOA-edge-ring-001.pwafer",
+      "bytes": 4679752,
+      "sha256": "04ff85ec6b85a194e26f87c290482fa1ff8666b50ee3e28b48d382e2b5a8c2e6",
+      "generation": {
+        "pattern": "edge-ring",
+        "seed": 20260926,
+        "meanFails": 1600,
+        "strength": 12,
+        "dispersion": 4,
+        "model": "spatial-gamma-poisson-v2",
+        "geometry": "disk-grid-v1"
+      },
+      "failCount": 1595412,
+      "occupiedRegionCount": 7716,
+      "zeroFailChips": 41,
+      "maxChipFails": 24713
+    }
+  ]
+}

@@ -79,7 +79,17 @@ process.on('uncaughtException', (error) => {
 
 if (!stopping) {
   child = spawn(process.execPath, [cli, ...args], {
-    cwd: process.cwd(), env: process.env, stdio: ['inherit', 'inherit', 'inherit'],
+    cwd: process.cwd(), env: process.env, stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
+  });
+  // Keep task-tool traffic separate from Pi's LF-delimited stdin/stdout RPC.
+  child.on('message', message => {
+    if (stopping || !process.connected || !message || message.type !== 'pixel_task_request') return;
+    if (JSON.stringify(message).length > 256 * 1024) return;
+    process.send(message, () => {});
+  });
+  process.on('message', message => {
+    if (stopping || !child.connected || !message || message.type !== 'pixel_task_response') return;
+    child.send(message, () => {});
   });
   child.on('error', (error) => {
     console.error('Could not start Pi:', error.message);

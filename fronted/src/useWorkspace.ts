@@ -48,6 +48,7 @@ export function useWorkspace(enabled = true) {
     streams.current.forEach((entry, key) => { if (entry.run.conversationId === id) { entry.source.close(); streams.current.delete(key); } });
     setConversations(prev => prev.filter(c => c.id !== id));
     setRuns(prev => { const next = { ...prev }; delete next[id]; return next; });
+    setConnections(prev => { const next = { ...prev }; delete next[id]; return next; });
   }, []);
   const attach = useCallback((run: Run) => {
     if (removed.current.has(run.conversationId) || streams.current.has(run.id) || !updateRun(run)) return;
@@ -119,6 +120,7 @@ export function useWorkspace(enabled = true) {
         updateRun(data.run);
         if (!isActiveRun(data.run.status)) finish(data.run);
       } else if (data.type === 'tool.status') {
+        if (data.name === 'pixel_create_architecture' && data.status === 'completed') window.dispatchEvent(new Event('pixel:tasks'));
         const previousMessages = [...replay.values()];
         const owner = data.messageId ?? previousMessages.find(message => message.toolCalls?.some(call => call.id === data.toolCallId))?.id ?? previousMessages[previousMessages.length - 1]?.id;
         if (!owner) return;
@@ -149,7 +151,8 @@ export function useWorkspace(enabled = true) {
       if (!items.length) {
         const tasks = await api<ListResponse<EvaluationTask>>('/tasks');
         if (cancelled) return;
-        items.push(await api<Conversation>('/conversations', { method: 'POST', body: JSON.stringify({ taskId: tasks.items[0]?.id }) }));
+        // An empty task library stays empty after deleting the last task.
+        if (tasks.items.length) items.push(await api<Conversation>('/conversations', { method: 'POST', body: JSON.stringify({ taskId: tasks.items[0].id }) }));
       }
       if (cancelled) return;
       setConversations(items); setModels(options.items);

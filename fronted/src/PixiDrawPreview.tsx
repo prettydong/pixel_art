@@ -3,13 +3,16 @@ import type { ArchitecturePreview } from '@pixel/contracts';
 import type * as Pixi from 'pixi.js';
 import { fileUrl } from './api';
 import { getPixelDensity, getPixelUnit } from './pixelGrid';
+import { declutterArchitectureLabels } from './architectureLabels';
 
 // Logical coordinates: x = column, y = row. One world unit is one real cell.
 export type DrawView = { x: number; y: number; width: number; height: number; scale: number; gridStep: number; viewportWidth: number; viewportHeight: number };
 export type DrawContext = {
   PIXI: typeof Pixi; world: Pixi.Container; overlay: Pixi.Container;
   grid: { rows: number; cols: number }; colors: Record<string, string>; view: DrawView;
+  orientation: { horizontal: 'row' | 'col'; vertical: 'row' | 'col'; transposed: boolean };
   toScreen: (col: number, row: number) => { x: number; y: number };
+  boundary: (colA: number, rowA: number, colB: number, rowB: number, kind: 'segment' | 'array' | 'spare') => void;
   text: (text: string, x: number, y: number, color?: string) => Pixi.Text;
 };
 type Controls = { zoom: (factor: number) => void; fit: () => void; cell: () => void; go: (row: number, col: number) => void };
@@ -22,8 +25,11 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
   const [visible, setVisible] = useState(false);
   const [status, setStatus] = useState({ step: 1, lines: 0, scale: 1 });
   const [hover, setHover] = useState('拖动平移；滚轮缩放');
+  const [omittedLabels, setOmittedLabels] = useState<string[]>([]);
   const [row, setRow] = useState('0'); const [col, setCol] = useState('0');
   const { scene } = preview; const drawing = scene.draw!;
+  const transposed = drawing.grid.rows > drawing.grid.cols;
+  const axes = transposed ? '横向 row · 纵向 col' : '横向 col · 纵向 row';
   useEffect(() => {
     const host = hostRef.current; if (!host) return;
     const observer = new IntersectionObserver(entries => setVisible(entries.some(entry => entry.isIntersecting)), { rootMargin: '100px' });
@@ -34,9 +40,9 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
     if (!host || !visible) return;
     let cancelled = false;
     let cleanup: (() => void) | undefined;
-    setReady(false); setError('');
+    setReady(false); setError(''); setOmittedLabels([]);
     const canvas = document.createElement('canvas');
-    canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', `${scene.title}，${drawing.grid.rows}行${drawing.grid.cols}列，可缩放和平移`);
+    canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', `${scene.title}，${drawing.grid.rows} row × ${drawing.grid.cols} col，${axes}，可缩放和平移`);
     host.appendChild(canvas);
     void (async () => {
       const PIXI = await import('pixi.js');
@@ -60,16 +66,23 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
       catch (err) { app.stage.destroy({ children: true }); app.renderer?.destroy(); throw err; }
       if (cancelled) { app.destroy(); return; }
       const { rows, cols } = drawing.grid;
+      const horizontalSize = transposed ? rows : cols;
+      const verticalSize = transposed ? cols : rows;
+      const orientation: DrawContext['orientation'] = { horizontal: transposed ? 'row' : 'col', vertical: transposed ? 'col' : 'row', transposed };
       let scale = 1; let offsetX = 0; let offsetY = 0; let fitting = true;
       let frame = 0;
       const padX = () => Math.min(48, Math.floor(width / 4));
       const padY = Math.min(48, Math.floor(height / 4));
-      const fitScale = () => Math.min(Math.max(1, width - padX() * 2) / cols, Math.max(1, height - padY * 2) / rows);
+      const fitScale = () => Math.min(Math.max(1, width - padX() * 2) / horizontalSize, Math.max(1, height - padY * 2) / verticalSize);
       const bound = () => {
-        offsetX = Math.round(cols * scale < width - padX() * 2 ? (width - cols * scale) / 2 : Math.min(padX(), Math.max(width - padX() - cols * scale, offsetX)));
-        offsetY = Math.round(rows * scale < height - padY * 2 ? (height - rows * scale) / 2 : Math.min(padY, Math.max(height - padY - rows * scale, offsetY)));
+        offsetX = Math.round(horizontalSize * scale < width - padX() * 2 ? (width - horizontalSize * scale) / 2 : Math.min(padX(), Math.max(width - padX() - horizontalSize * scale, offsetX)));
+        offsetY = Math.round(verticalSize * scale < height - padY * 2 ? (height - verticalSize * scale) / 2 : Math.min(padY, Math.max(height - padY - verticalSize * scale, offsetY)));
       };
-      const toScreen = (x: number, y: number) => ({ x: Math.round(offsetX + x * scale), y: Math.round(offsetY + y * scale) });
+      const toScreen = (col: number, row: number) => ({ x: Math.round(offsetX + (transposed ? row : col) * scale), y: Math.round(offsetY + (transposed ? col : row) * scale) });
+      const toLogical = (px: number, py: number) => {
+        const horizontal = (px - offsetX) / scale; const vertical = (py - offsetY) / scale;
+        return transposed ? { col: vertical, row: horizontal } : { col: horizontal, row: vertical };
+      };
       const paint = () => {
         frame = 0;
         if (cancelled) return;
@@ -80,38 +93,72 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
           const colors = Object.fromEntries(Object.entries(scene.palette).map(([key, token]) => [key, style.getPropertyValue(token).trim()]));
           app.renderer.background.color = colors[scene.canvas.background];
           let step = 1; while (step * scale < 8) step *= 2;
-          const x = Math.max(0, -offsetX / scale); const y = Math.max(0, -offsetY / scale);
-          const right = Math.min(cols, (width - offsetX) / scale); const bottom = Math.min(rows, (height - offsetY) / scale);
+          const start = toLogical(0, 0); const finish = toLogical(width, height);
+          const x = Math.max(0, start.col); const y = Math.max(0, start.row);
+          const right = Math.min(cols, finish.col); const bottom = Math.min(rows, finish.row);
           const grid = new PIXI.Graphics(); app.stage.addChild(grid);
           const origin = toScreen(0, 0); const end = toScreen(cols, rows);
           grid.rect(origin.x, origin.y, end.x - origin.x, end.y - origin.y).fill(colors[drawing.grid.fill]);
           let lines = 0;
-          const vertical = (col: number) => { const at = toScreen(col, 0); grid.rect(at.x, Math.max(0, origin.y), 1, Math.min(height, end.y) - Math.max(0, origin.y)).fill(colors[drawing.grid.lineColor]); lines++; };
-          const horizontal = (row: number) => { const at = toScreen(0, row); grid.rect(Math.max(0, origin.x), at.y, Math.min(width, end.x) - Math.max(0, origin.x), 1).fill(colors[drawing.grid.lineColor]); lines++; };
-          for (let c = Math.ceil(x / step) * step; c <= right; c += step) vertical(c);
-          for (let r = Math.ceil(y / step) * step; r <= bottom; r += step) horizontal(r);
-          if (cols % step && end.x <= width) vertical(cols);
-          if (rows % step && end.y <= height) horizontal(rows);
-          const world = new PIXI.Container(); world.position.set(offsetX, offsetY); world.scale.set(scale); app.stage.addChild(world);
+          const vertical = (value: number) => { const at = Math.round(offsetX + value * scale); grid.rect(at, Math.max(0, origin.y), 1, Math.min(height, end.y) - Math.max(0, origin.y)).fill(colors[drawing.grid.lineColor]); lines++; };
+          const horizontal = (value: number) => { const at = Math.round(offsetY + value * scale); grid.rect(Math.max(0, origin.x), at, Math.min(width, end.x) - Math.max(0, origin.x), 1).fill(colors[drawing.grid.lineColor]); lines++; };
+          const left = transposed ? y : x; const top = transposed ? x : y;
+          const screenRight = transposed ? bottom : right; const screenBottom = transposed ? right : bottom;
+          for (let h = Math.ceil(left / step) * step; h <= screenRight; h += step) vertical(h);
+          for (let v = Math.ceil(top / step) * step; v <= screenBottom; v += step) horizontal(v);
+          if (horizontalSize % step && end.x >= 0 && end.x <= width) vertical(horizontalSize);
+          if (verticalSize % step && end.y >= 0 && end.y <= height) horizontal(verticalSize);
+          const world = new PIXI.Container();
+          // Only world geometry is transposed; overlay labels stay upright in screen coordinates.
+          world.setFromMatrix(transposed ? new PIXI.Matrix(0, scale, scale, 0, offsetX, offsetY) : new PIXI.Matrix(scale, 0, 0, scale, offsetX, offsetY));
+          app.stage.addChild(world);
           const overlay = new PIXI.Container(); app.stage.addChild(overlay);
+          let boundaryLines: Pixi.Graphics | undefined;
+          const boundary: DrawContext['boundary'] = (colA, rowA, colB, rowB, kind) => {
+            if (![colA, rowA, colB, rowB].every(Number.isFinite) || (colA !== colB && rowA !== rowB)) throw new Error('边界端点必须是有限的水平或竖直逻辑坐标');
+            if (colA === colB && rowA === rowB) return;
+            const a = toScreen(colA, rowA); const b = toScreen(colB, rowB);
+            const vertical = colA === colB ? !transposed : transposed;
+            const thickness = kind === 'array' ? 3 : 2;
+            const token = kind === 'array' ? '--text' : kind === 'segment' ? '--architecture-accent' : '--repair-accent';
+            const half = Math.floor(thickness / 2);
+            const left = Math.max(0, vertical ? a.x - half : Math.min(a.x, b.x));
+            const top = Math.max(0, vertical ? Math.min(a.y, b.y) : a.y - half);
+            const right = Math.min(width, vertical ? a.x - half + thickness : Math.max(a.x, b.x) + 1);
+            const bottom = Math.min(height, vertical ? Math.max(a.y, b.y) + 1 : a.y - half + thickness);
+            if (right <= left || bottom <= top) return;
+            if (!boundaryLines) { boundaryLines = new PIXI.Graphics(); overlay.addChild(boundaryLines); }
+            boundaryLines.rect(left, top, right - left, bottom - top).fill(style.getPropertyValue(token).trim());
+          };
           const text: DrawContext['text'] = (value, px, py, color = colors.ink || style.getPropertyValue('--text').trim()) => {
             const label = new PIXI.Text({ text: value, resolution: getPixelDensity(), style: { fontFamily: 'Fusion Pixel', fontSize: 12, fontWeight: '400', fill: color } });
             label.roundPixels = true; label.position.set(Math.round(px), Math.round(py)); overlay.addChild(label); return label;
           };
-          draw({ PIXI, world, overlay, grid: { rows, cols }, colors,
-            view: { x, y, width: right - x, height: bottom - y, scale, gridStep: step, viewportWidth: width, viewportHeight: height }, toScreen, text });
+          draw({ PIXI, world, overlay, grid: { rows, cols }, colors, orientation,
+            view: { x, y, width: right - x, height: bottom - y, scale, gridStep: step, viewportWidth: width, viewportHeight: height }, toScreen, boundary, text });
+          const labels: Pixi.Text[] = [];
+          const collectLabels = (container: Pixi.Container) => {
+            for (const child of container.children) {
+              if (!child.visible || !child.renderable) continue;
+              if (child instanceof PIXI.Text) labels.push(child);
+              else collectLabels(child);
+            }
+          };
+          collectLabels(overlay);
+          const omitted = declutterArchitectureLabels(labels, width, height);
+          setOmittedLabels(previous => previous.length === omitted.length && previous.every((value, index) => value === omitted[index]) ? previous : omitted);
           app.render(); setStatus({ step, lines, scale }); setReady(true); setError(''); canvas.style.visibility = 'visible';
-        } catch (err) { canvas.style.visibility = 'hidden'; setError(err instanceof Error ? err.message : 'draw 执行失败'); setReady(false); }
+        } catch (err) { canvas.style.visibility = 'hidden'; setOmittedLabels([]); setError(err instanceof Error ? err.message : 'draw 执行失败'); setReady(false); }
       };
       const schedule = () => { if (!frame) frame = requestAnimationFrame(paint); };
-      const fit = () => { fitting = true; scale = fitScale(); offsetX = (width - cols * scale) / 2; offsetY = (height - rows * scale) / 2; schedule(); };
+      const fit = () => { fitting = true; scale = fitScale(); offsetX = (width - horizontalSize * scale) / 2; offsetY = (height - verticalSize * scale) / 2; schedule(); };
       const zoomAt = (factor: number, px = width / 2, py = height / 2) => {
         const next = Math.min(48, Math.max(fitScale(), scale * factor));
         offsetX = px - (px - offsetX) * next / scale; offsetY = py - (py - offsetY) * next / scale;
         scale = next; fitting = false; schedule();
       };
       controls.current = { fit, zoom: factor => zoomAt(factor), cell: () => zoomAt(16 / scale), go: (row, col) => {
-        fitting = false; scale = 16; offsetX = width / 2 - (col + 0.5) * scale; offsetY = height / 2 - (row + 0.5) * scale; schedule();
+        fitting = false; scale = 16; offsetX = width / 2 - ((transposed ? row : col) + 0.5) * scale; offsetY = height / 2 - ((transposed ? col : row) + 0.5) * scale; schedule();
       } };
       const point = (event: MouseEvent) => { const rect = canvas.getBoundingClientRect(); return { x: (event.clientX - rect.left) * width / rect.width, y: (event.clientY - rect.top) * height / rect.height }; };
       const wheel = (event: WheelEvent) => { event.preventDefault(); const p = point(event); zoomAt(Math.exp(-event.deltaY * 0.002), p.x, p.y); };
@@ -120,8 +167,8 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
       const move = (event: PointerEvent) => {
         const p = point(event);
         if (drag && drag.pointerId === event.pointerId) { offsetX += p.x - drag.x; offsetY += p.y - drag.y; drag = { ...p, pointerId: event.pointerId }; fitting = false; schedule(); }
-        const r = Math.floor((p.y - offsetY) / scale); const c = Math.floor((p.x - offsetX) / scale);
-        setHover(r >= 0 && r < rows && c >= 0 && c < cols ? `行 ${r} · 列 ${c}（从 0 开始）` : '拖动平移；滚轮缩放');
+        const logical = toLogical(p.x, p.y); const r = Math.floor(logical.row); const c = Math.floor(logical.col);
+        setHover(r >= 0 && r < rows && c >= 0 && c < cols ? `row ${r} · col ${c}（从 0 开始）` : '拖动平移；滚轮缩放');
       };
       const up = () => { drag = undefined; };
       canvas.addEventListener('wheel', wheel, { passive: false }); canvas.addEventListener('pointerdown', down); canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up); canvas.addEventListener('lostpointercapture', up);
@@ -140,28 +187,31 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
       fit();
     })().catch(err => { if (!cancelled) { setError(err instanceof Error ? err.message : '绘图加载失败'); setReady(false); } });
     return () => { cancelled = true; cleanup?.(); canvas.remove(); };
-  }, [preview, visible, scene, drawing]);
+  }, [preview, visible, scene, drawing, transposed, axes]);
   return <div className="architecture-preview">
-    <div className="panel-actions"><strong>{drawing.grid.rows} 行 × {drawing.grid.cols} 列</strong><span>{(drawing.grid.rows * drawing.grid.cols).toLocaleString()} 个单元</span></div>
+    <div className="panel-actions"><strong>{drawing.grid.rows} row × {drawing.grid.cols} col</strong><span>{(drawing.grid.rows * drawing.grid.cols).toLocaleString()} 个单元</span><span>{axes}</span></div>
     <div className="panel-actions draw-controls">
       <button className="action-button" disabled={!ready} onClick={() => controls.current?.fit()}>全图</button>
       <button className="action-button" disabled={!ready} aria-label="缩小架构" onClick={() => controls.current?.zoom(0.5)}>缩小</button>
       <button className="action-button" disabled={!ready} aria-label="放大架构" onClick={() => controls.current?.zoom(2)}>放大</button>
       <button className="action-button" disabled={!ready} onClick={() => controls.current?.cell()}>单元格</button>
       <form onSubmit={event => { event.preventDefault(); controls.current?.go(Number(row), Number(col)); }}>
-        <label>行<input aria-label="定位行" type="number" required min={0} max={drawing.grid.rows - 1} step={1} value={row} onChange={event => setRow(event.target.value)} /></label>
-        <label>列<input aria-label="定位列" type="number" required min={0} max={drawing.grid.cols - 1} step={1} value={col} onChange={event => setCol(event.target.value)} /></label>
+        <label>row<input aria-label="定位 row" type="number" required min={0} max={drawing.grid.rows - 1} step={1} value={row} onChange={event => setRow(event.target.value)} /></label>
+        <label>col<input aria-label="定位 col" type="number" required min={0} max={drawing.grid.cols - 1} step={1} value={col} onChange={event => setCol(event.target.value)} /></label>
         <button className="action-button" disabled={!ready} type="submit">定位</button>
       </form>
     </div>
     <div ref={hostRef} className="architecture-canvas pixi-draw-canvas" data-render-state={error ? 'error' : ready ? 'ready' : 'loading'} style={{ height: `${scene.canvas.height + 2}rem`, maxWidth: `${scene.canvas.width}rem` }} />
     {error && <p role="alert" className="error-text">{error}</p>}
     {!ready && !error && visible && <p role="status">正在绘制…</p>}
-    <p className="task-note">{status.step === 1 ? '逐单元网格' : `当前每格 ${status.step} × ${status.step} 个单元`} · 当前绘制 {status.lines} 条网格线 · {hover}</p>
+    <p className="task-note">{status.step === 1 ? '逐单元' : `每格 ${status.step} × ${status.step}`} · {hover}</p>
+    {omittedLabels.length > 0 && <details className="draw-label-details">
+      <summary>收起标注（{omittedLabels.length}）</summary>
+      <ul>{omittedLabels.map(value => <li key={value}>{value}</li>)}</ul>
+    </details>}
     <p className="task-note">{scene.description}</p>
     {scene.assumptions.length > 0 && <ul>{scene.assumptions.map((item, i) => <li key={i}>{item}</li>)}</ul>}
     <details className="drawing-record"><summary>绘图记录 · draw 函数 · {drawing.grid.rows} × {drawing.grid.cols}</summary>
-      <p>真实坐标：列为 x、行为 y，每单位 1 个单元。视口上限 {scene.canvas.width} × {scene.canvas.height} 格，1 格对应当前像素网格；网格线 1 格。Fusion Pixel 12 格。</p>
       <p>架构指纹：<code>{scene.fingerprint}</code></p>
       <p>draw SHA256：<code>{preview.draw?.sha256}</code></p>
       <div className="drawing-table"><table><thead><tr><th>区域 / 分割线</th><th>尺寸与位置（Agent 记录）</th><th>颜色角色</th></tr></thead><tbody>{drawing.records.map((record, i) => <tr key={i}><td>{record.label}</td><td>{record.geometry}</td><td>{record.color}</td></tr>)}</tbody></table></div>

@@ -1,0 +1,15 @@
+import type { FileRecord } from './dist/index.js';
+import type { GenerationMetadata } from './wafer-spatial.js';
+export type WaferLayout = { chipCount: number; regionCount: number; rows: number; cols: number };
+export type ProductRecord = WaferLayout & { id: string; name: string; createdAt: number };
+export type WaferRecord = { id: string; productId: string; name: string; fileId: string; failCount: number; occupiedRegionCount: number; synthetic: boolean; createdAt: number; file: FileRecord; generation?: GenerationMetadata | null };
+export type WaferGroup = { regionIndex: number; positions: Uint32Array };
+export type DecodedWafer = { layout: WaferLayout; failCount: number; groups: WaferGroup[]; synthetic: boolean };
+export const MAX_WAFER_BYTES: number;
+export const MAX_FAILS: number;
+export const MAX_REGIONS: number;
+export const MAX_OCCUPIED_REGIONS: number;
+export const WAFER_HEADER_BYTES: number;
+export function validateWaferLayout(value: unknown): WaferLayout;
+export function decodeWafer(bytes: Uint8Array): DecodedWafer;
+export function encodeWafer(input: { layout: WaferLayout; groups: { regionIndex: number; positions: readonly number[] | Uint32Array }[]; synthetic?: boolean }): Uint8Array;

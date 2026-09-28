@@ -18,6 +18,8 @@ import { ensureDirectory, ensureUserWorkspace } from "./workspace/index.js";
 import { queryUsage } from "./usage/index.js";
 import { registerUserRoutes } from "./users/index.js";
 import { createTask, registerTaskRoutes, taskRow } from "./tasks/index.js";
+import { registerDataRoutes } from "./data/index.js";
+import { registerRepairRoutes } from "./repairs/index.js";
 import type { Runs } from "./runs/index.js";
 
 export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
@@ -29,9 +31,8 @@ export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
     reply.header("Referrer-Policy", "same-origin");
     if (request.url.startsWith("/api/")) reply.header("Cache-Control", "no-store");
     if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
-    const origin = request.headers.origin;
-    // Browser writes require the deployment's exact public origin. Non-browser clients can supply Origin explicitly.
-    if (origin !== config.origin || request.headers["sec-fetch-site"] === "cross-site") throw new HttpError(403, "INVALID_ORIGIN", "请求来源不匹配，请检查 PIXEL_ORIGIN");
+    // Allow different deployment addresses while rejecting explicit cross-site writes.
+    if (request.headers["sec-fetch-site"] === "cross-site") throw new HttpError(403, "INVALID_ORIGIN", "不允许跨站写入请求");
     const type = request.headers["content-type"] ?? "";
     if ((Number(request.headers["content-length"] ?? 0) > 0 || request.headers["transfer-encoding"]) && !type.startsWith("application/json") && !type.startsWith("multipart/form-data;")) throw new HttpError(415, "INVALID_CONTENT_TYPE", "写入请求必须使用 JSON 或文件上传格式");
   });
@@ -70,8 +71,10 @@ export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
     if (!updated.changes) throw new HttpError(409, "ACCOUNT_CHANGED", "账号状态已改变，请重新登录");
     db.prepare("DELETE FROM login_sessions WHERE user_id=?").run(user.id); logout(db, request, reply); return { ok: true };
   });
-  registerUserRoutes(app, db, runs);
+  const repairs = registerRepairRoutes(app, db, runs, models);
+  registerUserRoutes(app, db, runs, userId => repairs.stopUser(userId));
   registerTaskRoutes(app, db);
+  registerDataRoutes(app, db);
   app.get("/api/models", async request => { currentUser(db, request); return { items: models.models.map(({ id, label, provider, model }) => ({ id, label, provider, model })) }; });
   app.get("/api/conversations", async request => {
     const user = currentUser(db, request); const q = String((request.query as Record<string, unknown>).q ?? "").slice(0, 200);

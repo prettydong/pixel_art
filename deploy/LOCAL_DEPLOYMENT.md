@@ -30,6 +30,16 @@ PM2_HOME=/home/zdong/raDev/pixel_art.runtime/pm2 pm2 stop pixel-art
 
 PM2 restarts the application on failure. Automatic startup after a machine reboot is not configured.
 
+Source edits alone do not update this production page: the server serves
+`fronted/dist`. For an authorized frontend release, back up that directory,
+generate the production assets in a staging directory, then copy them into place
+while retaining old hashed assets for already-open tabs. The static plugin uses
+`wildcard: false`, so new asset paths are registered only at server startup;
+restart the actual running service after confirming there are no active runs.
+Read the served HTML and its JS/CSS to confirm the new entry and lazy chunks are
+available. This release check is not browser visual validation; do not run tests
+or browser acceptance unless requested, per `AGENTS.md`.
+
 The initial administrator username is `admin`; change the generated password after signing in.
 
 OpenCode Go is configured in `backend/models.json` with 27 models from the local

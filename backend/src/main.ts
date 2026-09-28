@@ -15,7 +15,7 @@ try {
   const runs = new Runs(db, models);
   runs.recover();
   const app = await createServer(db, runs, models);
-  const shutdown = async () => { if (cleanup) return; cleanup = true; await runs.shutdown(); await app.close(); db.close(); await release(); };
+  const shutdown = async () => { if (cleanup) return; cleanup = true; await Promise.all([app.close(), runs.shutdown()]); db.close(); await release(); };
   process.once("SIGTERM", () => { void shutdown().then(() => process.exit(0)); });
   process.once("SIGINT", () => { void shutdown().then(() => process.exit(0)); });
   await app.listen({ host: config.host, port: config.port });

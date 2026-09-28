@@ -113,14 +113,13 @@ export function ArchitectureDrawingProgress({ drawing, starting = false, connect
     </div>}
     <div className="architecture-drawing-output" ref={outputRef} onScroll={observeScroll} tabIndex={0} role="log" aria-live="off" aria-label="Agent 绘制输出">
       {visibleText && <div className="architecture-drawing-text">{visibleText}</div>}
-      {!visibleText && hasGenerationOnly && active && <p className="architecture-drawing-waiting">模型正在生成，等待可展示的文字或工具结果…</p>}
-      {noVisibleOutput && (!hasGenerationOnly || !active) && <p className="architecture-drawing-waiting">{active || starting ? '等待首段输出…' : '本次执行没有可展示的文字输出。'}</p>}
+      {!visibleText && hasGenerationOnly && active && <p className="architecture-drawing-waiting">正在生成…</p>}
+      {noVisibleOutput && (!hasGenerationOnly || !active) && <p className="architecture-drawing-waiting">{active || starting ? '等待首段输出…' : '无文字输出'}</p>}
       {tools.map(({ tool }, index) => <details className="architecture-drawing-tool" key={tool.id} open={tool.status === 'failed' || (active && index === tools.length - 1)}>
         <summary><span>{tool.name}</span><span className={tool.status === 'failed' ? 'error-text' : ''}>{toolStatus(tool, active)}</span></summary>
-        {tool.text !== undefined ? <pre>{tail(tool.text, 1000) || '工具未返回文本输出。'}</pre> : <p>没有可用的工具输出。</p>}
+        {tool.text !== undefined ? <pre>{tail(tool.text, 1000) || '无文本输出'}</pre> : <p>无工具输出</p>}
       </details>)}
     </div>
-    <p className="architecture-drawing-waiting">仅展示最近文字及 6 次工具调用；完整过程见绘制聊天。</p>
     {!following && <button type="button" className="action-button architecture-drawing-follow" onClick={follow}>继续跟随输出</button>}
     {drawing && <button type="button" className="action-button" onClick={() => onOpenChat(drawing.conversation.id)}>查看绘制聊天</button>}
   </section>;

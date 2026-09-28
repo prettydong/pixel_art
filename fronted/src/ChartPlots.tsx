@@ -103,8 +103,8 @@ export function HeatmapPlot({ chart }: { chart: HeatmapChart }) {
   const width = left + cell * chart.xLabels.length + 8, height = top + cell * chart.yLabels.length + 8;
   const row = Math.min(selected.row, chart.yLabels.length - 1), column = Math.min(selected.column, chart.xLabels.length - 1);
   return <>
-    <p className="pixel-chart-caption">列：{chart.xLabel || '分类'} · 行：{chart.yLabel || '分类'}</p>
-    <div className="pixel-chart-viewport" tabIndex={0} role="group" aria-label="热力图，方向键选择单元格，Home 和 End 跳到当前行首尾" aria-describedby={`${id}-selection`} onKeyDown={event => {
+    <p className="pixel-chart-caption">col：{chart.xLabel || '分类'} · row：{chart.yLabel || '分类'}</p>
+    <div className="pixel-chart-viewport" tabIndex={0} role="group" aria-label="热力图，方向键选择单元格，Home 和 End 跳到当前 row 首尾" aria-describedby={`${id}-selection`} onKeyDown={event => {
       if (!['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
       const next = {
@@ -125,7 +125,7 @@ export function HeatmapPlot({ chart }: { chart: HeatmapChart }) {
       </div>
     </div>
     <div className="pixel-chart-legend"><span>低 {axisNumber(min)}</span>{[0, 1, 2, 3, 4].map(index => <i key={index} className="pixel-chart-heat-key" style={{ background: `var(--heat-${index})` }} aria-hidden="true" />)}<span>高 {axisNumber(max)}{chart.unit ? ` ${chart.unit}` : ''} · 点纹为缺失{min === max ? ' · 数值全部相同' : ''}</span></div>
-    <p className="pixel-chart-caption">列号对应数据表顺序 · 五档等宽色阶 · 方向键或指针查看单元格</p>
+    <p className="pixel-chart-caption">col 编号对应数据表顺序 · 五档等宽色阶 · 方向键或指针查看单元格</p>
     <p id={`${id}-selection`} className="pixel-chart-selection">{chart.yLabels[row]} / {chart.xLabels[column]}：{unitValue(chart.values[row][column], chart.unit)}</p>
   </>;
 }

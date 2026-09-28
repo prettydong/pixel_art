@@ -34,7 +34,7 @@ npm start
 
 ```bash
 npm run build -w @pixel/contracts
-PIXEL_ORIGIN=http://localhost:5173 npm run dev:backend
+npm run dev:backend
 ```
 
 另一个终端运行：
@@ -43,14 +43,14 @@ PIXEL_ORIGIN=http://localhost:5173 npm run dev:backend
 npm run dev:fronted
 ```
 
-前端默认 http://localhost:5173，通过 Vite 代理访问后端。`PIXEL_ORIGIN` 必须与浏览器地址的协议、主机名和端口完全一致，写入接口会检查来源。修改共享契约后重新构建 contracts。
+前端默认 http://localhost:5173，通过 Vite 代理访问后端。访问地址无需与 `PIXEL_ORIGIN` 完全一致；写入接口仍拒绝浏览器标记的跨站请求。修改共享契约后重新构建 contracts。
 
 ## 功能与边界
 
 前端消息支持 GFM Markdown；单选、多选、确认/取消和表单的本地演示入口为 `?demo=tools`，也可从登录页或模型菜单打开。该入口不调用后端，历史独立保存在浏览器。组件接口、演示流程与手动验收见 [前端工具说明](FRONTEND_TOOLS.md)。
 
 - 管理员创建、重置、启停账号；用户登录、改密和退出。登录会话、聊天会话、执行任务分别管理。
-- 左侧按任务名组织，每个任务依次包含架构、数据、执行结论和多个聊天。可新建、重命名任务；点击聊天标题可重命名或移动到其他任务。无产物时执行结论置灰。
+- 左侧按任务名组织，每个任务依次包含架构、数据、执行结论和多个聊天。可新建任务；任务标题旁的省略号菜单提供重命名和删除，经确认后删除任务及所属聊天，有活动执行时需先停止。任务使用软删除，保留底层记录；共享产品、wafer 和上传文件不会随任务删除。点击聊天标题可重命名或移动到其他任务。无产物时执行结论置灰。
 - 会话和消息保存到服务器，支持搜索、重命名、删除、Markdown 导出；浏览器旧演示历史保持原样，不自动上传。
 - 管理员统一配置模型；同一用户的多个会话可以并行。同一会话仅一个活动任务，重复提交通过幂等键去重。
 - SSE 推送文本与工具状态，断线后可重连；刷新页面不停止后台任务。停止任务会先请求 pi 取消，再清理进程及脚本。
@@ -64,6 +64,14 @@ Pi 固定版本为 `@earendil-works/pi-coding-agent@0.85.1`，RPC 适配封装�
 
 ## 任务资料
 
+架构配置采用 CCR：region 是独立修复单元（即 bank），bigSection 统一称 segment，保留 smart-eval 的 section/subsection 地址映射。每个 region 的全部 segment 共享全局备用 row（默认128条），CCR 备用 col 按 segment 和子组独立，col 不能跨 segment 或子组借用。常用区配置 region 尺寸、全局备用 row、CCR 子组数和每组容量；segment 划分位于高级选项。定义见 [MEMORY_REDUNDANCY_DEFINITIONS.md](MEMORY_REDUNDANCY_DEFINITIONS.md)。
+
+数据页按“产品 → wafer → chip → region”管理晶圆数据。产品统一定义每片 chip 数、每 chip 的 region 数和 region 的 row × col；一份 `.pwafer` 二进制文件对应一片 wafer，使用稀疏 region 与 fail 地址差分编码，包含零 fail 结构和 CRC32 校验。可以把产品库里的 wafer 关联到不同任务；数据页统一采用新格式。
+
+格式说明与生成命令见 [WAFER_FORMAT.md](WAFER_FORMAT.md)，生成器为 `scripts/generate-wafer-fails.mjs`。`datasets/wafer-demo/` 提供三片可重复的合成样例（64 chips、每 chip 8 regions、每 region 1024 × 1024，含一片零 fail）；不代表真实制造数据。
+
+页面支持导入和生成 wafer，保存后自动预览圆盘内的 chip 网格热力图；点击 chip 联动 region 坐标。颜色汇总实际 fail 数，提供零值颜色、数值图例和线性/对数尺度。生成模式包括中心、边缘环、局部、划痕等，参数与种子保存到 wafer 记录。自动 chip 位置是示意布局；研究依据、统计假设和限制见 [WAFER_SPATIAL_MODEL.md](WAFER_SPATIAL_MODEL.md)。
+
 架构页可保存多个命名架构定义，点击“让 Agent 绘制预览”会由 Agent 编写实际执行的 `draw(ctx)` 模块及场景 JSON，经 Harness 归档后由前端 Pixi 执行。默认网格支持 1024×8192 等真实阵列尺寸，按视野裁剪和缩放合并格线；支持全图、缩放、拖动、单元格与行列定位。画布、区域坐标、分割线宽度/颜色、字体、主题颜色快照与架构指纹均保存；支持重新生成和查看历史版本，架构修改后旧图不再作为当前预览。约定见 [架构预览 Harness](backend/architecture-preview/README.md)。
 
 架构页同时列出评估框架 `sources/00_experiment.json` 中的已执行架构快照；历史快照只读。数据页关联本任务输入，结论页汇总各聊天的报告和可下载产物。文件物理位置和每个聊天的 Pi 会话保持独立，新的 run 会收到任务资料快照，避免并发聊天互相覆盖工作文件。
@@ -72,7 +80,7 @@ Pi 固定版本为 `@earendil-works/pi-coding-agent@0.85.1`，RPC 适配封装�
 
 ## 修补与良率评估
 
-内置 [HiGHS 评估框架与 device](backend/repair-evaluation/README.md)。Agent 先明确使用的数据、完整样本名册、冗余数量和修补规则，再修改当前会话的 `device.py`，通过 `plan` / `run` 执行实验。初始 device 支持备用整行和按 `col % N` 分组的备用整列；组数及每组容量可配置，非默认结构由 agent 根据任务修改。框架保留逐样本方案、良率、未判定上下界和代码/输入指纹。每个会话持有独立副本，已有修改不覆盖；Python 与 highspy 依赖按框架说明准备。
+内置 [HiGHS 评估框架与 device](backend/repair-evaluation/README.md)。Agent 先明确使用的数据、完整样本名册、冗余数量和修补规则，再修改当前会话的 `device.py`，通过 `plan` / `run` 执行实验。CCR device 支持 region 全局共享备用 row 与 segment 内按 `col % N` 分组的局部备用 col；segment 使用已确认的 section/subsection 映射。框架保留逐样本方案、良率、未判定上下界和代码/输入指纹。每个会话持有独立副本，通过 `PIXEL_CCR_DEVICE` 选择新增的 CCR 模板；已有自定义文件不覆盖。Python 与 highspy 依赖按框架说明准备。
 
 ## 部署与备份
 
@@ -90,6 +98,8 @@ Pi 固定版本为 `@earendil-works/pi-coding-agent@0.85.1`，RPC 适配封装�
 本次实现按项目约定未运行测试、构建或浏览器自动验收。请按 [手动验收清单](MANUAL_CHECKS.md) 验证真实模型、并发、取消、重连和恢复行为。
 
 ## 像素网格与外观
+
+桌面左侧导航栏默认占当前窗口宽度的 1/5。拖动右边缘可调整宽度，浏览器记住调整值；双击边缘恢复默认比例。拖动按整数像素网格对齐，侧栏至少 120 格、最多半个窗口，同时为主区留出至少 240 格。边缘也支持左右方向键调整、Enter 恢复默认；窄屏继续使用折叠抽屉。
 
 `fronted/src/pixelGrid.ts` 在首次渲染及窗口、可见视口、DPR 变化时计算网格：1440p 等常规窗口使用 2×2 个设备像素；仅当可见视口达到物理宽 2880、高 1800 像素时使用 3×3。CSS 基础单位为该整数倍数除以 `devicePixelRatio`，Canvas 使用相同倍数。正文统一 Fusion Pixel 12px、字号 12 格；图标为 16×16 整数方格 SVG。默认跟随系统，也可切换亮色、暗色，选择保存在当前浏览器。
 

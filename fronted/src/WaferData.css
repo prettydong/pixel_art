@@ -1,0 +1,56 @@
+.wafer-data { display: grid; gap: 8rem; min-width: 0; }
+.wafer-heading, .wafer-selector, .wafer-actions, .wafer-summary, .wafer-indexes, .wafer-product-form { display: flex; gap: 8rem; align-items: center; flex-wrap: wrap; }
+.wafer-heading h2 { color: var(--data-accent); }
+.wafer-heading span, .wafer-layout, .wafer-actions > span, .wafer-number small { color: var(--muted); }
+.wafer-product-details, .wafer-selector, .wafer-browser, .wafer-help { border: 1rem solid var(--line); background: var(--panel); padding: 8rem; }
+.wafer-product-details { color: var(--muted); }
+.wafer-product-details summary { cursor: pointer; }
+.wafer-product-details[open] > summary { margin-bottom: 8rem; }
+.wafer-product-form label, .wafer-selector label, .wafer-number { display: grid; gap: 4rem; color: var(--muted); }
+.wafer-product-form input, .wafer-selector select, .wafer-number input { min-width: 76rem; border: 1rem solid var(--line); padding: 4rem; background: var(--input-surface); color: var(--input-text); }
+.wafer-product-form label:first-child input { min-width: 128rem; }
+.wafer-product-form input { width: 80rem; }
+.wafer-product-form label:first-child input { width: 160rem; }
+.wafer-selector { align-items: end; }
+.wafer-selector select { max-width: min(320rem, 100vw - 24rem); }
+.wafer-actions { min-height: 28rem; }
+.wafer-browser { display: grid; gap: 8rem; }
+.wafer-summary { color: var(--data-accent); }
+.wafer-indexes { align-items: end; }
+.wafer-number > span { display: flex; gap: 4rem; align-items: center; }
+.wafer-number input { width: 64rem; min-width: 64rem; }
+.wafer-positions { border: 1rem solid var(--line); background: var(--data-surface); padding: 8rem; min-height: 32rem; }
+.wafer-positions ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(112rem, 1fr)); gap: 4rem 8rem; padding: 0 0 0 20rem; margin: 4rem 0 0; }
+.wafer-notice { color: var(--busy); }
+.wafer-help { color: var(--muted); }
+.wafer-help p { margin-top: 4rem; }
+.wafer-help code { color: var(--text); overflow-wrap: anywhere; white-space: pre-wrap; }
+.wafer-overview { margin: 0; display: grid; gap: 4rem; min-width: 0; }
+.wafer-map-scroll { overflow: auto; max-width: 100%; }
+.wafer-overview svg { display: block; box-sizing: content-box; border: 1rem solid var(--line); image-rendering: pixelated; background: var(--data-surface); }
+.wafer-bin-occupied { fill: var(--data-accent); }
+.wafer-overview figcaption { color: var(--muted); }
+.wafer-generator { border-bottom: 1rem solid var(--line); padding-bottom: 8rem; }
+.wafer-generator summary { cursor: pointer; color: var(--data-accent); }
+.wafer-generator form { display: grid; gap: 8rem; margin-top: 8rem; }
+.wafer-generation-fields { display: flex; align-items: end; gap: 8rem; flex-wrap: wrap; }
+.wafer-generation-fields label { display: grid; gap: 4rem; color: var(--muted); }
+.wafer-generation-fields input, .wafer-generation-fields select, .wafer-heatmap select { width: 120rem; min-width: 0; border: 1rem solid var(--line); padding: 4rem; background: var(--input-surface); color: var(--input-text); }
+.wafer-generation-fields label:first-child input { width: 160rem; }
+.wafer-heatmap { display: grid; gap: 8rem; min-width: 0; padding-bottom: 8rem; border-bottom: 1rem solid var(--line); }
+.wafer-heatmap-heading { display: flex; align-items: center; gap: 8rem; flex-wrap: wrap; }
+.wafer-heatmap-heading h3 { margin-right: auto; }
+.wafer-heatmap-heading label { display: flex; align-items: center; gap: 4rem; }
+.wafer-heatmap select { width: 64rem; }
+.wafer-map-layout { display: flex; align-items: start; gap: 12rem; flex-wrap: wrap; min-width: 0; }
+.wafer-disk-scroll { flex: 1 1 220rem; min-width: 0; overflow: auto; }
+.wafer-disk-scroll svg { display: block; background: var(--bg); image-rendering: pixelated; }
+.wafer-disk-scroll rect[role="button"] { cursor: pointer; }
+.wafer-disk-scroll rect[role="button"]:focus { outline: none; }
+.wafer-map-key { flex: 1 1 140rem; display: grid; gap: 8rem; }
+.wafer-legend { display: flex; gap: 8rem; flex-wrap: wrap; }
+.wafer-legend span { display: flex; align-items: center; gap: 4rem; }
+.wafer-legend i { width: 12rem; height: 12rem; border: 1rem solid var(--line); display: inline-block; }
+.wafer-generation-record { color: var(--muted); }
+.wafer-generation-record p { margin-top: 4rem; }
+@media (max-width: 640px) { .wafer-product-form label, .wafer-product-form label:first-child input, .wafer-product-form input, .wafer-selector label, .wafer-selector select { width: 100%; max-width: none; } }

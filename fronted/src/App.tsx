@@ -21,6 +21,7 @@ import { useTheme } from "./theme";
 import { EvaluationDiagram } from "./EvaluationDiagram";
 import { PixelTransition } from "./PixelTransition";
 import { getPixelUnit } from "./pixelGrid";
+import { SidebarResizeHandle } from './SidebarResizeHandle';
 import type { ShatterRequest } from "./pixelShatter";
 import {
   ArrowRight,
@@ -60,10 +61,10 @@ const evaluationPanels = [
     mode: "产品架构设置" as const,
     kind: "architecture" as const,
     icon: Chip,
-    input: "阵列规模、冗余行列",
-    outcome: "明确资源共享与容量约束",
+    input: "Region 尺寸、Segment 划分、CCR 资源",
+    outcome: "配置 Region 全局备用 row 与 Segment CCR col",
     action: "设置产品架构",
-    prompt: "请协助我梳理内存冗余架构。\n产品与阵列组织：\n冗余行、列资源：\n资源共享范围与约束：",
+    prompt: "请协助我配置 CCR 内存冗余架构。\n产品与 Region row / col 尺寸：\nRegion 共享的全局备用 row 数（默认 128）：\nSegment 的 section/subsection row 地址映射：\n每个 Segment 的 CCR 子组数与每组备用 col 容量：\n全局备用 row 由 Region 内所有 Segment 共享，不跨 Region 借用；col 按零基地址取模分组，CCR 备用 col 不跨 Segment、Region 或子组借用。",
   },
   {
     mode: "修补规则设计" as const,
@@ -72,7 +73,7 @@ const evaluationPanels = [
     input: "失效分布、架构约束",
     outcome: "定义分配顺序与失败判据",
     action: "设计修补规则",
-    prompt: "请协助我设计内存修补规则。\n适用的产品架构：\n修补优先级与分配策略：\n资源冲突与不可修补条件：",
+    prompt: "请协助我设计 CCR 内存修补规则。\n适用的产品架构：\nRegion 全局备用 row 容量（默认 128）与 Segment 内 CCR 备用 col 容量：\n修补优先级与分配策略：\n资源冲突与不可修补条件：\nrow 修复使用 Region 共享的全局备用 row，替换一条原始 row 并覆盖其所有 col；col 修复仅覆盖本 Segment 内对应的原始 col 地址。row 资源不跨 Region 共享，CCR col 资源不跨 Segment、Region 或子组共享。",
   },
 ];
 const emptyConversation: Conversation = { id: "", title: "新的评估对话", mode: "数据分析", messages: [], updated: 0, activeRun: null, lastRun: null };
@@ -184,6 +185,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   const sidebarVisible = compact ? mobileOpen : !sidebarCollapsed;
   const activeIdRef = useRef(active.id);
   activeIdRef.current = active.id;
+  const activeTaskIdRef = useRef(activeTaskId);
+  activeTaskIdRef.current = activeTaskId;
   const history = [...conversations]
     .sort((a, b) => b.updated - a.updated);
   useLayoutEffect(() => {
@@ -303,7 +306,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     if (!model || uploading || loading) return;
     const chat = await api<Conversation>('/conversations', { method: 'POST', body: JSON.stringify({ taskId: activeTaskId, title: `架构预览 · ${architecture.name}`.slice(0, 120), mode: '产品架构设置' }) });
     upsert(chat);
-    const text = `请为当前任务中的架构 ${architecture.name}（ID：${architecture.id}，指纹：${architecture.fingerprint}）独立设计并生成 Pixi 架构预览。开始时先用一句中文说明正在做什么；读取架构、编写绘图、校验和发布等关键步骤也请简短说明当前进展，不编造百分比。读取本轮任务上下文和架构预览 Harness README。由你编写实际执行的 draw.mjs（export function draw(ctx)）和绘图元数据生成脚本。使用 draw 模式，nodes 为空；真实行列数完整保存在 draw.grid，由前端自动画可缩放网格，不要逐单元创建对象。保存画布尺寸、区域位置、分割线颜色与宽度、字号、图例和必要的示意说明。调用 Harness 的 --draw 发布函数及场景 JSON，由前端 Pixi 执行；不要生成 SVG、PNG，不要修改前端或数据库。不执行修补求解。若校验失败，调整脚本和布局后再发布。返回实际尺寸及产物路径。`;
+    const text = `请为当前任务中的架构 ${architecture.name}（ID：${architecture.id}，指纹：${architecture.fingerprint}）独立设计并生成 Pixi 架构预览。开始时先用一句中文说明正在做什么；读取架构、编写绘图、校验和发布等关键步骤也请简短说明当前进展，不编造百分比。读取本轮任务上下文和架构预览 Harness README。由你编写实际执行的 draw.mjs（export function draw(ctx)）和绘图元数据生成脚本。使用 draw 模式，nodes 为空；真实 row / col 数完整保存在 draw.grid；较大维度横向显示（相等时横向 col），由前端自动转置可缩放网格。world 仍用 x=col,y=row；使用 orientation 标注实际轴、toScreen(col,row) 转换分割线端点，文字放 overlay，不重复转置，不要逐单元创建对象。保存画布尺寸、区域位置、分割线颜色与宽度、字号、图例和必要的示意说明。调用 Harness 的 --draw 发布函数及场景 JSON，由前端 Pixi 执行；不要生成 SVG、PNG，不要修改前端或数据库。不执行修补求解。若校验失败，调整脚本和布局后再发布。返回实际尺寸及产物路径。`;
     try {
       const run = await api<Run>(`/conversations/${chat.id}/runs`, { method: 'POST', body: JSON.stringify({ text, mode: chat.mode, modelId: model, fileIds: [], idempotencyKey: requestId() }) });
       await refresh(chat.id); attach(run); if (run.status === 'failed') throw new Error(run.error || 'Agent 启动失败'); setToast('Agent 正在绘制，可在任务下的架构预览聊天中查看进度');
@@ -312,6 +315,29 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   async function renameEvaluationTask(id: string, name: string) {
     await api(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
     await taskState.refresh();
+  }
+  async function deleteEvaluationTask(id: string) {
+    const result = await api<{ ok: boolean; conversationIds: string[] }>(`/tasks/${id}`, { method: 'DELETE' });
+    const deletedChats = new Set([...result.conversationIds, ...conversations.filter(chat => chat.taskId === id).map(chat => chat.id)]);
+    taskState.forget(id);
+    for (const chatId of deletedChats) {
+      drafts.current.delete(chatId); pendingRequests.current.delete(chatId); forget(chatId);
+    }
+    setPending(previous => new Set([...previous].filter(chatId => !deletedChats.has(chatId))));
+    setSearchResults(previous => previous.filter(chat => chat.taskId !== id && !deletedChats.has(chat.id)));
+    setMoveTaskId(previous => previous === id ? '' : previous);
+    if (activeTaskIdRef.current === id) {
+      const nextTask = taskState.tasks.find(task => task.id !== id);
+      const nextChat = conversations.find(chat => chat.taskId === nextTask?.id && !deletedChats.has(chat.id));
+      setSelectedTaskId(nextTask?.id ?? ''); setTaskView('architecture'); setActiveId(nextChat?.id ?? '');
+      const saved = nextChat ? drafts.current.get(nextChat.id) : undefined;
+      setDraft(saved?.text ?? ''); setFiles(saved?.files ?? []); setEnteredId(null); setRenaming(false); setMobileOpen(false);
+    } else if (deletedChats.has(activeIdRef.current)) {
+      setActiveId(''); setDraft(''); setFiles([]); setEnteredId(null); setRenaming(false);
+    }
+    try { localStorage.removeItem(`pixel:collapsed-architectures:${id}`); } catch { /* Optional local view state. */ }
+    await taskState.refresh();
+    setToast('评估任务及其聊天已删除');
   }
   function openTask(id: string, view: TaskView) {
     if (uploading) { setToast('请等待附件上传完成'); return; }
@@ -465,6 +491,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
         />
       )}
       <aside id="chat-sidebar" className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}>
+        {!compact && !sidebarCollapsed && <SidebarResizeHandle disabled={!!transition} />}
         <div className="sidebar-content" inert={!!transition}>
         <div className="sidebar-header">
           <a
@@ -493,7 +520,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
           <button className="search-trigger" onClick={() => setDialog('search')}><Search /><span>搜索任务和聊天</span></button>
           <TaskNavigation tasks={taskState.tasks} conversations={conversations} runs={runs} activeTaskId={activeTaskId} activeChatId={active.id} view={taskView}
             disabled={loading || uploading || pending.size > 0 || !!transition}
-            onView={openTask} onChat={selectChat} onCreateChat={createChat} onCreateTask={createEvaluationTask} onRenameTask={renameEvaluationTask} onDeleteChat={deleteChat} />
+            onView={openTask} onChat={selectChat} onCreateChat={createChat} onCreateTask={createEvaluationTask} onRenameTask={renameEvaluationTask} onDeleteTask={deleteEvaluationTask} onDeleteChat={deleteChat} />
           {taskState.error && <div className="workspace-error" role="alert">{taskState.error}<button onClick={() => void taskState.refresh()}>重试</button></div>}
         </> : <>
         <button className="new-chat" onClick={() => createChat()}>
@@ -602,7 +629,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             {error && <div className="workspace-error" role="alert">{error}<button onClick={() => window.location.reload()}>重新连接</button><button onClick={() => setError('')}>关闭</button></div>}
             {loading && <p role="status">正在读取会话…</p>}
 
-            {!demoMode && taskView !== 'chat' ? (activeTaskId ? <TaskPanel key={activeTaskId} taskId={activeTaskId} view={taskView} revision={taskState.revision} conversations={conversations} connections={connections} onRefresh={taskState.refresh} onChat={selectChat} onCreateChat={createChat} onGeneratePreview={generateArchitecturePreview} previewAvailable={!!model && !loading && !uploading} /> : <p>请先新建任务。</p>) : <>
+            {!demoMode && taskView !== 'chat' ? (activeTaskId ? <TaskPanel key={activeTaskId} taskId={activeTaskId} view={taskView} revision={taskState.revision} conversations={conversations} connections={connections} models={models} modelId={model} onRefresh={taskState.refresh} onChat={selectChat} onRepairChat={async id => { try { await refresh(id); selectChat(id); } catch (err) { setToast(errorText(err)); } }} onCreateChat={createChat} onGeneratePreview={generateArchitecturePreview} previewAvailable={!!model && !loading && !uploading} /> : <p>请先新建任务。</p>) : <>
             {showCards ? (
               <div ref={cardViewportRef} className="card-stage">
                 <section className="welcome" aria-label="内存冗余架构评估工作台">
@@ -693,7 +720,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                           {m.files.map((f) => (
                             demoMode ? <span key={f.id}><Paperclip />{f.name}</span> : <a key={f.id} href={fileUrl(f)} download><Paperclip />{f.name}</a>
                           ))}
-                          {demoMode && <small>仅记录文件名，未上传或解析内容</small>}
+                          {demoMode && <small>演示：附件未上传</small>}
                         </div>
                       ) : null}
                       {m.role === "assistant" && Boolean(m.text || m.tools?.length) && (
@@ -756,7 +783,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                         </button>
                       </span>
                     ))}
-                    <small>{demoMode ? '仅记录文件名，未上传或解析内容' : '附件已归入当前任务，本次提交所选文件'}</small>
+                    {demoMode && <small>演示：附件未上传</small>}
                   </div>
                 )}
                 <div className="composer-bottom">
@@ -940,7 +967,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               </div>
               <div className="setting-row">
                 <div>
-                  界面动效<small>文字高光、卡片跳跃与像素粉碎</small>
+                  界面动效
                 </div>
                 <button
                   role="switch"

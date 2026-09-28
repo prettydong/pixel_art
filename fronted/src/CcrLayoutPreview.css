@@ -1,0 +1,13 @@
+.ccr-layout { display: flex; flex-direction: column; gap: 6rem; padding: 8rem; border: 1rem solid var(--line); background: var(--panel); min-width: 0; }
+.ccr-layout-heading { color: var(--architecture-accent); }
+.ccr-row-pool, .ccr-column-pool { padding: 6rem; border: 1rem solid var(--line); background: var(--architecture-surface); }
+.ccr-layout-controls { display: flex; flex-wrap: wrap; gap: 8rem; }
+.ccr-layout-controls label { display: flex; flex: 1 1 200rem; flex-direction: column; gap: 4rem; min-width: 0; }
+.ccr-control-label { display: block; white-space: nowrap; overflow-x: auto; }
+.ccr-layout-controls input { width: 100%; min-width: 0; padding: 4rem; border: 1rem solid var(--line); color: var(--input-text); background: var(--input-surface); font: inherit; }
+.ccr-segments { display: flex; flex-wrap: wrap; gap: 4rem; }
+.ccr-segments button { display: flex; flex: 1 1 128rem; flex-direction: column; gap: 2rem; padding: 6rem; text-align: left; border: 1rem solid var(--line); background: var(--panel); color: var(--muted); }
+.ccr-segments button:hover { background: var(--hover); }
+.ccr-segments button[aria-pressed="true"] { border-color: var(--architecture-accent); background: var(--selected); color: var(--text); }
+.ccr-layout p, .ccr-segments span { overflow-wrap: anywhere; }
+.ccr-preview-toggle > .ccr-layout { margin-top: 6rem; }

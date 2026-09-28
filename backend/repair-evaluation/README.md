@@ -15,19 +15,30 @@
 | `run.py` | `plan` / `run` 两阶段执行、快照和结果输出 |
 | `experiment.example.json` | 示例配置；其中数值不是用户默认配置 |
 
-## 首个 device：整行 + 按列地址分组的整列修补
+## CCR device：region 全局 row 与 segment 局部 col
 
-`spare_rows` 是每个样本可用的备用行总数。`spare_cols_per_group[g]` 是第 g 组的备用列数，组编号从 0 开始；必须逐组明确，不能把总备用列数默认当作每组数量。
+本模型中一个框架 `sample` 就是一个 **region**（原 smart-eval 的 bank）。`spare_rows` 是该 region 的全局备用 row 容量，默认128，池键为 `region_rows`；全部 segment 共用此池，一条动作覆盖 region 内一条原始 row 的所有 fail，消耗 1 条备用 row。不同 region 不共享此池。`repair_yield` 因而是 region 口径。要计算 chip 良率，必须在外部确认其所属所有 region 都可修复后再汇总，不能把 region yield 直接称为 chip yield。
 
-一个备用行可以覆盖该行全部坏点；一个备用列可以覆盖该列全部坏点。一列无论有几个坏点，都只消耗一个对应组的备用列。只有覆盖到坏点的行列需要建立候选。行列可混合修补，组间不借用资源。没有 ECC、bank 或 segment 的隐含假设。
+CCR 列资源按 segment 独立重复：`ccr_groups_per_segment` 是每个 segment 的组数，`ccr_spares_per_group[g]` 是该 segment 第 g 组的容量。对于一个 fail `(row, col)`，先按保留的 smart-eval section/subsection 映射得到 segment：
 
 ```python
-group = (zero_based_col + column_group_offset) % column_groups
+section_group = row // section_group_size
+subsection = (row % section_group_size) // subsection_size \
+             + section_group * subsections_per_group
+segment = subsection // sections_per_segment
+group = col % ccr_groups_per_segment
 ```
 
-因此 `column_groups=8, column_group_offset=0` 对应零基坐标的 `col % 8`。CSV 若使用 1-based 地址，读取时先减 1；如果用户的模规则应直接基于原始 1-based 地址，则明确配置 `column_group_offset=1`。偏移必须小于组数。不要混淆输入基准与物理分组规则。
+一个 CCR 动作对应 `(segment, original_col)`，覆盖该 segment 内该**原始列地址**的全部 fail，并消耗 `segment_{segment}_ccr_{group}` 一条容量。列地址不折叠、不偏移；容量不能跨 group 或跨 segment 借用。每个 region 建立一个全局 row 池，仅为有 fail 的 `(segment, group)` 建立 col 池；候选仅包含有 fail 的原始行列，因此空 region 合法而不会枚举完整矩阵。模型不支持 LCR、ECC 或跨 region 共享资源。
 
-例如每组一条备用列时，列 0 和 8 的修补会竞争第 0 组；其它组的空余列不能代替。如果坏点恰好同属一行，也可以通过一条备用行覆盖它们。
+`row_layout` 要求 `section_count` 必须分别被 `subsections_per_group` 和 `sections_per_segment` 整除，并且 `section_group_size <= subsection_size * subsections_per_group`。推导出的行数为：
+
+```python
+expected_rows = (section_count // subsections_per_group) * section_group_size
+segment_count = section_count // sections_per_segment
+```
+
+`experiment.example.json` 使用 DEJOA 的 `32768 × 2048` 尺寸，以及用户确认的每 region 默认128条全局备用 row。每组2条 CCR 备用 col 仍为示例，并非已确认的量产 col 资源配置。它含 96 sections、每 segment 2 sections，因此有 48 个 segment；`2048 <= 344 * 6` 合法。实验文件仍使用框架 `schema_version: 1`；前端 pixel-architecture JSON 的 `version: 2, model: "region-ccr"` 是另一份配置契约，不能替代本实验输入。
 
 ## 数据契约
 
@@ -37,18 +48,18 @@ Python >=3.10。核心输入是 UTF-8 CSV，可带 BOM。路径相对于实验 J
 - 坏点表必含 `group,sample_id,row,col`，可以选择多个文件；这些文件作为同一输入集联合校验。`group` 是数据分组标签，**不是**备用列的资源组编号。
 - 名册键 `(group,sample_id)` 唯一，并含零失效样本。样本 ID 按字符串处理，`01` 与 `1` 不自动合并。
 - 坏点必须存在于名册；同一样本的坐标跨文件也不能重复。重复坐标、越界、空值、非整数、计数不匹配直接报错，不静默去重、舍弃或改写。
-- 当前标准输入所有样本共用一个阵列尺寸；每条名册记录独立分配冗余。`evaluation_unit=device` 只是用户声明该条目是一颗器件，框架不会自动识别或合并重复测试。同一芯片的多次测试必须先依据任务聚合为器件坏点集合，再评估永久修补。
+- 当前标准输入所有样本共用一个阵列尺寸；CCR device 要求其行数等于 row layout 推导的 `expected_rows`，列数为正整数。每条名册记录分配独立的 region 全局 row 池和各 segment 局部 CCR col 池。`evaluation_unit` 保持 `sample`，表示 region；框架不会自动合并同一 chip 的 regions。
 - 名册声明某样本存在但坏点表没有其记录时，按稀疏数据约定视为零失效；框架无法识别遗漏的上传文件。必须在计划阶段核对选取的文件及预期计数，不能只靠缺少坏点记录证明原始数据完整。
 
 选择数据、`data_kind`（`measured`/`synthetic`）、评估单位、阵列尺寸、资源数量与规则必须来自本次用户指示或已确认信息。`experiment.example.json` 只说明格式，路径故意不可直接运行，不包含模拟数据或预计算良率。
 
 ## 准备计划并执行
 
-在当前会话的 `$PIXEL_REPAIR_DIR` 中工作；独立使用时也可复制整个目录。先复制 `experiment.example.json` 为 `experiment.json` 并按实际任务填写，修改 `device.py` 以匹配器件。以下计划步骤只读原始数据，不调用 HiGHS，不需要安装依赖：
+在当前会话的 `$PIXEL_REPAIR_DIR` 中工作；独立使用时也可复制整个目录。先复制 `experiment.example.json` 为 `experiment.json` 并按实际任务填写，核对所选 CCR device 与器件配置。服务会向会话补齐 `ccr-device-v3.py`；独立复制仓库框架时，可将下方 `--device` 改为 `device.py`。以下计划步骤只读原始数据，不调用 HiGHS，不需要安装依赖：
 
 ```bash
 cd "$PIXEL_REPAIR_DIR"
-python3 run.py plan --config experiment.json --out plan-001.json
+python3 run.py plan --config experiment.json --device ccr-device-v3.py --out plan-001.json
 ```
 
 输出包括数据路径、SHA-256、样本数、初始良品数、资源配置和规则说明。agent 必须与用户已确认的条件核对；若用户尚未提供关键条件，先询问。计划是可审阅的快照，不是授权凭证；框架校验文件一致性，用户确认由对话流程负责。
@@ -62,7 +73,7 @@ python3 -m venv .venv
   --out "$PIXEL_WORK_DIR/artifacts/repair-001"
 ```
 
-`plan` 和 `run` 可用不同 Python 环境，但要求代码与数据保持不变。`--out` 必须是不存在的新目录，不能覆盖旧实验。每个样本有独立求解时限，整个批次仍受服务 `PIXEL_RUN_TIMEOUT_SECONDS` 限制。大量样本应事先安排任务规模，超时不会自动生成完整实验结论。
+`--device` 指向会话目录中本次规则的 `ccr-device-v3.py`；计划会记录其指纹，`run` 保存同一文件的快照并拒绝计划后改动。`plan` 和 `run` 可用不同 Python 环境，但要求代码与数据保持不变。`--out` 必须是不存在的新目录，不能覆盖旧实验。每个样本有独立求解时限，整个批次仍受服务 `PIXEL_RUN_TIMEOUT_SECONDS` 限制。大量样本应事先安排任务规模，超时不会自动生成完整实验结论。
 
 `run` 使用 [HiGHS 官方 Python 接口](https://ergo-code.github.io/HiGHS/stable/interfaces/python/)，依赖固定为 `highspy==1.13.1`；实际 HiGHS 与 Python 版本写入运行记录。没有全局 Python 安装副作用。
 
@@ -86,7 +97,7 @@ def build_model(sample: Sample, config: dict) -> RepairModel:
     ...
 ```
 
-`Action(id, covers, uses)` 表示一个二元决策。`covers` 是该动作能覆盖的当前样本坏点集合（`frozenset`）；`uses` 是各资源池消耗量，如 `{"bank0_rows": 1, "shared_fuses": 1}`。`RepairModel.capacities` 定义各池上限；一个动作可以同时消耗多个池。
+`Action(id, covers, uses)` 表示一个二元决策。`covers` 是该动作能覆盖的当前样本坏点集合（`frozenset`）；`uses` 是各资源池消耗量，如 `{"region_rows": 1}`。`RepairModel.capacities` 定义各池上限；一个动作可以同时消耗多个池。
 
 `LinearRule` 可表达额外限制，例如同一物理资源两种配置只能选一种：
 
@@ -94,7 +105,7 @@ def build_model(sample: Sample, config: dict) -> RepairModel:
 LinearRule("exclusive", {"option_a": 1, "option_b": 1}, upper=1)
 ```
 
-改成局部列段修补时，动作的覆盖范围必须限制到该段，不能继续覆盖整列；跨 bank 共享池必须把相关 bank 纳入同一个求解样本。框架固定每个名册样本独立求解，不支持单靠 device 在多个样本间共享资源。ECC、跨样本耦合或非线性约束不是当前 device 已实现的功能；需要相应建模扩展后才能报告它们的良率。
+当前 CCR device 的 row 动作共用 region 全局池，col 动作消耗所属 segment 和子组的局部资源。框架固定每个 region 样本独立求解，row 不跨 region 共享，col 不跨 region、segment 或子组借用；ECC、跨 region 耦合和非线性约束不属于当前模型。
 
 求解器对每个候选建立二元变量 `x[a]`：
 
@@ -125,4 +136,4 @@ LinearRule("exclusive", {"option_a": 1, "option_b": 1}, upper=1)
 
 ## 手动核对建议
 
-可由用户手动核对：零失效样本；零冗余的坏点样本；同一行多个坏点用一条备用行；同一列多个坏点只消耗一条备用列；列 0/8 竞争模 8 的同组资源；其它组有空余也不能跨组借用；行列混合救回；1-based 坐标与分组偏移；重复坐标/遗漏样本/计数不符拒绝；修改 device 后旧计划拒绝；时限未判定计入上下界；样本数不同的分组按样本加权。
+可由用户手动核对：零失效 region；零冗余的坏点 region；同一 row 多个坏点只消耗1条全局备用 row；默认128条 row 且 CCR col 容量为0时，跨任意 segment 的128个不同 row 可修复，129个不同 row 不可修复；同一 segment 的列 0/8 竞争模 8 的同组 CCR 容量；相同原始列在不同 segment 分别消耗各自容量；其它 group 或 segment 有空余 CCR col 也不能借用；行列混合救回；行数不等于 layout 推导值拒绝；重复坐标/遗漏样本/计数不符拒绝；修改 device 后旧计划拒绝；时限未判定计入上下界；样本数不同的分组按 region 加权。

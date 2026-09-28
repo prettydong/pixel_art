@@ -23,7 +23,13 @@ export function useTasks(enabled: boolean, conversations: Conversation[]) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onFiles = () => { clearTimeout(timer); timer = setTimeout(() => { void refresh(); }, 150); };
     window.addEventListener('pixel:files', onFiles);
-    return () => { clearTimeout(timer); window.removeEventListener('pixel:files', onFiles); sequence.current++; };
+    window.addEventListener('pixel:tasks', onFiles);
+    return () => { clearTimeout(timer); window.removeEventListener('pixel:files', onFiles); window.removeEventListener('pixel:tasks', onFiles); sequence.current++; };
   }, [refresh]);
-  return { tasks, error, revision, refresh };
+  const forget = useCallback((id: string) => {
+    sequence.current++;
+    setTasks(previous => previous.filter(task => task.id !== id));
+    setRevision(value => value + 1);
+  }, []);
+  return { tasks, error, revision, refresh, forget };
 }

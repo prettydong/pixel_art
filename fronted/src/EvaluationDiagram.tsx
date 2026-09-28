@@ -2,8 +2,8 @@ type DiagramKind = "data" | "architecture" | "repair";
 
 const descriptions: Record<DiagramKind, string> = {
   data: "失效分布示意：阵列中标出失效单元，下方展示分布柱形。",
-  architecture: "冗余架构示意：四个存储分区，每个分区配置独立的冗余行和冗余列。",
-  repair: "行替换示意：将包含失效单元的一行映射至备用行。",
+  architecture: "CCR 架构示意：一个 Region 内包含多个 Segment，各 Segment 右侧为独立 CCR col 资源；Region 下方为所有 Segment 共享的全局备用 row 池，默认 128 条。示意不按实际数量或比例绘制。",
+  repair: "row 替换示意：将包含失效单元的一条原始 row 映射至 Region 共享的全局备用 row。",
 };
 
 // Native design-pixel geometry: 144 × 112 units, rendered at 144rem × 112rem.
@@ -53,18 +53,17 @@ export function EvaluationDiagram({ kind }: { kind: DiagramKind }) {
           ))}
           <rect className="diagram-ink" x="12" y="16" width="120" height="80" />
           <rect className="diagram-ground" x="14" y="18" width="116" height="76" />
-          {Array.from({ length: 4 }, (_, bank) => (
-            <g key={bank} transform={`translate(${20 + (bank % 2) * 56} ${24 + Math.floor(bank / 2) * 36})`}>
-              <rect className="diagram-frame" width="48" height="28" />
-              {Array.from({ length: 15 }, (_, cell) => (
-                <rect key={cell} className="diagram-cell" x={3 + (cell % 5) * 7} y={3 + Math.floor(cell / 5) * 6} width="5" height="4" />
+          {Array.from({ length: 3 }, (_, segment) => (
+            <g key={segment} transform={`translate(20 ${22 + segment * 20})`}>
+              <rect className="diagram-frame" width="104" height="18" />
+              {Array.from({ length: 20 }, (_, cell) => (
+                <rect key={cell} className="diagram-cell" x={3 + (cell % 10) * 7} y={3 + Math.floor(cell / 10) * 7} width="5" height="5" />
               ))}
-              <g className="diagram-resource" style={{ animationDelay: `${bank * 180}ms` }}>
-                <rect x="39" y="3" width="6" height="16" />
-                <rect x="3" y="22" width="42" height="3" />
-              </g>
+              {[0, 1, 2].map(group => <rect key={group} className="diagram-accent" x={78 + group * 8} y="3" width="5" height="12" />)}
             </g>
           ))}
+          <rect className="diagram-frame" x="20" y="82" width="104" height="8" />
+          <rect className="diagram-accent" x="23" y="84" width="98" height="4" />
         </>
       )}
       {kind === "repair" && (

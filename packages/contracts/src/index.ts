@@ -59,3 +59,29 @@ export type EvaluationTask = { id: string; name: string; updated: number; artifa
 export type ArchitecturePreview = { draw?: { source: string; file: FileRecord; sha256: string }; scene: ArchitectureScene; file: FileRecord; recipe: FileRecord; createdAt: number; sceneHash: string; themeSnapshot: Record<string, { light: string; dark: string }> };
 export type TaskArchitecture = { fingerprint: string; previews?: ArchitecturePreview[]; previewIssues?: string[]; id: string; name: string; description: string; sourceConversationId?: string; sourceFile?: FileRecord };
 export type TaskDetail = EvaluationTask & { architectures: TaskArchitecture[]; reports: { fileId: string; text: string }[]; files: FileRecord[] };
+
+const repairBatchCommon = { modelId: z.string().min(1).max(256), idempotencyKey: idSchema };
+export const repairBatchSchema = z.union([
+  z.object({ pairs: z.array(z.object({ architectureId: idSchema, waferId: idSchema }).strict()).min(1).max(100), ...repairBatchCommon }).strict(),
+  z.object({ architectureIds: z.array(idSchema).min(1).max(100), waferIds: z.array(idSchema).min(1).max(100), ...repairBatchCommon }).strict(),
+]);
+export type RepairBatchInput = z.infer<typeof repairBatchSchema>;
+export const repairJobStatuses = ['queued', 'coding', 'compiling', 'running', 'completed', 'failed', 'cancelled', 'interrupted'] as const;
+export type RepairJobStatus = typeof repairJobStatuses[number];
+export type RepairSummary = {
+  algorithm: 'repairMost'; totalRegions: number; initiallyGoodRegions: number; repairedRegions: number;
+  passedRegions: number; unresolvedRegions: number; totalChips: number; initiallyGoodChips: number;
+  passedChips: number; unresolvedChips: number; regionYield: number; chipYield: number;
+};
+export type RepairDataset = {
+  id: string; name: string; fileId: string; productName: string; chipCount: number; regionCount: number;
+  rows: number; cols: number; synthetic: boolean; failCount: number;
+};
+export type RepairJob = {
+  id: string; taskId: string; batchId: string; architectureId: string; architectureName: string;
+  architectureFingerprint: string; waferId: string; waferName: string; productName: string; synthetic: boolean;
+  status: RepairJobStatus; modelId: string; conversationId: string | null; runId: string | null;
+  createdAt: number; startedAt: number | null; finishedAt: number | null;
+  processedRegions: number; totalRegions: number; error: string | null; summary: RepairSummary | null;
+};
+export type RepairPanelData = { datasets: RepairDataset[]; jobs: RepairJob[] };

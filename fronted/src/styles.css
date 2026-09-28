@@ -9,7 +9,7 @@
 }
 :root {
   --pixel: 1px;
-  --sidebar-width: 144rem;
+  --sidebar-width: var(--sidebar-expanded-width, 144rem);
   --main-width: calc(var(--viewport-width) - var(--sidebar-width));
   --content-width: calc(var(--main-width) - 8rem);
   --content-left: 4rem;
@@ -59,6 +59,12 @@
   --heat-2: #786096;
   --heat-3: #ac8ecb;
   --heat-4: #e1c8f6;
+  --wafer-0: #39353f;
+  --wafer-1: #443983;
+  --wafer-2: #31688e;
+  --wafer-3: #21918c;
+  --wafer-4: #6ece58;
+  --wafer-5: #fde725;
   --chart-grid: var(--line);
   --chart-highlight: var(--selected);
   --scrollbar-size: 10rem;
@@ -114,6 +120,12 @@
   --heat-2: #a480c0;
   --heat-3: #795196;
   --heat-4: #4c2868;
+  --wafer-0: #e0dce4;
+  --wafer-1: #443983;
+  --wafer-2: #31688e;
+  --wafer-3: #21918c;
+  --wafer-4: #6ece58;
+  --wafer-5: #fde725;
 }
 * { box-sizing: border-box; }
 /* Keep native scrolling, dragging and keyboard behavior. Browsers without
@@ -179,6 +191,7 @@ a { color: inherit; text-decoration: none; }
 /* The component's viewBox and rendered size have identical design-pixel units. */
 .app-shell { display: flex; width: var(--viewport-width); height: var(--viewport-height); overflow: hidden; }
 .sidebar {
+  position: relative;
   flex: 0 0 var(--sidebar-width);
   width: var(--sidebar-width);
   height: var(--viewport-height);
@@ -189,6 +202,11 @@ a { color: inherit; text-decoration: none; }
   flex-direction: column;
   gap: 4rem;
 }
+.sidebar-resize-handle { position: absolute; top: 0; bottom: 0; right: -3rem; width: 6rem; z-index: 5; cursor: col-resize; touch-action: none; }
+.sidebar-resize-handle::after { content: ''; position: absolute; top: 0; bottom: 0; left: 2rem; width: 1rem; background: transparent; }
+.sidebar-resize-handle:hover::after, .sidebar-resize-handle:focus-visible::after, :root[data-sidebar-resizing="true"] .sidebar-resize-handle::after { background: var(--accent); }
+.sidebar-resize-handle[aria-disabled="true"] { pointer-events: none; }
+:root[data-sidebar-resizing="true"] * { cursor: col-resize !important; user-select: none !important; }
 .brand { display: flex; align-items: center; gap: 4rem; min-height: 28rem; padding: 4rem; }
 .sidebar-header { display: flex; align-items: center; gap: 4rem; }
 .sidebar-header .brand { flex: 1; min-width: 0; padding-right: 0; }
@@ -525,6 +543,10 @@ h3 { margin: 4rem 0; }
 .task-name-form input, .task-architecture-form textarea, .rename-form select { border: 1rem solid var(--line); padding: 4rem; background: var(--bg); color: var(--text); width: 100%; min-width: 0; font: inherit; border-radius: 0; }
 .task-name-form > div { display: flex; gap: 4rem; }
 .task-name-form p { color: var(--danger); overflow-wrap: anywhere; }
+.delete-task { color: var(--danger); }
+.task-actions-menu { display: flex; justify-content: flex-end; gap: 4rem; flex-wrap: wrap; padding: 4rem; border: 1rem solid var(--line); background: var(--elevated); }
+.task-delete-confirm { display: grid; gap: 4rem; padding: 4rem; border: 1rem solid var(--line); background: var(--panel); overflow-wrap: anywhere; }
+.task-delete-confirm > div { display: flex; gap: 4rem; flex-wrap: wrap; }
 .task-breadcrumb { max-width: 160rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 .task-panel { flex: 1; min-height: 0; overflow: auto; padding: 4rem; display: flex; flex-direction: column; gap: 8rem; }
 .task-panel > * { flex-shrink: 0; }
@@ -569,3 +591,5 @@ h3 { margin: 4rem 0; }
 .draw-controls form, .draw-controls label { display: flex; align-items: center; gap: 4rem; flex-wrap: wrap; }
 .draw-controls input { width: 64rem; min-width: 0; padding: 2rem 4rem; font: inherit; color: var(--text); background: var(--panel); border: 1rem solid var(--line); }
 .draw-source { max-height: 240rem; overflow: auto; padding: 8rem; background: var(--bg); white-space: pre; }
+.draw-label-details { min-width: 0; overflow-wrap: anywhere; }
+.draw-label-details ul { max-height: 160rem; overflow: auto; margin: 4rem 0; padding-left: 20rem; }

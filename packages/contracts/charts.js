@@ -49,10 +49,10 @@ const schemas = {
   }).strict(),
   heatmap: z.object({
     ...common,
-    xLabels: z.array(label(40)).min(1).max(24).describe("列标签"),
-    yLabels: z.array(label(40)).min(1).max(24).describe("行标签"),
+    xLabels: z.array(label(40)).min(1).max(24).describe("col 标签"),
+    yLabels: z.array(label(40)).min(1).max(24).describe("row 标签"),
     values: z.array(z.array(number.nullable()).min(1).max(24)).min(1).max(24)
-      .describe("按行排列的矩阵，values[y][x]；行数对应yLabels、列数对应xLabels；null表示缺失"),
+      .describe("按 row 排列的矩阵，values[y][x]；row 数对应yLabels、col 数对应xLabels；null表示缺失"),
   }).strict(),
 };
 export function chartParametersFor(kind) {
@@ -68,7 +68,7 @@ export function createChart(kind, input) {
   const unique = values => new Set(values).size === values.length;
   if (kind === "heatmap") {
     if (!unique(chart.xLabels) || !unique(chart.yLabels)) throw new Error("热力图同一轴的标签不能重复");
-    if (chart.values.length !== chart.yLabels.length || chart.values.some(row => row.length !== chart.xLabels.length)) throw new Error("矩阵的行列数必须与 yLabels、xLabels 对应");
+    if (chart.values.length !== chart.yLabels.length || chart.values.some(row => row.length !== chart.xLabels.length)) throw new Error("矩阵的 row / col 数必须与 yLabels、xLabels 对应");
     if (!chart.values.some(row => row.some(value => value !== null))) throw new Error("图表至少需要一个有效数值");
   } else {
     if (!unique(chart.series.map(series => series.name))) throw new Error("series 名称不能重复");
@@ -121,7 +121,7 @@ export function chartTable(chart) {
     headers: ["系列", "标签", `${chart.xLabel || "X"}${chart.xUnit ? `（${chart.xUnit}）` : ""}`, `${chart.yLabel || "Y"}${chart.unit ? `（${chart.unit}）` : ""}`],
     rows: chart.series.flatMap(series => series.points.map((point, index) => [series.name, point.label || String(index + 1), point.x, point.y])),
   };
-  if (chart.kind === "heatmap") return { headers: [chart.yLabel || "行 / 列", ...chart.xLabels], rows: chart.yLabels.map((label, index) => [label, ...chart.values[index]]) };
+  if (chart.kind === "heatmap") return { headers: [chart.yLabel || "row / col", ...chart.xLabels], rows: chart.yLabels.map((label, index) => [label, ...chart.values[index]]) };
   return {
     headers: [chart.xLabel || "分类", ...chart.series.map(series => `${series.name}${chart.unit ? `（${chart.unit}）` : ""}`)],
     rows: chart.labels.map((label, index) => [label, ...chart.series.map(series => series.values[index])]),

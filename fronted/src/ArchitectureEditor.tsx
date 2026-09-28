@@ -7,6 +7,7 @@ import {
   type ArchitectureFields,
 } from './architectureTemplates';
 import './ArchitectureEditor.css';
+import { CcrLayoutPreview } from './CcrLayoutPreview';
 
 type InitialArchitecture = { name: string; description: string };
 
@@ -46,11 +47,11 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
   const [customDescription, setCustomDescription] = useState(draft.customDescription);
   const [fields, setFields] = useState<ArchitectureFields>(draft.fields);
   const [templateId, setTemplateId] = useState(draft.templateId);
-  const [selectedTemplateId, setSelectedTemplateId] = useState(draft.templateId);
   const [mode, setMode] = useState<Mode>(draft.mode);
   const [parametersDirty, setParametersDirty] = useState(false);
   const [confirmTemplateId, setConfirmTemplateId] = useState<string | null>(null);
   const [needsPresetForParameters, setNeedsPresetForParameters] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [error, setError] = useState('');
   const saving = useRef(false);
 
@@ -60,12 +61,12 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
     setCustomDescription(next.customDescription);
     setFields(next.fields);
     setTemplateId(next.templateId);
-    setSelectedTemplateId(next.templateId);
     setMode(next.mode);
     setParametersDirty(false);
     setConfirmTemplateId(null);
     setNeedsPresetForParameters(false);
     setError('');
+    setAdvancedOpen(false);
   }, [initial?.name, initial?.description]);
 
   const generated = useMemo(() => {
@@ -89,23 +90,23 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
     if (template && (!name.trim() || ARCHITECTURE_TEMPLATES.some(item => item.name === name))) setName(template.name);
     setFields(templateFields(id));
     setTemplateId(id);
-    setSelectedTemplateId(id);
     setParametersDirty(false);
     setConfirmTemplateId(null);
     setNeedsPresetForParameters(false);
     setError('');
   }
 
-  function requestApplyTemplate() {
-    if (parametersDirty) {
-      setConfirmTemplateId(selectedTemplateId);
-      return;
-    }
-    applyTemplate(selectedTemplateId);
+  function requestApplyTemplate(id: string) {
+    if (id === templateId) return;
+    const modified = parametersDirty || JSON.stringify(fields) !== JSON.stringify(templateFields(templateId));
+    if (modified) { setConfirmTemplateId(id); return; }
+    applyTemplate(id);
   }
 
   function switchMode(nextMode: Mode) {
     if (nextMode === mode) return;
+    setConfirmTemplateId(null);
+    setNeedsPresetForParameters(false);
     if (nextMode === 'custom') {
       if (generated.error) {
         setError(generated.error);
@@ -120,14 +121,13 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
     if (parsed) {
       setFields(parsed.fields);
       setTemplateId(parsed.templateId);
-      setSelectedTemplateId(parsed.templateId);
       setParametersDirty(false);
       setMode('parameters');
       setError('');
       return;
     }
     setNeedsPresetForParameters(true);
-    setError('这段自定义定义不是可识别的参数模板；不会自动覆盖原文。');
+    setError('');
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -156,67 +156,94 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
     } finally { saving.current = false; }
   }
 
-  return <form className="architecture-editor task-architecture-form" onSubmit={event => void submit(event)} aria-busy={pending}>
-    <label className="architecture-editor-field">架构名称
-      <input required maxLength={120} value={name} disabled={pending} onChange={event => { setName(event.target.value); setError(''); }} placeholder="例如：1024 × 1024 行列冗余" />
-    </label>
+  const advancedSummary = [
+    fields.coordinateBase !== '0' ? `${fields.coordinateBase} 基坐标` : '',
+    generated.value ? `${Number(fields.sectionCount) / Number(fields.sectionsPerSegment)} 个 segment` : '',
+    fields.notes.trim() ? '有备注' : '',
+  ].filter(Boolean).join(' · ');
+  const advancedError = /坐标起点|Segment|segment|Section|section|Subsection|subsection|备注/.test(generated.error);
 
-    <fieldset className="architecture-editor-mode" disabled={pending}>
-      <legend>定义方式</legend>
-      <label><input type="radio" name="architecture-mode" checked={mode === 'parameters'} onChange={() => switchMode('parameters')} />参数模板</label>
-      <label><input type="radio" name="architecture-mode" checked={mode === 'custom'} onChange={() => switchMode('custom')} />自定义文本</label>
-    </fieldset>
+  return <form className="architecture-editor task-architecture-form" onSubmit={event => void submit(event)} aria-busy={pending}>
+    <div className="architecture-editor-heading">
+      <h2>{initial ? '编辑 CCR 架构' : '新建 CCR 架构'}</h2>
+      <div className="architecture-editor-mode" role="group" aria-label="定义方式">
+        <button type="button" className={mode === 'parameters' ? 'selected' : ''} aria-pressed={mode === 'parameters'} disabled={pending} onClick={() => switchMode('parameters')}>参数配置</button>
+        <button type="button" className={mode === 'custom' ? 'selected' : ''} aria-pressed={mode === 'custom'} disabled={pending} onClick={() => switchMode('custom')}>自定义</button>
+      </div>
+    </div>
+    <div className="architecture-editor-basics">
+      <label className="architecture-editor-field"><span className="architecture-field-label">名称</span>
+        <input required maxLength={120} value={name} disabled={pending} onChange={event => { setName(event.target.value); setError(''); }} placeholder="架构名称" />
+      </label>
+      {mode === 'parameters' && <label className="architecture-editor-field"><span className="architecture-field-label">预设</span>
+        <select value={templateId} disabled={pending} onChange={event => requestApplyTemplate(event.target.value)}>
+          {ARCHITECTURE_TEMPLATES.map(template => <option key={template.id} value={template.id}>{template.label}</option>)}
+        </select>
+      </label>}
+    </div>
 
     {mode === 'parameters' ? <>
-      <section className="architecture-editor-template" aria-label="参数模板">
-        <label className="architecture-editor-field">预设模板
-          <select value={selectedTemplateId} disabled={pending} onChange={event => { setSelectedTemplateId(event.target.value); setConfirmTemplateId(null); }}>
-            {ARCHITECTURE_TEMPLATES.map(template => <option key={template.id} value={template.id}>{template.label}</option>)}
-          </select>
-        </label>
-        <p className="task-note">{ARCHITECTURE_TEMPLATES.find(template => template.id === selectedTemplateId)?.summary}</p>
-        <button className="action-button" type="button" disabled={pending} onClick={requestApplyTemplate}>应用此模板</button>
-        {confirmTemplateId && <div className="architecture-editor-confirm" role="status">
-          <p>应用模板会替换当前已修改的参数。</p>
-          <button className="action-button primary" type="button" disabled={pending} onClick={() => applyTemplate(confirmTemplateId)}>确认替换参数</button>
-          <button className="action-button" type="button" disabled={pending} onClick={() => setConfirmTemplateId(null)}>保留当前参数</button>
-        </div>}
-      </section>
-      <div className="architecture-editor-fields">
-        <Field label="阵列行数（Rows）" value={fields.rows} disabled={pending} onChange={value => changeField('rows', value)} hint="正整数，不含备用行" />
-        <Field label="阵列列数（Cols）" value={fields.cols} disabled={pending} onChange={value => changeField('cols', value)} hint="正整数，不含备用列" />
-        <label className="architecture-editor-field">坐标起点
-          <select value={fields.coordinateBase} disabled={pending} onChange={event => changeField('coordinateBase', event.target.value)}><option value="0">0</option><option value="1">1</option></select>
-        </label>
-        <Field label="备用行数" value={fields.spareRows} disabled={pending} onChange={value => changeField('spareRows', value)} hint="非负整数" />
-        <Field label="列资源组数" value={fields.columnGroups} disabled={pending} onChange={value => changeField('columnGroups', value)} hint="1～256 组；不是连续区域或 bank 数" />
-        <Field label="每组备用列" value={fields.spareColsPerGroup} disabled={pending} onChange={value => changeField('spareColsPerGroup', value)} hint="单值表示每组相同；或用逗号按列组逐一填写，不是总数。" />
-        <Field label="列分组偏移" value={fields.columnGroupOffset} disabled={pending} onChange={value => changeField('columnGroupOffset', value)} hint="从 0 开始，必须小于列资源组数" />
-        <label className="architecture-editor-field architecture-editor-notes">备注（可选）
-          <textarea rows={3} maxLength={4000} value={fields.notes} disabled={pending} onChange={event => changeField('notes', event.target.value)} placeholder="例如：备用列在组内共享。" />
-        </label>
+      {confirmTemplateId && <div className="architecture-editor-confirm" role="status">
+        <p>使用“{ARCHITECTURE_TEMPLATES.find(item => item.id === confirmTemplateId)?.label}”替换当前参数？</p>
+        <button className="action-button" type="button" disabled={pending} onClick={() => applyTemplate(confirmTemplateId)}>替换</button>
+        <button className="action-button" type="button" disabled={pending} onClick={() => setConfirmTemplateId(null)}>取消</button>
+      </div>}
+      <div className="architecture-editor-core">
+        <fieldset className="architecture-editor-section" disabled={pending}>
+          <legend>Region 尺寸</legend>
+          <div className="architecture-editor-fields">
+            <Field label="Region row 数" value={fields.rows} disabled={pending} onChange={value => changeField('rows', value)} />
+            <Field label="Region col 数" value={fields.cols} disabled={pending} onChange={value => changeField('cols', value)} />
+          </div>
+        </fieldset>
+        <fieldset className="architecture-editor-section" disabled={pending}>
+          <legend>CCR 冗余资源</legend>
+          <div className="architecture-editor-fields">
+            <Field label="Region 全局备用 row" value={fields.spareRows} disabled={pending} onChange={value => changeField('spareRows', value)} />
+            <Field label="CCR 子组数 / segment" value={fields.ccrGroupsPerSegment} disabled={pending} onChange={value => changeField('ccrGroupsPerSegment', value)} />
+            <Field label="每子组备用 col" value={fields.ccrSparesPerGroup} disabled={pending} onChange={value => changeField('ccrSparesPerGroup', value)} />
+          </div>
+        </fieldset>
       </div>
-      <p className="task-note">模板参数仅为可修改的示例。每条备用行／列替换完整一行／列；资源按样本独立分配，组间不借用，不含 ECC。列分组按（零基列地址 + 偏移）% 组数计算，不是连续分段。保存架构不会自动运行评估。</p>
-      {generatedSummary && <p className="task-note" aria-live="polite">当前参数：{generatedSummary}</p>}
+      <details className="architecture-editor-advanced" open={advancedOpen || advancedError} onToggle={event => setAdvancedOpen(event.currentTarget.open)}>
+        <summary>Segment 划分与高级选项{advancedSummary ? ` · ${advancedSummary}` : ''}</summary>
+        <div className="architecture-editor-fields">
+          <label className="architecture-editor-field"><span className="architecture-field-label">坐标起点</span>
+            <select value={fields.coordinateBase} disabled={pending} onChange={event => changeField('coordinateBase', event.target.value)}><option value="0">0（默认）</option><option value="1">1</option></select>
+          </label>
+          <Field label="Section 总数" value={fields.sectionCount} disabled={pending} onChange={value => changeField('sectionCount', value)} />
+          <Field label="Section 数 / segment" value={fields.sectionsPerSegment} disabled={pending} onChange={value => changeField('sectionsPerSegment', value)} />
+          <Field label="Section group row 跨度" value={fields.sectionGroupSize} disabled={pending} onChange={value => changeField('sectionGroupSize', value)} />
+          <Field label="Subsection row 步长" value={fields.subsectionSize} disabled={pending} onChange={value => changeField('subsectionSize', value)} />
+          <Field label="Subsection 数 / group" value={fields.subsectionsPerGroup} disabled={pending} onChange={value => changeField('subsectionsPerGroup', value)} />
+          <label className="architecture-editor-field architecture-editor-notes"><span className="architecture-field-label">备注</span>
+            <textarea rows={2} maxLength={4000} value={fields.notes} disabled={pending} onChange={event => changeField('notes', event.target.value)} placeholder="可选" />
+          </label>
+        </div>
+        <div className="panel-actions"><button className="action-button" type="button" disabled={pending} onClick={() => setConfirmTemplateId(templateId)}>恢复当前预设参数</button></div>
+        {generated.value && <details className="architecture-editor-generated"><summary>查看完整定义</summary><pre>{generated.value}</pre></details>}
+      </details>
+      {generated.value && <details className="architecture-editor-advanced ccr-preview-toggle"><summary>查看 CCR 结构与地址映射</summary><CcrLayoutPreview description={generated.value} /></details>}
       {generated.error && <p role="alert" className="error-text">{generated.error}</p>}
-      {generated.value && <details className="architecture-editor-generated"><summary>生成的架构定义{generatedSummary ? ` · ${generatedSummary}` : ''}</summary><pre>{generated.value}</pre></details>}
-    </> : <label className="architecture-editor-field">架构定义
-      <textarea required rows={10} maxLength={30000} value={customDescription} disabled={pending} onChange={event => { setCustomDescription(event.target.value); setNeedsPresetForParameters(false); setError(''); }} placeholder="可填写说明或粘贴既有 JSON；切换回参数模板时会先识别，不会静默覆盖。" />
+    </> : <label className="architecture-editor-field"><span className="architecture-field-label">架构定义</span>
+      <textarea required rows={8} maxLength={30000} value={customDescription} disabled={pending} onChange={event => { setCustomDescription(event.target.value); setNeedsPresetForParameters(false); setError(''); }} placeholder="输入架构说明或 JSON" />
     </label>}
 
     {needsPresetForParameters && <div className="architecture-editor-confirm" role="status">
-      <p>原有定义尚未改动。应用预设并保存后将用模板定义替换它；如需保留原文，请取消切换。</p>
-      <button className="action-button primary" type="button" disabled={pending} onClick={() => { applyTemplate(selectedTemplateId); setMode('parameters'); }}>应用预设并进入参数模板</button>
-      <button className="action-button" type="button" disabled={pending} onClick={() => { setNeedsPresetForParameters(false); setError(''); }}>保留自定义定义</button>
+      <p>当前文本无法转为参数配置。使用预设替换？</p>
+      <button className="action-button" type="button" disabled={pending} onClick={() => { applyTemplate(templateId); setMode('parameters'); }}>使用预设</button>
+      <button className="action-button" type="button" disabled={pending} onClick={() => { setNeedsPresetForParameters(false); setError(''); }}>保留原文</button>
     </div>}
     {error && <p role="alert" className="error-text">{error}</p>}
-    <div className="panel-actions"><button className="action-button primary" disabled={pending}>保存架构</button><button className="action-button" type="button" disabled={pending} onClick={onCancel}>取消</button></div>
+    <div className="architecture-editor-footer">
+      {mode === 'parameters' && generatedSummary && <p className="task-note">{generatedSummary}</p>}
+      <div className="panel-actions"><button className="action-button primary" disabled={pending || (mode === 'parameters' && !!generated.error)}>{pending ? '正在保存…' : '保存'}</button><button className="action-button" type="button" disabled={pending} onClick={onCancel}>取消</button></div>
+    </div>
   </form>;
 }
 
-function Field({ label, value, hint, disabled, onChange }: { label: string; value: string; hint: string; disabled: boolean; onChange: (value: string) => void }) {
-  return <label className="architecture-editor-field">{label}
+function Field({ label, value, disabled, onChange }: { label: string; value: string; disabled: boolean; onChange: (value: string) => void }) {
+  return <label className="architecture-editor-field"><span className="architecture-field-label">{label}</span>
     <input value={value} disabled={disabled} inputMode="numeric" onChange={event => onChange(event.target.value)} />
-    <small>{hint}</small>
   </label>;
 }

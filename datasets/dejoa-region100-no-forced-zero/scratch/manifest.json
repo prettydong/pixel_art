@@ -1,0 +1,41 @@
+{
+  "format": "PXLWAF1",
+  "dataKind": "synthetic",
+  "generator": "generate-wafer-fails/spatial-v2",
+  "geometry": "disk-grid-v1",
+  "layout": {
+    "chipCount": 1000,
+    "regionCount": 16,
+    "rows": 32768,
+    "cols": 2048
+  },
+  "generation": {
+    "pattern": "scratch",
+    "seed": 20260928,
+    "meanFails": 1600,
+    "strength": 12,
+    "dispersion": 4
+  },
+  "waferCount": 1,
+  "wafers": [
+    {
+      "name": "DEJOA-scratch-001",
+      "file": "DEJOA-scratch-001.pwafer",
+      "bytes": 4215715,
+      "sha256": "1ebbd5f5617f599140eed57b90fc4e598c638e9d096b14daf1ec96808c0dc9e2",
+      "generation": {
+        "pattern": "scratch",
+        "seed": 20260928,
+        "meanFails": 1600,
+        "strength": 12,
+        "dispersion": 4,
+        "model": "spatial-gamma-poisson-v2",
+        "geometry": "disk-grid-v1"
+      },
+      "failCount": 1648291,
+      "occupiedRegionCount": 1650,
+      "zeroFailChips": 591,
+      "maxChipFails": 81344
+    }
+  ]
+}

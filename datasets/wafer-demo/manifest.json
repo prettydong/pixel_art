@@ -1,0 +1,46 @@
+{
+  "format": "PXLWAF1",
+  "dataKind": "synthetic",
+  "generator": "generate-wafer-fails/v1",
+  "seed": 20260926,
+  "layout": {
+    "chipCount": 64,
+    "regionCount": 8,
+    "rows": 1024,
+    "cols": 1024
+  },
+  "generation": {
+    "waferCount": 3,
+    "failsPerRegion": 8,
+    "emptyRegionRate": 0.25,
+    "zeroFailWafers": 1,
+    "pattern": "mixed",
+    "prefix": "wafer"
+  },
+  "wafers": [
+    {
+      "name": "wafer-001",
+      "file": "wafer-001.pwafer",
+      "failCount": 0,
+      "occupiedRegionCount": 0,
+      "bytes": 44,
+      "sha256": "37edbbcab1ab7838265ef3bb3a547698aa80ff45cbcc81f12f1c308e3f8c762f"
+    },
+    {
+      "name": "wafer-002",
+      "file": "wafer-002.pwafer",
+      "failCount": 3072,
+      "occupiedRegionCount": 384,
+      "bytes": 6728,
+      "sha256": "c399783f2692321fdaf7b4bf30857610058fba500f800374f7680b74970f428c"
+    },
+    {
+      "name": "wafer-003",
+      "file": "wafer-003.pwafer",
+      "failCount": 3184,
+      "occupiedRegionCount": 398,
+      "bytes": 7078,
+      "sha256": "e6b6ceab2d10c2e42b942d61ba80f4f55d4c668a2d781f4cba84bf6ea81ba44b"
+    }
+  ]
+}

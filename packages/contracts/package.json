@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./wafer-spatial": {
+      "types": "./wafer-spatial.d.ts",
+      "default": "./wafer-spatial.js"
+    },
+    "./wafer-data": {
+      "types": "./wafer-data.d.ts",
+      "default": "./wafer-data.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"

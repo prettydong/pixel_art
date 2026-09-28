@@ -2,6 +2,8 @@
 
 Node.js >= 22.19，Linux 单机单实例，Fastify + SQLite WAL + Pi RPC 子进程。依赖 Pi 固定为 `@earendil-works/pi-coding-agent@0.85.1`。保留真实 coding agent 的读写、脚本、上下文压缩、重试、技能与原生会话恢复。扩展、提示模板和主题自动发现关闭；显式加载项目内的 `backend/extensions/pixel-charts.js`，提供六种只读图表工具，参数见 [图表工具说明](../PIXEL_CHART_TOOLS.md)。本版不提供需要用户提交答案的 Pi 交互式扩展 UI。
 
+普通任务聊天还加载 `backend/extensions/pixel-task-tools.js`，提供 `pixel_create_architecture`（新增架构）：传入 `name` 和 `description`，或 `name` 和 `descriptionFile`。文件路径相对本轮 work，或使用该 work、共享 uploads、当前任务已登记文件的绝对路径。名称最多 120 字符，UTF-8 内容最多 30000 字符。工具通过受监管的 IPC 请求服务端保存，任务与用户身份由服务端绑定，无需数据库权限或登录凭据。同名同内容复用已有记录，同名不同内容报错，不覆盖；成功返回架构 ID、fingerprint，并刷新本轮任务上下文和页面。若 `contextUpdated=false`，架构仍已保存，下一轮再取得新上下文做预览。面板发起的 C++ 编码轮次不开放此工具。
+
 ## 配置和启动
 
 在仓库根目录执行 `npm install`；复制 `backend/.env.example` 为根目录 `.env`，复制 `backend/models.example.json` 为 `backend/models.json`，配置模型后手动执行 `npm run build`。服务启动命令为根目录 `npm start`。
@@ -13,6 +15,8 @@ Pi 在 `users/<userId>/` 启动，`PI_CODING_AGENT_DIR` 指向该用户的 `.pi/
 用户技能位于 `.pi/skills/`，首次使用时从 `backend/skills/data-analysis/` 补齐数据分析 skill；已有文件不覆盖。用户可以自行维护这些技能，新 run 会重新加载。Pi 使用 `--no-skills` 加显式 `--skill` 加载用户技能和管理员配置的技能目录，避免自动引入宿主机其它技能。`--no-approve --no-context-files` 关闭项目资源信任及祖先 AGENTS/CLAUDE 自动发现，不触发 RPC 无法回答的信任询问。数据分析模式会明确要求读取用户的 `data-analysis/SKILL.md`。技能内容按需读取，上传内容不视为指令。
 
 同时补齐 `backend/skills/repair-evaluation/`；修补/良率任务由追加系统提示引导读取该 skill。每个会话从 `backend/repair-evaluation/` 补齐到 `work/repair-evaluation/`，`PIXEL_REPAIR_DIR` 指向这里，已有 device 与框架文件不覆盖。数据校验、HiGHS、规则扩展与输出见 [评估框架说明](repair-evaluation/README.md)。这是当前 Pi 的脚本工作流，不是新的交互式 UI 或常驻 Python 服务。
+
+“任务求解”面板使用独立的 C++17 repairMost 队列：架构 × 已关联 wafer 批量添加，Pi 仅生成 `dev.hpp`，服务编译并求解。该编码模式不加载上述 Python/HiGHS 工作流。需要服务环境安装 `g++`，迁移 v8 保存批次、架构代码及任务状态。操作、约束、良率口径和手动验收说明见 [批量修补任务](../TASK_REPAIR.md)。求解快照目录只通过已鉴权的任务下载接口开放四种指定产物。
 
 若模型请求需要代理，在根目录 `.env` 配置 `HTTPS_PROXY`、`NO_PROXY` 和 `NODE_USE_ENV_PROXY=1`，使用支持该开关的 Node 运行时。后端会将这些网络变量（含 HTTP/HTTPS/NO_PROXY 的小写形式）传给 Pi 子进程，不必加入模型配置的凭据 `env` 列表。Node 不会自动使用 macOS 系统代理；代理配置变更后重启后端。
 
@@ -28,7 +32,7 @@ unset PIXEL_ADMIN_PASSWORD
 
 密码至少 12 字符。管理员 CLI 也支持从 stdin 第一行读取密码。密码以随机盐 scrypt 保存；登录凭据仅在数据库保存 SHA-256 摘要。管理员在应用里创建账号、重置密码、启停账号；不开放注册。重置密码撤销登录并停止任务，停用用户同样处理，最后一个启用的管理员不能停用。
 
-`PIXEL_ORIGIN` 必须是用户访问的完整 origin，例 `https://chat.example.com`，不含末尾斜杠。浏览器所有写入请求验证 Origin。使用 HTTPS origin 时 Cookie 自动启用 Secure；HttpOnly + SameSite=Strict 始终启用。反向代理必须允许 SSE，关闭响应缓冲。开发前端需通过 Vite `/api` 代理并把 PIXEL_ORIGIN 设置为前端 origin。
+`PIXEL_ORIGIN` 用于决定会话 Cookie 是否启用 Secure，例 `https://chat.example.com`；使用 HTTPS 时自动启用 Secure，HttpOnly + SameSite=Strict 始终启用。访问地址无需与该配置完全一致；写入接口仍拒绝 `Sec-Fetch-Site: cross-site` 请求。反向代理必须允许 SSE，关闭响应缓冲。开发前端需通过 Vite `/api` 代理；本地 HTTP 开发时 `PIXEL_ORIGIN` 也应使用 HTTP，以免 Secure Cookie 无法发送。
 
 ## 数据与生命周期
 

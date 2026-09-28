@@ -5,7 +5,7 @@ import type { Runs } from "../runs/index.js";
 import { createUser, currentUser, hashPassword, publicUser, requireAdmin, type UserRow } from "../auth/index.js";
 import { HttpError, missing } from "../errors.js";
 
-export function registerUserRoutes(app: FastifyInstance, db: Db, runs: Runs) {
+export function registerUserRoutes(app: FastifyInstance, db: Db, runs: Runs, stopRepairs: (userId: string) => Promise<void>) {
   app.get("/api/admin/users", async request => {
     requireAdmin(currentUser(db, request));
     return { items: (db.prepare("SELECT * FROM users ORDER BY created_at").all() as UserRow[]).map(publicUser) };
@@ -30,7 +30,7 @@ export function registerUserRoutes(app: FastifyInstance, db: Db, runs: Runs) {
     db.prepare("UPDATE users SET enabled=? WHERE id=?").run(Number(body.enabled), id);
     if (!body.enabled) {
       db.prepare("DELETE FROM login_sessions WHERE user_id=?").run(id);
-      await runs.stopUser(id);
+      await Promise.all([stopRepairs(id), runs.stopUser(id)]);
     }
     return publicUser(db.prepare("SELECT * FROM users WHERE id=?").get(id) as UserRow);
   });
@@ -43,7 +43,7 @@ export function registerUserRoutes(app: FastifyInstance, db: Db, runs: Runs) {
     requireAdmin(currentUser(db, request));
     db.prepare("UPDATE users SET password_hash=? WHERE id=?").run(hash, id);
     db.prepare("DELETE FROM login_sessions WHERE user_id=?").run(id);
-    await runs.stopUser(id);
+    await Promise.all([stopRepairs(id), runs.stopUser(id)]);
     return { ok: true };
   });
 }

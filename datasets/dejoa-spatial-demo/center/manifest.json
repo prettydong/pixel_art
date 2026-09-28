@@ -1,0 +1,43 @@
+{
+  "format": "PXLWAF1",
+  "dataKind": "synthetic",
+  "generator": "generate-wafer-fails/spatial-v1",
+  "geometry": "disk-grid-v1",
+  "layout": {
+    "chipCount": 1000,
+    "regionCount": 16,
+    "rows": 32768,
+    "cols": 2048
+  },
+  "generation": {
+    "pattern": "center",
+    "seed": 20260927,
+    "meanFails": 24,
+    "strength": 12,
+    "zeroChipRate": 0.1,
+    "dispersion": 4
+  },
+  "waferCount": 1,
+  "wafers": [
+    {
+      "name": "DEJOA-center-001",
+      "file": "DEJOA-center-001.pwafer",
+      "bytes": 73652,
+      "sha256": "c09b2daf51a2d68e1a753f213defda7a7abcc625995fb8edaabca2dc39e71fdf",
+      "generation": {
+        "pattern": "center",
+        "seed": 20260927,
+        "meanFails": 24,
+        "strength": 12,
+        "zeroChipRate": 0.1,
+        "dispersion": 4,
+        "model": "spatial-gamma-poisson-v1",
+        "geometry": "disk-grid-v1"
+      },
+      "failCount": 22724,
+      "occupiedRegionCount": 668,
+      "zeroFailChips": 578,
+      "maxChipFails": 1471
+    }
+  ]
+}

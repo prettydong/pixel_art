@@ -1,0 +1,13 @@
+import type { WaferLayout } from './wafer-data.js';
+export type SpatialPattern = 'random' | 'center' | 'donut' | 'edge-ring' | 'edge-local' | 'local' | 'scratch' | 'mixed';
+export type GenerationOptions = { pattern: SpatialPattern; seed: number; meanFails: number; strength: number; dispersion: number };
+export type GenerationMetadata = GenerationOptions & { model: 'spatial-gamma-poisson-v2'; geometry: 'disk-grid-v1' };
+export type WaferMapCell = { chip: number; x: number; y: number; nx: number; ny: number; radius: number };
+export type WaferMap = { cells: WaferMapCell[]; width: number; height: number };
+export const MAX_MAP_CHIPS: number;
+export const DEFAULT_FAILS_PER_REGION: number;
+export const SPATIAL_PATTERNS: readonly { id: SpatialPattern; label: string; description: string }[];
+export const DEFAULT_GENERATION: Readonly<GenerationOptions>;
+export function createWaferMap(chipCount: number): WaferMap;
+export function validateGenerationOptions(value?: unknown): GenerationOptions;
+export function generateSpatialWafer(layout: WaferLayout, options?: Partial<GenerationOptions> | Partial<GenerationMetadata>): { bytes: Uint8Array; chipFails: Uint32Array; generation: GenerationMetadata; summary: { failCount: number; occupiedRegionCount: number; zeroFailChips: number; maxChipFails: number } };

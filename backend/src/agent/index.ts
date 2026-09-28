@@ -39,7 +39,8 @@ export class PiProcess extends EventEmitter {
     for (const name of ["PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "TERM", ...networkEnv, ...envNames]) if (process.env[name] !== undefined) env[name] = process.env[name];
     env.PI_CODING_AGENT_DIR = agentDir;
     Object.assign(env, workspaceEnv);
-    this.child = spawn(process.execPath, [resolve(projectRoot, "scripts/pi-supervisor.mjs"), piCli, "--mode", "rpc", "--no-approve", "--no-context-files", "--no-extensions", "--extension", resolve(projectRoot, "backend/extensions/pixel-charts.js"), "--no-prompt-templates", "--no-themes", "--no-skills", ...args], { cwd, env, detached: true, stdio: ["pipe", "pipe", "pipe", "ipc"] });
+    const taskExtensions = workspaceEnv.PIXEL_TASK_TOOLS === '1' ? ['--extension', resolve(projectRoot, 'backend/extensions/pixel-task-tools.js')] : [];
+    this.child = spawn(process.execPath, [resolve(projectRoot, "scripts/pi-supervisor.mjs"), piCli, "--mode", "rpc", "--no-approve", "--no-context-files", "--no-extensions", "--extension", resolve(projectRoot, "backend/extensions/pixel-charts.js"), ...taskExtensions, "--no-prompt-templates", "--no-themes", "--no-skills", ...args], { cwd, env, detached: true, stdio: ["pipe", "pipe", "pipe", "ipc"] });
     this.child.stdout!.setEncoding("utf8");
     this.child.stdout!.on("data", (chunk: string) => this.read(chunk));
     // Drain stderr without forwarding credentials or provider request bodies to clients/logs.

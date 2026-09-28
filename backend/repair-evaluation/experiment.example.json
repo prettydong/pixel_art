@@ -8,12 +8,18 @@
     "roster_columns": {"group": "group", "sample_id": "sample_id", "fail_count": "fail_count"},
     "fail_columns": {"group": "group", "sample_id": "sample_id", "row": "row", "col": "col"}
   },
-  "array": {"rows": 1024, "cols": 1024, "coordinate_base": 0},
+  "array": {"rows": 32768, "cols": 2048, "coordinate_base": 0},
   "device": {
-    "spare_rows": 2,
-    "column_groups": 8,
-    "spare_cols_per_group": [1, 1, 1, 1, 1, 1, 1, 1],
-    "column_group_offset": 0
+    "spare_rows": 128,
+    "ccr_groups_per_segment": 8,
+    "ccr_spares_per_group": [2, 2, 2, 2, 2, 2, 2, 2],
+    "row_layout": {
+      "section_count": 96,
+      "sections_per_segment": 2,
+      "section_group_size": 2048,
+      "subsection_size": 344,
+      "subsections_per_group": 6
+    }
   },
   "solver": {"time_limit_seconds": 30, "random_seed": 0}
 }

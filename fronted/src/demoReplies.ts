@@ -13,22 +13,24 @@ export function initialDemoReply(mode: Mode): DemoReply {
     text: `## 数据分析准备\n\n${notice}\n\n请先选择本轮的**分析目标**，提交后再选择统计指标。\n\n- [ ] 选择分析目标\n- [ ] 确定统计指标\n\n任务列表用于展示进度，请使用下方工具回答。`,
     tools: [{ ...base("选择分析目标"), type: "single", options: [
       { value: "distribution", label: "失效分布", description: "观察失效地址的分布" },
-      { value: "clusters", label: "聚集特征", description: "查看行列聚集情况" },
+      { value: "clusters", label: "聚集特征", description: "查看 row / col 聚集情况" },
       { value: "comparison", label: "条件比较", description: "比较不同测试条件" },
     ] }],
   };
   if (mode === "产品架构设置") return {
-    text: `## 产品架构参数\n\n${notice}\n\n填写阵列规模与冗余资源。数字范围是**演示输入约束**，不代表真实产品规格。`,
+    text: `## CCR 产品架构参数\n\n${notice}\n\n填写单个 Region 的尺寸、Region 共享的全局备用 row 数（默认 128）以及每个 Segment 的 CCR 备用 col 容量。Segment 保留 section/subsection 映射；全局备用 row 由本 Region 内所有 Segment 共享，不跨 Region 借用。col 按零基地址取模分组，col 修复仅覆盖本 Segment，CCR col 资源不跨 Segment、Region 或子组共享。数字范围是**演示输入约束**，不代表真实产品规格。完整参数请在架构配置页填写。`,
     tools: [{ ...base("填写产品架构"), type: "form", fields: [
       { id: "product", label: "产品名称", type: "text", required: true },
-      { id: "rows", label: "阵列行数", type: "number", required: true, min: 1, max: 1048576 },
-      { id: "columns", label: "阵列列数", type: "number", required: true, min: 1, max: 1048576 },
-      { id: "spareRows", label: "冗余行数", type: "number", required: true, min: 0, max: 4096 },
-      { id: "notes", label: "共享范围与备注", type: "text" },
+      { id: "rows", label: "Region row 数", type: "number", required: true, min: 1, max: 1048576 },
+      { id: "columns", label: "Region col 数", type: "number", required: true, min: 1, max: 1048576 },
+      { id: "spareRows", label: "Region 全局备用 row", type: "number", required: true, min: 0, max: 1048576 },
+      { id: "ccrGroupsPerSegment", label: "CCR 子组数 / Segment", type: "number", required: true, min: 1, max: 256 },
+      { id: "ccrSparesPerGroup", label: "每子组备用 col", type: "number", required: true, min: 0, max: 1048576 },
+      { id: "notes", label: "Section/subsection 映射与备注", type: "text" },
     ] }],
   };
   return {
-    text: `## 示例修补规则\n\n${notice}\n\n1. 优先使用冗余行覆盖整行聚集失效。\n2. 再处理剩余离散失效。\n3. 资源耗尽时标记为不可修补。\n\n这是待讨论的示例，尚未校验资源约束。是否将它记录为本轮演示规则？`,
+    text: `## 示例修补规则\n\n${notice}\n\n1. 优先使用冗余 row 覆盖整条 row 聚集失效。\n2. 再处理剩余离散失效。\n3. 资源耗尽时标记为不可修补。\n\n这是待讨论的示例，尚未校验资源约束。是否将它记录为本轮演示规则？`,
     tools: [{ ...base("确认示例修补规则"), type: "confirm", confirmLabel: "确认记录", cancelLabel: "取消规则" }],
   };
 }
@@ -39,7 +41,7 @@ export function nextDemoReply(tool: InteractiveTool, result: ToolResult, convers
     text: `## 选择统计指标\n\n已记录目标：**${escapeCell(answer)}**。\n\n至少选择一项指标，再生成配置摘要。\n\n${notice}`,
     tools: [{ ...base("选择统计指标"), type: "multi", options: [
       { value: "count", label: "失效数量" }, { value: "ratio", label: "失效占比" },
-      { value: "rows", label: "行分布" }, { value: "columns", label: "列分布" },
+      { value: "rows", label: "row 分布" }, { value: "columns", label: "col 分布" },
     ] }],
   };
   if (tool.type === "multi") {

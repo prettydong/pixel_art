@@ -1,4 +1,8 @@
 .architecture-record-heading h2 { min-width: 0; }
+.task-record.architecture-record { border: 0; border-bottom: 1rem solid var(--line); padding: 8rem 0; gap: 4rem; }
+.architecture-record-heading .action-button { flex-shrink: 0; }
+.architecture-record-details > summary { color: var(--muted); cursor: pointer; }
+.architecture-record-details[open] > summary { margin-bottom: 8rem; }
 .architecture-fold-toggle {
   display: flex;
   align-items: center;
