@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import { getPixelUnit, getSidebarSizing, setSidebarWidth } from './pixelGrid';
 
@@ -23,9 +24,9 @@ export function SidebarResizeHandle({ disabled }: { disabled: boolean }) {
     if (moved) setSidebarWidth(getSidebarSizing().width);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   }
-  return <div ref={handle} className="sidebar-resize-handle" role="separator" aria-label="调整导航栏宽度" aria-orientation="vertical" aria-controls="chat-sidebar"
-    aria-valuemin={sizing.minimum} aria-valuemax={sizing.maximum} aria-valuenow={sizing.width} aria-valuetext={`窗口宽度的 ${Math.round(sizing.width / sizing.viewport * 100)}%`}
-    aria-disabled={disabled} tabIndex={disabled ? -1 : 0} title="拖动调整宽度；双击恢复默认 20%"
+  return <div ref={handle} className="sidebar-resize-handle" role="separator" aria-label={t("调整导航栏宽度")} aria-orientation="vertical" aria-controls="chat-sidebar"
+    aria-valuemin={sizing.minimum} aria-valuemax={sizing.maximum} aria-valuenow={sizing.width} aria-valuetext={t("窗口宽度的 {0}%", Math.round(sizing.width / sizing.viewport * 100))}
+    aria-disabled={disabled} tabIndex={disabled ? -1 : 0} title={t("拖动调整宽度；双击恢复默认 20%")}
     onPointerDown={event => {
       if (disabled || event.button !== 0 || drag.current) return;
       event.preventDefault(); event.currentTarget.focus({ preventScroll: true });

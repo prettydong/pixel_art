@@ -1,5 +1,6 @@
+import { t } from './i18n';
 import type { InteractiveTool, Message, MessageTool, ToolField, ToolOption, ToolResult } from "./chatTypes";
-import { chartMarkdown, readChartTool } from "@pixel/contracts/charts";
+import { chartTable, chartTools, readChartTool, type PixelChart } from "@pixel/contracts/charts";
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const nonempty = (value: unknown): value is string => typeof value === "string" && !!value.trim();
@@ -33,7 +34,7 @@ export function normalizeTools(value: unknown, prefix: string, seen = new Set<st
   if (value === undefined) return undefined;
   const entries = Array.isArray(value) ? value : [value];
   return entries.map((raw, index) => {
-    const fallback: MessageTool = { id: `${prefix}:unavailable:${index}`, type: "unavailable", title: record(raw) && nonempty(raw.title) ? raw.title : "无法读取的交互工具", status: "expired" };
+    const fallback: MessageTool = { id: `${prefix}:unavailable:${index}`, type: "unavailable", title: record(raw) && nonempty(raw.title) ? raw.title : t("无法读取的交互工具"), status: "expired" };
     if (!record(raw) || !nonempty(raw.id) || seen.has(raw.id) || !nonempty(raw.title) || (raw.status !== "pending" && raw.status !== "submitted" && raw.status !== "expired") || (raw.description !== undefined && typeof raw.description !== "string")) return fallback;
     seen.add(raw.id);
     if (raw.type === "single" || raw.type === "multi") { if (!validOptions(raw.options)) return fallback; }
@@ -48,29 +49,48 @@ export function normalizeTools(value: unknown, prefix: string, seen = new Set<st
 }
 
 export function toolAnswer(tool: MessageTool): string {
-  if (tool.type === "unavailable") return "工具数据无法读取";
+  if (tool.type === "unavailable") return t("工具数据无法读取");
   const result = tool.result;
-  if (!result || !validToolResult(tool, result)) return tool.status === "expired" ? "已失效" : "待回答";
-  if (result.type === "confirm") return result.value ? "已确认" : "已取消";
+  if (!result || !validToolResult(tool, result)) return tool.status === "expired" ? t("已失效") : t("待回答");
+  if (result.type === "confirm") return result.value ? t("已确认") : t("已取消");
   if (tool.type === "single" && result.type === "single") return tool.options.find(option => option.value === result.value)!.label;
-  if (tool.type === "multi" && result.type === "multi") return tool.options.filter(option => result.value.includes(option.value)).map(option => option.label).join("、");
-  if (tool.type === "form" && result.type === "form") return tool.fields.map(field => `${field.label}：${Object.hasOwn(result.value, field.id) ? result.value[field.id] : "未填写"}`).join("\n");
-  return "无法读取回答";
+  if (tool.type === "multi" && result.type === "multi") return tool.options.filter(option => result.value.includes(option.value)).map(option => option.label).join(t("、"));
+  if (tool.type === "form" && result.type === "form") return tool.fields.map(field => t("{0}：{1}", field.label, Object.hasOwn(result.value, field.id) ? result.value[field.id] : t("未填写"))).join("\n");
+  return t("无法读取回答");
 }
 
 export function messageMarkdown(message: Message): string {
   const toolText = message.tools?.map(tool => {
-    const lines = [`交互工具：${tool.title}`];
+    const lines = [t("交互工具：{0}", tool.title)];
     if (tool.type !== "unavailable" && tool.description) lines.push(tool.description);
-    if (tool.type === "single" || tool.type === "multi") lines.push(...tool.options.map(option => `- ${option.label}${option.description ? `：${option.description}` : ""}`));
-    if (tool.type === "form") lines.push(...tool.fields.map(field => `- ${field.label}（${field.type === "number" ? "数字" : "文本"}${field.required ? "，必填" : ""}${field.min !== undefined ? `，最小 ${field.min}` : ""}${field.max !== undefined ? `，最大 ${field.max}` : ""}）`));
-    if (tool.type === "confirm") lines.push(`选项：${tool.confirmLabel || "确认"} / ${tool.cancelLabel || "取消"}`);
-    lines.push(`回答：${toolAnswer(tool)}`);
+    if (tool.type === "single" || tool.type === "multi") lines.push(...tool.options.map(option => `- ${option.label}${option.description ? t("：{0}", option.description) : ""}`));
+    if (tool.type === "form") lines.push(...tool.fields.map(field => t("- {0}（{1}{2}{3}{4}）", field.label, field.type === "number" ? t("数字") : t("文本"), field.required ? t("，必填") : "", field.min !== undefined ? t("，最小 {0}", field.min) : "", field.max !== undefined ? t("，最大 {0}", field.max) : "")));
+    if (tool.type === "confirm") lines.push(t("选项：{0} / {1}", tool.confirmLabel || t("确认"), tool.cancelLabel || t("取消")));
+    lines.push(t("回答：{0}", toolAnswer(tool)));
     return lines.join("\n");
   }).join("\n\n");
   const charts = message.toolCalls?.flatMap(tool => {
     const chart = readChartTool(tool);
-    return chart ? [chartMarkdown(chart)] : [];
+    return chart ? [localizedChartMarkdown(chart)] : [];
   });
   return [message.text, ...(charts ?? []), toolText].filter(Boolean).join("\n\n");
+}
+
+function localizedChartMarkdown(chart: PixelChart): string {
+  const escape = (value: unknown) => String(value).replace(/[\\`*_{}\[\]<>()#!~|]/g, '\\$&').replace(/[\r\n]/g, ' ');
+  const { headers, rows } = chartTable(chart);
+  if (chart.kind === 'scatter') { headers[0] = t('系列'); headers[1] = t('标签'); }
+  else if (chart.kind !== 'heatmap' && !chart.xLabel) headers[0] = t('分类');
+  const kind = t(Object.values(chartTools).find(tool => tool.kind === chart.kind)!.label);
+  return [
+    `### ${escape(chart.title)} (${kind})`,
+    chart.description ? escape(chart.description) : '',
+    chart.xLabel ? t('横轴：{0}', escape(chart.xLabel)) : '',
+    chart.yLabel ? t('纵轴：{0}', escape(chart.yLabel)) : '',
+    chart.unit ? t('单位：{0}', escape(chart.unit)) : '',
+    `| ${headers.map(escape).join(' | ')} |`,
+    `| ${headers.map(() => '---').join(' | ')} |`,
+    ...rows.map(row => `| ${row.map(value => escape(value ?? t('缺失'))).join(' | ')} |`),
+    chart.source ? t('来源：{0}', escape(chart.source)) : '',
+  ].filter(Boolean).join('\n');
 }

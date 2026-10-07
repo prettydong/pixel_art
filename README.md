@@ -1,10 +1,10 @@
 # Pixel Chat
 
-面向内部团队的像素聊天工作台。React + TypeScript 前端，Fastify + SQLite 后端，完整 Pi coding agent 通过 RPC 子进程执行。Linux 直接部署，不需要 Docker、Redis 或单独的数据库服务。
+A pixel-style chat workspace for internal teams. React + TypeScript frontend, Fastify + SQLite backend, and the full Pi coding agent running as an RPC subprocess. Deploy directly on Linux without Docker, Redis, or a separate database service.
 
-## 首次启动
+## First Startup
 
-使用 Node.js 24（最低 22.19）和 npm。以下命令在项目根目录执行：
+Use Node.js 24 (minimum 22.19) and npm. Run the following commands from the project root:
 
 ```bash
 npm ci
@@ -12,7 +12,7 @@ cp backend/.env.example .env
 cp backend/models.example.json backend/models.json
 ```
 
-编辑 `.env` 中的模型凭据，以及 `backend/models.json` 中的模型和服务地址。实际凭据不要提交到仓库。模型配置的 `env` 列表明确指定哪些环境变量可以传给 pi；模型列表接口不会返回凭据。价格默认未知；只有确认模型单价后才将该模型的 `pricingKnown` 设为 `true`。内置模型与自定义兼容接口的配置见 [后端说明](backend/README.md)。
+Edit the model credentials in `.env`, and the models and service URLs in `backend/models.json`. Do not commit real credentials. The model configuration's `env` list explicitly specifies which environment variables may be passed to Pi; the model-list API does not return credentials. Pricing is unknown by default; set a model's `pricingKnown` to `true` only after verifying its unit prices. See the [backend documentation](backend/README.md) for built-in models and custom compatible endpoints.
 
 ```bash
 npm run build
@@ -22,85 +22,87 @@ npm run admin:create -- admin
 unset PIXEL_ADMIN_PASSWORD
 ```
 
-管理员初始化命令在服务停止时执行，通过环境变量 `PIXEL_ADMIN_PASSWORD` 或标准输入读取密码（至少 12 字符），不会生成默认密码。交互式终端请按命令提示以隐藏输入设置临时环境变量，完成后清除。随后：
+Run the administrator initialization command while the service is stopped. It reads a password (at least 12 characters) from `PIXEL_ADMIN_PASSWORD` or standard input and does not generate a default password. In an interactive terminal, follow the command prompt to set a temporary environment variable using hidden input, then clear it afterward. Next:
 
 ```bash
 npm start
 ```
 
-默认地址是 http://localhost:3000，后端同时提供构建后的前端。Linux 和 macOS 上应分别安装依赖，不要直接复制跨平台 `node_modules`；SQLite 驱动包含本机原生组件。
+The default address is http://localhost:3000; the backend also serves the built frontend. Install dependencies separately on Linux and macOS instead of copying `node_modules` across platforms; the SQLite driver includes native components.
 
-## 开发
+## Development
 
 ```bash
 npm run build -w @pixel/contracts
 npm run dev:backend
 ```
 
-另一个终端运行：
+In another terminal, run:
 
 ```bash
 npm run dev:fronted
 ```
 
-前端默认 http://localhost:5173，通过 Vite 代理访问后端。访问地址无需与 `PIXEL_ORIGIN` 完全一致；写入接口仍拒绝浏览器标记的跨站请求。修改共享契约后重新构建 contracts。
+The frontend defaults to http://localhost:5173 and accesses the backend through Vite's proxy. The access URL does not have to match `PIXEL_ORIGIN` exactly; write endpoints still reject requests marked as cross-site by the browser. Rebuild contracts after changing the shared contracts.
 
-## 功能与边界
+## Features and Boundaries
 
-前端消息支持 GFM Markdown；单选、多选、确认/取消和表单的本地演示入口为 `?demo=tools`，也可从登录页或模型菜单打开。该入口不调用后端，历史独立保存在浏览器。组件接口、演示流程与手动验收见 [前端工具说明](FRONTEND_TOOLS.md)。
+The interface defaults to English. Switch to Simplified Chinese on the login page or in settings; the choice is saved in the current browser. Switching languages does not translate or rewrite existing conversations, user-defined names, or uploaded materials.
 
-- 管理员创建、重置、启停账号；用户登录、改密和退出。登录会话、聊天会话、执行任务分别管理。
-- 左侧按任务名组织，每个任务依次包含架构、数据、执行结论和多个聊天。可新建任务；任务标题旁的省略号菜单提供重命名和删除，经确认后删除任务及所属聊天，有活动执行时需先停止。任务使用软删除，保留底层记录；共享产品、wafer 和上传文件不会随任务删除。点击聊天标题可重命名或移动到其他任务。无产物时执行结论置灰。
-- 会话和消息保存到服务器，支持搜索、重命名、删除、Markdown 导出；浏览器旧演示历史保持原样，不自动上传。
-- 管理员统一配置模型；同一用户的多个会话可以并行。同一会话仅一个活动任务，重复提交通过幂等键去重。
-- SSE 推送文本与工具状态，断线后可重连；刷新页面不停止后台任务。停止任务会先请求 pi 取消，再清理进程及脚本。
-- 附件上传到 `data/users/<userId>/uploads/`，在同一用户的会话间共享。Pi 从用户目录启动，使用自己的 `.pi/skills/`；每个会话的 `conversations/<id>/work/` 保存脚本和中间文件，`work/artifacts/` 保存可下载产物。上传可在任务的数据页添加，也可从已有上传中关联；同一任务的聊天共享资料清单。
-- 用量按用户、会话、任务、模型、时间记录；包括可获得的模型调用、工具调用与压缩信息，支持筛选和分页。费用是估算，缺失数据标为未知。不设置用户额度、不做付费扣费。
-- Pi 原生会话文件用于恢复上下文，数据库消息用于展示。中断任务不会自动重放；重启后对原生记录补齐统计，来源 ID 防止重复累计。
+Frontend messages support GFM Markdown. The local demo for single choice, multiple choice, confirm/cancel, and forms is available at `?demo=tools`, or from the login page or model menu. It does not call the backend; its history is stored separately in the browser. See [frontend tools](FRONTEND_TOOLS.md) for component interfaces, demo flows, and manual acceptance checks.
 
-Pi 固定版本为 `@earendil-works/pi-coding-agent@0.85.1`，RPC 适配封装在后端，前端只使用共享业务契约。内置六种像素图表工具已通过显式 Pi 扩展接入，支持柱状图、折线图、面积图、饼图、散点图和热力图；[工具说明与参数](PIXEL_CHART_TOOLS.md)，本地演示入口 `?demo=charts`。完整脚本能力需要服务器安装相应工具，如 bash、Python 或业务计算程序；TypeScript 后端本身不替代这些工具。
+- Administrators create, reset, enable, and disable accounts; users sign in, change passwords, and sign out. Login sessions, chat conversations, and execution tasks are managed separately.
+- The left navigation is organized by task name. Each task contains architecture, data, execution conclusions, and multiple chats, in that order. Tasks can be created; the ellipsis menu beside the task title supports renaming and deletion. Confirmed deletion removes the task and its chats; active executions must be stopped first. Tasks are soft-deleted, retaining underlying records; shared products, wafers, and uploads are retained. Click a chat title to rename it or move it to another task. Execution conclusions are disabled when there are no artifacts.
+- Conversations and messages are saved on the server, with search, rename, delete, and Markdown export. Old browser demo history is retained as-is and is not uploaded automatically.
+- Administrators configure models centrally. Multiple conversations belonging to the same user may run concurrently. Each conversation permits only one active execution; idempotency keys deduplicate repeated submissions.
+- SSE streams text and tool status and supports reconnection. Refreshing the page does not stop background tasks. Stopping a task first requests cancellation from Pi, then cleans up processes and scripts.
+- Attachments are uploaded to `data/users/<userId>/uploads/` and shared across the user's conversations. Pi starts from the user directory and uses its own `.pi/skills/`. Each conversation's `conversations/<id>/work/` contains scripts and intermediate files; `work/artifacts/` contains downloadable artifacts. Add uploads on a task's data page or link existing uploads; chats in the same task share a material inventory.
+- Usage is recorded by user, conversation, task, model, and time, including available model-call, tool-call, and compaction information, with filtering and pagination. Costs are estimates; missing data is marked unknown. There are no user quotas or paid billing deductions.
+- Pi's native session files restore context; database messages provide the display history. Interrupted tasks are not replayed automatically. After a restart, statistics are reconciled from native records, with source IDs preventing double counting.
 
-独立进程、独立目录不构成操作系统沙箱。本版面向可信内部用户，同一 OS 服务账号下的 agent 仍具有该账号的文件和网络权限。工具不应启动长期后台服务。HTTP 的身份、路径及符号链接校验保护文件接口，但不会限制 agent 脚本本身。
+Pi is pinned to `@earendil-works/pi-coding-agent@0.85.1`. RPC adaptation is encapsulated in the backend; the frontend uses only shared business contracts. Six built-in pixel-chart tools are connected through an explicit Pi extension: bar, line, area, pie, scatter, and heatmap charts. See [tool documentation and parameters](PIXEL_CHART_TOOLS.md); the local demo is `?demo=charts`. Full scripting capabilities require the relevant server tools, such as bash, Python, or domain-specific computation programs; the TypeScript backend does not replace them.
 
-## 任务资料
+Separate processes and directories do not constitute an operating-system sandbox. This version is intended for trusted internal users; agents running under the same OS service account retain its file and network permissions. Tools should not start long-lived background services. HTTP authentication, path, and symbolic-link checks protect file endpoints but do not constrain agent scripts themselves.
 
-架构配置采用 CCR：region 是独立修复单元（即 bank），bigSection 统一称 segment，保留 smart-eval 的 section/subsection 地址映射。每个 region 的全部 segment 共享全局备用 row（默认128条），CCR 备用 col 按 segment 和子组独立，col 不能跨 segment 或子组借用。常用区配置 region 尺寸、全局备用 row、CCR 子组数和每组容量；segment 划分位于高级选项。定义见 [MEMORY_REDUNDANCY_DEFINITIONS.md](MEMORY_REDUNDANCY_DEFINITIONS.md)。
+## Task Materials
 
-数据页按“产品 → wafer → chip → region”管理晶圆数据。产品统一定义每片 chip 数、每 chip 的 region 数和 region 的 row × col；一份 `.pwafer` 二进制文件对应一片 wafer，使用稀疏 region 与 fail 地址差分编码，包含零 fail 结构和 CRC32 校验。可以把产品库里的 wafer 关联到不同任务；数据页统一采用新格式。
+Architecture configuration uses CCR: a region is an independent repair unit (a bank), and bigSection is consistently called segment, retaining smart-eval's section/subsection address mapping. All segments in a region share a global spare-row pool (128 rows by default). CCR spare columns are independent by segment and subgroup; column resources cannot be borrowed across segments or subgroups. Common settings configure region dimensions, global spare rows, CCR subgroup count, and per-group capacity; segment partitioning is under advanced options. See [MEMORY_REDUNDANCY_DEFINITIONS.md](MEMORY_REDUNDANCY_DEFINITIONS.md).
 
-格式说明与生成命令见 [WAFER_FORMAT.md](WAFER_FORMAT.md)，生成器为 `scripts/generate-wafer-fails.mjs`。`datasets/wafer-demo/` 提供三片可重复的合成样例（64 chips、每 chip 8 regions、每 region 1024 × 1024，含一片零 fail）；不代表真实制造数据。
+The data page manages wafer data as "product → wafer → chip → region". A product defines chips per wafer, regions per chip, and each region's row × col dimensions. One `.pwafer` binary file represents one wafer, using sparse regions and delta-encoded fail addresses, including zero-fail structure and CRC32 validation. Wafers from the product library can be linked to different tasks; the data page consistently uses the new format.
 
-页面支持导入和生成 wafer，保存后自动预览圆盘内的 chip 网格热力图；点击 chip 联动 region 坐标。颜色汇总实际 fail 数，提供零值颜色、数值图例和线性/对数尺度。生成模式包括中心、边缘环、局部、划痕等，参数与种子保存到 wafer 记录。自动 chip 位置是示意布局；研究依据、统计假设和限制见 [WAFER_SPATIAL_MODEL.md](WAFER_SPATIAL_MODEL.md)。
+See [WAFER_FORMAT.md](WAFER_FORMAT.md) for the format and generation commands. The generator is `scripts/generate-wafer-fails.mjs`. `datasets/wafer-demo/` provides three reproducible synthetic samples (64 chips, 8 regions per chip, 1024 × 1024 per region, including one zero-fail wafer); these do not represent real manufacturing data.
 
-架构页可保存多个命名架构定义，点击“让 Agent 绘制预览”会由 Agent 编写实际执行的 `draw(ctx)` 模块及场景 JSON，经 Harness 归档后由前端 Pixi 执行。默认网格支持 1024×8192 等真实阵列尺寸，按视野裁剪和缩放合并格线；支持全图、缩放、拖动、单元格与行列定位。画布、区域坐标、分割线宽度/颜色、字体、主题颜色快照与架构指纹均保存；支持重新生成和查看历史版本，架构修改后旧图不再作为当前预览。约定见 [架构预览 Harness](backend/architecture-preview/README.md)。
+The page supports importing and generating wafers. After saving, it automatically previews a heatmap of the chip grid inside a disk; selecting a chip updates the region-coordinate view. Colors summarize actual fail counts, with a zero-value color, numeric legend, and linear/logarithmic scales. Generation patterns include center, edge ring, local, and scratch; parameters and seeds are saved in the wafer record. Automatic chip positions are schematic; see [WAFER_SPATIAL_MODEL.md](WAFER_SPATIAL_MODEL.md) for research, statistical assumptions, and limitations.
 
-架构页同时列出评估框架 `sources/00_experiment.json` 中的已执行架构快照；历史快照只读。数据页关联本任务输入，结论页汇总各聊天的报告和可下载产物。文件物理位置和每个聊天的 Pi 会话保持独立，新的 run 会收到任务资料快照，避免并发聊天互相覆盖工作文件。
+The architecture page stores multiple named architecture definitions. Clicking "Have Agent draw preview" asks the agent to write an executable `draw(ctx)` module and scene JSON, archived by the Harness and executed with Pixi in the frontend. The default grid supports real array dimensions such as 1024×8192, clips to the viewport, and merges grid lines when zoomed out. It supports fit-to-view, zoom, pan, and cell/row/column navigation. The canvas, region coordinates, divider widths/colors, font, theme-color snapshot, and architecture fingerprint are saved. Regeneration and version history are available; after an architecture changes, its old drawing is no longer the current preview. See the [architecture preview Harness](backend/architecture-preview/README.md).
 
-升级后，服务启动时将未删除的旧会话各自归入同名任务，并关联历史消息实际使用的上传；需要合并时通过聊天标题的“所属任务”移动。`?demo=tools` 仍是原有独立本地演示，不使用服务端任务管理。
+The architecture page also lists executed architecture snapshots from the evaluation framework's `sources/00_experiment.json`; historical snapshots are read-only. The data page links the task's inputs; the conclusions page aggregates reports and downloadable artifacts from its chats. File locations and each chat's Pi session remain independent. New runs receive a snapshot of task materials, preventing concurrent chats from overwriting each other's working files.
 
-## 修补与良率评估
+After an upgrade, startup assigns each undeleted old conversation to a task with the same name and links uploads actually used by historical messages. To merge tasks, move chats through "Parent task" in the chat-title menu. `?demo=tools` remains the original independent local demo and does not use server-side task management.
 
-内置 [HiGHS 评估框架与 device](backend/repair-evaluation/README.md)。Agent 先明确使用的数据、完整样本名册、冗余数量和修补规则，再修改当前会话的 `device.py`，通过 `plan` / `run` 执行实验。CCR device 支持 region 全局共享备用 row 与 segment 内按 `col % N` 分组的局部备用 col；segment 使用已确认的 section/subsection 映射。框架保留逐样本方案、良率、未判定上下界和代码/输入指纹。每个会话持有独立副本，通过 `PIXEL_CCR_DEVICE` 选择新增的 CCR 模板；已有自定义文件不覆盖。Python 与 highspy 依赖按框架说明准备。
+## Repair and Yield Evaluation
 
-## 部署与备份
+The [HiGHS evaluation framework and device](backend/repair-evaluation/README.md) are built in. The agent first establishes the data, complete sample roster, redundancy quantities, and repair rules, then modifies the current conversation's `device.py` and runs experiments through `plan` / `run`. The CCR device supports globally shared spare rows within a region and local spare columns grouped by `col % N` within each segment; segments use the confirmed section/subsection mapping. The framework preserves per-sample plans, yield, bounds for unresolved samples, and code/input fingerprints. Each conversation has an independent copy. `PIXEL_CCR_DEVICE` selects the added CCR template; existing custom files are not overwritten. Prepare Python and highspy dependencies as described in the framework documentation.
 
-- 用 `PIXEL_DATA_DIR` 指定发布目录之外的持久化数据目录；运行账号需要读写权限。
-- 只启动一个主服务实例。Linux 使用进程间锁保护同一数据目录，防止重复启动。
-- 对外部署使用同源 HTTPS 反向代理，并将 `PIXEL_ORIGIN` 设为实际地址。代理需要关闭 SSE 响应缓冲并允许长连接。
-- 可选 systemd 单元见 [deploy/pixel-chat.service](deploy/pixel-chat.service)。调整 Node 路径、工作目录和环境文件后安装；它会在服务停止时清理整个服务的子进程。
-- 停止服务后备份整个数据目录，包括 SQLite、会话原始文件、附件和产物；模型配置另行备份，凭据另行保管。不能只复制运行中的 SQLite 主文件而忽略 WAL。
-- 本版软删除会话，保留原生数据和用量。磁盘容量由管理员维护；没有后台数据清除任务。
+## Deployment and Backup
 
-## 目录与协作
+- Set `PIXEL_DATA_DIR` to a persistent data directory outside the release directory; the runtime account needs read/write access.
+- Start only one main service instance. Linux uses an interprocess lock to protect the same data directory from duplicate startup.
+- For external deployment, use a same-origin HTTPS reverse proxy and set `PIXEL_ORIGIN` to the actual address. Disable SSE response buffering and allow long-lived connections.
+- An optional systemd unit is provided at [deploy/pixel-chat.service](deploy/pixel-chat.service). Adjust the Node path, working directory, and environment file before installing it; it cleans up all service child processes when the service stops.
+- Stop the service before backing up the entire data directory, including SQLite, native session files, attachments, and artifacts. Back up model configuration separately and store credentials separately. Do not copy only the live SQLite main file while ignoring the WAL.
+- This version soft-deletes conversations and retains native data and usage. Administrators manage disk capacity; there is no background data-cleanup job.
 
-保留 `fronted/`、`backend/`；`packages/contracts/` 存放类型、请求校验和事件示例。协议见 [契约说明](packages/contracts/README.md)，部署配置详见 [后端说明](backend/README.md)。
+## Directories and Collaboration
 
-本次实现按项目约定未运行测试、构建或浏览器自动验收。请按 [手动验收清单](MANUAL_CHECKS.md) 验证真实模型、并发、取消、重连和恢复行为。
+Keep `fronted/` and `backend/`. `packages/contracts/` contains types, request validation, and event examples. See the [contract documentation](packages/contracts/README.md) for the protocol and the [backend documentation](backend/README.md) for deployment configuration.
 
-## 像素网格与外观
+This implementation did not run tests, builds, or automated browser acceptance checks, in accordance with the project agreement. Follow the [manual acceptance checklist](MANUAL_CHECKS.md) to verify real models, concurrency, cancellation, reconnection, and recovery.
 
-桌面左侧导航栏默认占当前窗口宽度的 1/5。拖动右边缘可调整宽度，浏览器记住调整值；双击边缘恢复默认比例。拖动按整数像素网格对齐，侧栏至少 120 格、最多半个窗口，同时为主区留出至少 240 格。边缘也支持左右方向键调整、Enter 恢复默认；窄屏继续使用折叠抽屉。
+## Pixel Grid and Appearance
 
-`fronted/src/pixelGrid.ts` 在首次渲染及窗口、可见视口、DPR 变化时计算网格：1440p 等常规窗口使用 2×2 个设备像素；仅当可见视口达到物理宽 2880、高 1800 像素时使用 3×3。CSS 基础单位为该整数倍数除以 `devicePixelRatio`，Canvas 使用相同倍数。正文统一 Fusion Pixel 12px、字号 12 格；图标为 16×16 整数方格 SVG。默认跟随系统，也可切换亮色、暗色，选择保存在当前浏览器。
+On desktop, the left navigation defaults to one fifth of the current window width. Drag its right edge to resize; the browser remembers the value. Double-click the edge to restore the default ratio. Dragging snaps to the integer pixel grid; the sidebar is at least 120 units wide and at most half the window, while leaving at least 240 units for the main area. The edge also supports left/right arrow keys for resizing and Enter to restore the default. Narrow screens continue to use a collapsible drawer.
 
-这是整数设备像素比例，不是固定视觉字号；系统额外缩放仍可能影响显示。字体来源 [Fusion Pixel Font](https://github.com/TakWolf/fusion-pixel-font)，许可保存在 `fronted/public/fonts/licenses/12/`。具体设计约定见 [AGENTS.md](AGENTS.md)。
+`fronted/src/pixelGrid.ts` calculates the grid before the first render and whenever the window, visible viewport, or DPR changes. Normal windows, including 1440p, use 2×2 device pixels; 3×3 is used only when the visible viewport reaches 2880 physical pixels wide and 1800 high. The CSS base unit is that integer scale divided by `devicePixelRatio`; Canvas uses the same scale. Body text consistently uses Fusion Pixel 12px at 12 grid units; icons are SVGs on a 16×16 integer grid. The theme follows the system by default, with light and dark options; the choice is saved in the current browser.
+
+This is an integer device-pixel ratio, not a fixed visual font size; additional system scaling may still affect the display. The font comes from [Fusion Pixel Font](https://github.com/TakWolf/fusion-pixel-font), with licenses in `fronted/public/fonts/licenses/12/`. See [AGENTS.md](AGENTS.md) for the design guidelines.

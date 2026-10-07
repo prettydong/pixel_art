@@ -1,44 +1,44 @@
-# 产品与 wafer 数据（PXLWAF1）
+# Product and Wafer Data (PXLWAF1)
 
-产品固定 `chipCount=k`、`regionCount=n`、`rows`、`cols`。一个产品包含多片 wafer；每片 wafer 恰有 k 个 chip，每个 chip 恰有 n 个 region，每个 region 尺寸相同。产品结构创建后不修改，另一种结构使用新产品。产品与 wafer 属于当前用户，可在多个任务中关联同一个 wafer 文件。
+A product fixes `chipCount=k`, `regionCount=n`, `rows`, and `cols`. It contains multiple wafers; each wafer has exactly k chips, each chip exactly n regions, and all regions the same dimensions. Product structure is immutable after creation; use a new product for another structure. Products and wafers belong to the current user, and the same wafer file may be linked to multiple tasks.
 
-一份 `.pwafer` 文件就是一片 wafer。chip、region、row、col 全部从 0 开始。fail 只记录失效单元坐标，不包含 fail 值、测试轮次或冗余资源。结构相同的文件可以导入选中的产品；文件不内嵌产品或 wafer 名称，这些保存在目录数据库及生成清单中。
+One `.pwafer` file represents one wafer. All chip, region, row, and col indices start at 0. Fails record only failed-cell coordinates, without failure values, test rounds, or redundancy resources. Files with matching structure may be imported into the selected product. Product and wafer names are not embedded in the file; they are stored in the catalog database and generation manifest.
 
-## 二进制布局
+## Binary Layout
 
-无压缩包外层，无文本坐标。44 字节头部使用 little-endian uint32；后续是按 region、单元地址排序的无符号差分 varint。
+There is no outer archive or text-coordinate layer. The 44-byte header uses little-endian uint32 values; the payload uses unsigned delta varints sorted by region and cell address.
 
-| 偏移（字节） | 长度 | 内容 |
+| Offset (bytes) | Length | Content |
 | --- | --- | --- |
-| 0 | 8 | 魔数 `PXLWAF1\0`（十六进制 `50 58 4c 57 41 46 31 00`），格式版本 1 |
-| 8 | 4 | flags：bit 0 为合成数据标记，其余位必须为 0 |
+| 0 | 8 | Magic `PXLWAF1\0` (hex `50 58 4c 57 41 46 31 00`), format version 1 |
+| 8 | 4 | flags: bit 0 marks synthetic data; all other bits must be 0 |
 | 12 | 4 | chipCount |
-| 16 | 4 | regionCount（每个 chip） |
-| 20 | 4 | rows（每个 region） |
-| 24 | 4 | cols（每个 region） |
-| 28 | 4 | 全片 fail 总数 |
-| 32 | 4 | 非空 region 数 |
-| 36 | 4 | payload 字节长度 |
-| 40 | 4 | CRC-32/ISO-HDLC：对头部字节 0..39 与 payload 连接计算，排除本字段 |
-| 44 | 可变 | payload |
+| 16 | 4 | regionCount (per chip) |
+| 20 | 4 | rows (per region) |
+| 24 | 4 | cols (per region) |
+| 28 | 4 | Total fails across the wafer |
+| 32 | 4 | Nonempty region count |
+| 36 | 4 | Payload length in bytes |
+| 40 | 4 | CRC-32/ISO-HDLC over header bytes 0..39 concatenated with the payload, excluding this field |
+| 44 | Variable | payload |
 
-CRC 使用反射多项式 `0xedb88320`、初始值和最终 xor 值 `0xffffffff`。用于发现损坏，不提供真实性或来源认证。
+CRC uses the reflected polynomial `0xedb88320`, with initial and final XOR values of `0xffffffff`. It detects corruption but does not authenticate content or provenance.
 
-payload 只记录有 fail 的 region，每组依次为：
+The payload records only regions with fails. Each group contains, in order:
 
-1. `regionIndex` 差值：`regionIndex = chip * regionCount + region`。第一组相对于 0，后续相对于上一组。
-2. 本 region 的 fail 数，必须大于 0。
-3. 按升序排列的单元地址差值：`position = row * cols + col`。每组第一个地址相对于 0，之后相对于该组上一地址。
+1. A `regionIndex` delta, where `regionIndex = chip * regionCount + region`. The first group is relative to 0; later groups are relative to the previous group.
+2. The fail count for this region, which must be greater than 0.
+3. Ascending cell-address deltas, where `position = row * cols + col`. The first address in each group is relative to 0; later addresses are relative to the previous address in that group.
 
-每个整数使用最短形式的 unsigned LEB128，至多 5 字节、32 位无符号范围。第一条 region/地址差值允许为 0；后续必须为正，保证严格排序且无重复。
+Each integer uses the shortest unsigned LEB128 representation, at most 5 bytes and within the unsigned 32-bit range. The first region/address delta may be 0; subsequent deltas must be positive, ensuring strict order without duplicates.
 
-头部显式保留完整结构，未出现的 region 有 0 个 fail。全片零 fail 时文件仅有 44 字节，所有 chip、region 仍然存在。稀疏存储无需分配 row × col 的矩阵。具体压缩程度取决于位置分布；密集失效可比位图更大，本版不自适应切换编码。
+The header explicitly preserves the complete structure; omitted regions have 0 fails. An all-zero-fail wafer is only 44 bytes, while all chips and regions still exist. Sparse storage does not allocate a row × col matrix. Compression depends on the spatial distribution; dense failures can be larger than a bitmap. This version does not adaptively switch encodings.
 
-当前实现限制：每个维度 1..1000000；k × n ≤ 1000000；rows × cols ≤ 4294967295；每片 ≤ 5000000 个 fail、≤ 100000 个非空 region、≤ 25 MiB。服务器还应用实际上传限制。解码拒绝结构不符、CRC 错误、未知标记、越界、重复、非最短 varint、截断及多余字节。
+Current implementation limits: each dimension 1..1000000; k × n ≤ 1000000; rows × cols ≤ 4294967295; per wafer ≤ 5000000 fails, ≤ 100000 nonempty regions, and ≤ 25 MiB. The server also enforces its actual upload limit. Decoding rejects mismatched structures, invalid CRCs, unknown flags, out-of-bounds values, duplicates, nonminimal varints, truncation, and trailing bytes.
 
-## 生成测试数据
+## Generate Test Data
 
-无需构建，直接使用 Node：
+No build is required; use Node directly:
 
 ```bash
 node scripts/generate-wafer-fails.mjs \
@@ -48,22 +48,22 @@ node scripts/generate-wafer-fails.mjs \
   --strength 12 --dispersion 4 --seed 20260926
 ```
 
-输出三片 wafer、生成参数与 SHA-256 清单、合成数据说明。支持随机、中心、环带、边缘环、局部边缘、局部、划痕和混合空间形态。`--mean-fails-per-region` 是每 region 的目标平均 fail 数，默认 100；内部按产品的 region 数换算为每 chip 均值，设为 0 可生成全零数据。模型及研究依据见 [WAFER_SPATIAL_MODEL.md](WAFER_SPATIAL_MODEL.md)。内容不同的已存在文件不会被覆盖。
+Outputs three wafers, generation parameters and a SHA-256 manifest, and synthetic-data notes. Supported spatial patterns include random, center, donut, edge ring, edge local, local, scratch, and mixed. `--mean-fails-per-region` is the target mean fail count per region, defaulting to 100; internally it is converted to a per-chip mean using the product's region count. Set it to 0 for all-zero data. See [WAFER_SPATIAL_MODEL.md](WAFER_SPATIAL_MODEL.md) for the model and research basis. Existing files with different content are not overwritten.
 
-数据页创建同样结构的产品，导入 `.pwafer` 文件即可。数据页统一采用这一格式，不提供旧 CSV 预览或格式转换入口。
+Create a product with matching structure on the data page and import `.pwafer` files. The data page consistently uses this format and does not provide old CSV previews or format-conversion entry points.
 
-## 在脚本中读取
+## Read from Scripts
 
-可先用只读命令查看摘要或指定区域（最多显示 1000 个坐标，不展开全片数据）：
+Use the read-only commands to inspect a summary or a specific region (up to 1000 coordinates, without expanding the whole wafer):
 
 ```bash
 node scripts/read-wafer.mjs --file datasets/wafer-demo/wafer-002.pwafer
 node scripts/read-wafer.mjs --file datasets/wafer-demo/wafer-002.pwafer --chip 0 --region 0 --limit 50
 ```
 
-聊天任务的上下文包含已关联 wafer 的产品名、完整结构与文件 ID，以及上述工具路径。坐标明细保留在二进制文件中，由脚本按需计算。
+Chat-task context includes linked wafers' product names, complete structure, file IDs, and the tool path above. Detailed coordinates stay in the binary file and are computed by scripts as needed.
 
-编解码器是无 Node 专有依赖的 ES module，前端、后端和生成器共用一份实现：
+The codec is an ES module without Node-specific dependencies; the frontend, backend, and generator share one implementation:
 
 ```js
 import { readFileSync } from 'node:fs';
@@ -76,9 +76,9 @@ for (const group of wafer.groups) {
   for (const position of group.positions) {
     const row = Math.floor(position / wafer.layout.cols);
     const col = position % wafer.layout.cols;
-    // 使用 chip、region、row、col；空 region 由 layout 定义。
+    // Use chip, region, row, and col; empty regions are defined by layout.
   }
 }
 ```
 
-通过包导入时使用 `@pixel/contracts/wafer-data`。生成端调用 `encodeWafer({ layout, groups, synthetic })`，要求 groups 和每组 positions 已严格升序且无重复。合成标记不是可信来源证明。
+Import through the package as `@pixel/contracts/wafer-data`. Generators call `encodeWafer({ layout, groups, synthetic })`, requiring groups and each group's positions to be strictly ascending without duplicates. A synthetic flag is not proof of trustworthy provenance.

@@ -1,4 +1,4 @@
-/** A region is an independent bank. Spare rows are shared across the region; CCR column pools are local to a segment. */
+import { t } from './i18n';
 export type ArchitectureFields = {
   rows: string;
   cols: string;
@@ -25,13 +25,13 @@ export const ARCHITECTURE_TEMPLATES: readonly {
   id: string; label: string; name: string; summary: string; fields: ArchitectureFields;
 }[] = [
   {
-    id: 'ccr-segmented', label: 'CCR · 分段', name: '32768×2048 CCR',
-    summary: '48 个 segment；每 segment 8 个 CCR 子组，每组 2 条备用 col，Region 默认共享 128 条全局备用 row。备用 col 容量为示例。',
+    id: 'ccr-segmented', get label() { return t("CCR · 分段"); }, name: '32768×2048 CCR',
+    get summary() { return t("48 个 segment；每 segment 8 个 CCR 子组，每组 2 条备用 col，Region 默认共享 128 条全局备用 row。备用 col 容量为示例。"); },
     fields: { ...baseline },
   },
   {
-    id: 'ccr-single-segment', label: 'CCR · 单 segment', name: '32768×2048 单 segment CCR',
-    summary: '整个 region 作为一个 segment；8 个 CCR 子组，每组 2 条备用 col，Region 默认共享 128 条全局备用 row。备用 col 容量为示例。',
+    id: 'ccr-single-segment', get label() { return t("CCR · 单 segment"); }, get name() { return t("32768×2048 单 segment CCR"); },
+    get summary() { return t("整个 region 作为一个 segment；8 个 CCR 子组，每组 2 条备用 col，Region 默认共享 128 条全局备用 row。备用 col 容量为示例。"); },
     fields: { ...baseline, sectionsPerSegment: '96' },
   },
 ];
@@ -39,32 +39,32 @@ export const ARCHITECTURE_TEMPLATES: readonly {
 function integer(value: string, label: string, min: number, max: number): number {
   const trimmed = value.trim();
   const n = /^\d+$/.test(trimmed) ? Number(trimmed) : NaN;
-  if (!Number.isSafeInteger(n) || n < min || n > max) throw new Error(`${label}必须是 ${min}～${max} 之间的整数。`);
+  if (!Number.isSafeInteger(n) || n < min || n > max) throw new Error(t("{0}必须是 {1}～{2} 之间的整数。", label, min, max));
   return n;
 }
 
 function definition(fields: ArchitectureFields, templateId: string) {
-  if (!ARCHITECTURE_TEMPLATES.some(template => template.id === templateId)) throw new Error('请选择有效的 CCR 预设。');
-  const rows = integer(fields.rows, 'Region row 数', 1, 1_048_576);
-  const cols = integer(fields.cols, 'Region col 数', 1, 1_048_576);
-  const coordinateBase = integer(fields.coordinateBase, '坐标起点', 0, 1);
-  const spareRows = integer(fields.spareRows, 'Region 全局备用 row 数', 0, 1_048_576);
-  const groups = integer(fields.ccrGroupsPerSegment, '每 segment 的 CCR 子组数', 1, 256);
+  if (!ARCHITECTURE_TEMPLATES.some(template => template.id === templateId)) throw new Error(t("请选择有效的 CCR 预设。"));
+  const rows = integer(fields.rows, t("Region row 数"), 1, 1_048_576);
+  const cols = integer(fields.cols, t("Region col 数"), 1, 1_048_576);
+  const coordinateBase = integer(fields.coordinateBase, t("坐标起点"), 0, 1);
+  const spareRows = integer(fields.spareRows, t("Region 全局备用 row 数"), 0, 1_048_576);
+  const groups = integer(fields.ccrGroupsPerSegment, t("每 segment 的 CCR 子组数"), 1, 256);
   const entries = fields.ccrSparesPerGroup.split(/[,，]/).map(value => value.trim());
-  if (entries.length !== 1 && entries.length !== groups) throw new Error(`CCR 备用 col 容量请填一个统一值，或 ${groups} 个按子组排列的数值。`);
-  const counts = entries.map((value, index) => integer(value, `CCR 第 ${index} 子组容量`, 0, 1_048_576));
+  if (entries.length !== 1 && entries.length !== groups) throw new Error(t("CCR 备用 col 容量请填一个统一值，或 {0} 个按子组排列的数值。", groups));
+  const counts = entries.map((value, index) => integer(value, t("CCR 第 {0} 子组容量", index), 0, 1_048_576));
   const capacities = counts.length === 1 ? Array.from({ length: groups }, () => counts[0]) : counts;
-  const sectionCount = integer(fields.sectionCount, 'Section 总数', 1, 1_048_576);
-  const sectionsPerSegment = integer(fields.sectionsPerSegment, '每 segment 的 section 数', 1, sectionCount);
-  const sectionGroupSize = integer(fields.sectionGroupSize, 'Section group row 跨度', 1, 1_048_576);
-  const subsectionSize = integer(fields.subsectionSize, 'Subsection row 步长', 1, 1_048_576);
-  const subsectionsPerGroup = integer(fields.subsectionsPerGroup, '每 section group 的 subsection 数', 1, sectionCount);
-  if (sectionCount % subsectionsPerGroup) throw new Error('Section 总数必须能被每 group 的 subsection 数整除。');
-  if (sectionCount % sectionsPerSegment) throw new Error('Section 总数必须能被每 segment 的 section 数整除。');
-  if (sectionGroupSize > subsectionSize * subsectionsPerGroup) throw new Error('Segment 映射无效：subsection row 跨度不足以覆盖 section group。');
+  const sectionCount = integer(fields.sectionCount, t("Section 总数"), 1, 1_048_576);
+  const sectionsPerSegment = integer(fields.sectionsPerSegment, t("每 segment 的 section 数"), 1, sectionCount);
+  const sectionGroupSize = integer(fields.sectionGroupSize, t("Section group row 跨度"), 1, 1_048_576);
+  const subsectionSize = integer(fields.subsectionSize, t("Subsection row 步长"), 1, 1_048_576);
+  const subsectionsPerGroup = integer(fields.subsectionsPerGroup, t("每 section group 的 subsection 数"), 1, sectionCount);
+  if (sectionCount % subsectionsPerGroup) throw new Error(t("Section 总数必须能被每 group 的 subsection 数整除。"));
+  if (sectionCount % sectionsPerSegment) throw new Error(t("Section 总数必须能被每 segment 的 section 数整除。"));
+  if (sectionGroupSize > subsectionSize * subsectionsPerGroup) throw new Error(t("Segment 映射无效：subsection row 跨度不足以覆盖 section group。"));
   const expectedRows = (sectionCount / subsectionsPerGroup) * sectionGroupSize;
-  if (rows !== expectedRows) throw new Error(`Segment 映射对应 ${expectedRows} row，与 Region row 数 ${rows} 不一致。`);
-  if (fields.notes.length > 4000) throw new Error('备注不能超过 4000 字符。');
+  if (rows !== expectedRows) throw new Error(t("Segment 映射对应 {0} row，与 Region row 数 {1} 不一致。", expectedRows, rows));
+  if (fields.notes.length > 4000) throw new Error(t("备注不能超过 4000 字符。"));
   return {
     kind: 'pixel-architecture', version: 2, template_id: templateId,
     model: 'region-ccr',
@@ -153,6 +153,6 @@ export function architectureSummary(description: string): string | null {
   const value = definition(parsed.fields, parsed.templateId);
   const segments = value.device.row_layout.section_count / value.device.row_layout.sections_per_segment;
   const capacities = value.device.ccr_spares_per_group;
-  const capacity = capacities.every(count => count === capacities[0]) ? `每组 ${capacities[0]} col` : `每段共 ${capacities.reduce((sum, count) => sum + count, 0)} col`;
-  return `Region ${value.array.rows} × ${value.array.cols} · ${segments} segment · Region 全局备用 row ${value.device.spare_rows} · CCR ${value.device.ccr_groups_per_segment} 组/segment，${capacity}${value.array.coordinate_base ? ' · 1 基坐标' : ''}`;
+  const capacity = capacities.every(count => count === capacities[0]) ? t("每组 {0} col", capacities[0]) : t("每段共 {0} col", capacities.reduce((sum, count) => sum + count, 0));
+  return t("Region {0} × {1} · {2} segment · Region 全局备用 row {3} · CCR {4} 组/segment，{5}{6}", value.array.rows, value.array.cols, segments, value.device.spare_rows, value.device.ccr_groups_per_segment, capacity, value.array.coordinate_base ? t(" · 1 基坐标") : '');
 }

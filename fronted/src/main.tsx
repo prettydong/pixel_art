@@ -4,7 +4,9 @@ import App from "./App";
 import "./styles.css";
 import { startPixelGrid } from "./pixelGrid";
 import { applyTheme, readTheme } from "./theme";
+import { applyLanguage } from './i18n';
 
+applyLanguage();
 applyTheme(readTheme());
 const stopPixelGrid = startPixelGrid();
 if (import.meta.hot) import.meta.hot.dispose(stopPixelGrid);

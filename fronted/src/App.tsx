@@ -1,3 +1,5 @@
+import { localizeMessage, t, useLanguage } from './i18n';
+import { LanguageSelect } from './LanguageSelect';
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { modes, isActiveRun, type Mode, type User, type FileRecord, type Run, type CreateRunInput, type ListResponse, type EvaluationTask, type TaskArchitecture } from "@pixel/contracts";
 import type { Message, Conversation } from "./chatTypes";
@@ -52,36 +54,37 @@ const evaluationPanels = [
     mode: "数据分析" as const,
     kind: "data" as const,
     icon: BarChart,
-    input: "失效地址、测试条件",
-    outcome: "定位失效分布与聚集特征",
-    action: "开始数据分析",
-    prompt: "请协助我分析内存失效数据。\n数据来源与字段：\n失效地址与分布：\n希望评估的指标：",
+    get input() { return t("失效地址、测试条件"); },
+    get outcome() { return t("定位失效分布与聚集特征"); },
+    get action() { return t("开始数据分析"); },
+    get prompt() { return t("请协助我分析内存失效数据。\n数据来源与字段：\n失效地址与分布：\n希望评估的指标："); },
   },
   {
     mode: "产品架构设置" as const,
     kind: "architecture" as const,
     icon: Chip,
-    input: "Region 尺寸、Segment 划分、CCR 资源",
-    outcome: "配置 Region 全局备用 row 与 Segment CCR col",
-    action: "设置产品架构",
-    prompt: "请协助我配置 CCR 内存冗余架构。\n产品与 Region row / col 尺寸：\nRegion 共享的全局备用 row 数（默认 128）：\nSegment 的 section/subsection row 地址映射：\n每个 Segment 的 CCR 子组数与每组备用 col 容量：\n全局备用 row 由 Region 内所有 Segment 共享，不跨 Region 借用；col 按零基地址取模分组，CCR 备用 col 不跨 Segment、Region 或子组借用。",
+    get input() { return t("Region 尺寸、Segment 划分、CCR 资源"); },
+    get outcome() { return t("配置 Region 全局备用 row 与 Segment CCR col"); },
+    get action() { return t("设置产品架构"); },
+    get prompt() { return t("请协助我配置 CCR 内存冗余架构。\n产品与 Region row / col 尺寸：\nRegion 共享的全局备用 row 数（默认 128）：\nSegment 的 section/subsection row 地址映射：\n每个 Segment 的 CCR 子组数与每组备用 col 容量：\n全局备用 row 由 Region 内所有 Segment 共享，不跨 Region 借用；col 按零基地址取模分组，CCR 备用 col 不跨 Segment、Region 或子组借用。"); },
   },
   {
     mode: "修补规则设计" as const,
     kind: "repair" as const,
     icon: Repair,
-    input: "失效分布、架构约束",
-    outcome: "定义分配顺序与失败判据",
-    action: "设计修补规则",
-    prompt: "请协助我设计 CCR 内存修补规则。\n适用的产品架构：\nRegion 全局备用 row 容量（默认 128）与 Segment 内 CCR 备用 col 容量：\n修补优先级与分配策略：\n资源冲突与不可修补条件：\nrow 修复使用 Region 共享的全局备用 row，替换一条原始 row 并覆盖其所有 col；col 修复仅覆盖本 Segment 内对应的原始 col 地址。row 资源不跨 Region 共享，CCR col 资源不跨 Segment、Region 或子组共享。",
+    get input() { return t("失效分布、架构约束"); },
+    get outcome() { return t("定义分配顺序与失败判据"); },
+    get action() { return t("设计修补规则"); },
+    get prompt() { return t("请协助我设计 CCR 内存修补规则。\n适用的产品架构：\nRegion 全局备用 row 容量（默认 128）与 Segment 内 CCR 备用 col 容量：\n修补优先级与分配策略：\n资源冲突与不可修补条件：\nrow 修复使用 Region 共享的全局备用 row，替换一条原始 row 并覆盖其所有 col；col 修复仅覆盖本 Segment 内对应的原始 col 地址。row 资源不跨 Region 共享，CCR col 资源不跨 Segment、Region 或子组共享。"); },
   },
 ];
-const emptyConversation: Conversation = { id: "", title: "新的评估对话", mode: "数据分析", messages: [], updated: 0, activeRun: null, lastRun: null };
-const statusLabel: Record<string, string> = { starting: "启动中", running: "运行中", cancelling: "停止中", completed: "已完成", cancelled: "已停止", interrupted: "服务重启，运行已中断", failed: "运行失败" };
+const emptyConversation: Conversation = { id: "", get title() { return t("新的评估对话"); }, mode: "数据分析", messages: [], updated: 0, activeRun: null, lastRun: null };
+const statusLabel: Record<string, string> = { get starting() { return t("启动中"); }, get running() { return t("运行中"); }, get cancelling() { return t("停止中"); }, get completed() { return t("已完成"); }, get cancelled() { return t("已停止"); }, get interrupted() { return t("服务重启，运行已中断"); }, get failed() { return t("运行失败"); } };
 export default function App() {
+  useLanguage();
   if (new URLSearchParams(window.location.search).get("demo") === "charts") return <ChartDemo />;
   if (new URLSearchParams(window.location.search).get("demo") === "tools") {
-    return <Workspace demoMode user={{ id: "local-demo", username: "本地工具演示", role: "user", enabled: true, createdAt: 0 }} />;
+    return <Workspace demoMode user={{ id: "local-demo", username: t("本地工具演示"), role: "user", enabled: true, createdAt: 0 }} />;
   }
   return <AuthGate>{user => <Workspace user={user} />}</AuthGate>;
 }
@@ -289,7 +292,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     }
     try {
       rememberDraft();
-      const next = await api<Conversation>('/conversations', { method: 'POST', body: JSON.stringify({ taskId: taskId || undefined }) });
+      const next = await api<Conversation>('/conversations', { method: 'POST', body: JSON.stringify({ taskId: taskId || undefined, title: t('新的评估对话') }) });
       setSelectedTaskId(next.taskId || ''); setTaskView('chat');
       upsert(next); setActiveId(next.id); setEnteredId(null);
       const saved = drafts.current.get(next.id); setDraft(saved?.text || ''); setFiles(saved?.files || []);
@@ -304,12 +307,12 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   }
   async function generateArchitecturePreview(architecture: TaskArchitecture) {
     if (!model || uploading || loading) return;
-    const chat = await api<Conversation>('/conversations', { method: 'POST', body: JSON.stringify({ taskId: activeTaskId, title: `架构预览 · ${architecture.name}`.slice(0, 120), mode: '产品架构设置' }) });
+    const chat = await api<Conversation>('/conversations', { method: 'POST', body: JSON.stringify({ taskId: activeTaskId, title: t("架构预览 · {0}", architecture.name).slice(0, 120), mode: '产品架构设置' }) });
     upsert(chat);
-    const text = `请为当前任务中的架构 ${architecture.name}（ID：${architecture.id}，指纹：${architecture.fingerprint}）独立设计并生成 Pixi 架构预览。开始时先用一句中文说明正在做什么；读取架构、编写绘图、校验和发布等关键步骤也请简短说明当前进展，不编造百分比。读取本轮任务上下文和架构预览 Harness README。由你编写实际执行的 draw.mjs（export function draw(ctx)）和绘图元数据生成脚本。使用 draw 模式，nodes 为空；真实 row / col 数完整保存在 draw.grid；较大维度横向显示（相等时横向 col），由前端自动转置可缩放网格。world 仍用 x=col,y=row；使用 orientation 标注实际轴、toScreen(col,row) 转换分割线端点，文字放 overlay，不重复转置，不要逐单元创建对象。保存画布尺寸、区域位置、分割线颜色与宽度、字号、图例和必要的示意说明。调用 Harness 的 --draw 发布函数及场景 JSON，由前端 Pixi 执行；不要生成 SVG、PNG，不要修改前端或数据库。不执行修补求解。若校验失败，调整脚本和布局后再发布。返回实际尺寸及产物路径。`;
+    const text = t("请为当前任务中的架构 {0}（ID：{1}，指纹：{2}）独立设计并生成 Pixi 架构预览。开始时先用一句中文说明正在做什么；读取架构、编写绘图、校验和发布等关键步骤也请简短说明当前进展，不编造百分比。读取本轮任务上下文和架构预览 Harness README。由你编写实际执行的 draw.mjs（export function draw(ctx)）和绘图元数据生成脚本。使用 draw 模式，nodes 为空；真实 row / col 数完整保存在 draw.grid；较大维度横向显示（相等时横向 col），由前端自动转置可缩放网格。world 仍用 x=col,y=row；使用 orientation 标注实际轴、toScreen(col,row) 转换分割线端点，文字放 overlay，不重复转置，不要逐单元创建对象。保存画布尺寸、区域位置、分割线颜色与宽度、字号、图例和必要的示意说明。调用 Harness 的 --draw 发布函数及场景 JSON，由前端 Pixi 执行；不要生成 SVG、PNG，不要修改前端或数据库。不执行修补求解。若校验失败，调整脚本和布局后再发布。返回实际尺寸及产物路径。", architecture.name, architecture.id, architecture.fingerprint);
     try {
       const run = await api<Run>(`/conversations/${chat.id}/runs`, { method: 'POST', body: JSON.stringify({ text, mode: chat.mode, modelId: model, fileIds: [], idempotencyKey: requestId() }) });
-      await refresh(chat.id); attach(run); if (run.status === 'failed') throw new Error(run.error || 'Agent 启动失败'); setToast('Agent 正在绘制，可在任务下的架构预览聊天中查看进度');
+      await refresh(chat.id); attach(run); if (run.status === 'failed') throw new Error(run.error || t("Agent 启动失败")); setToast(t("Agent 正在绘制，可在任务下的架构预览聊天中查看进度"));
     } catch (err) { await refresh(chat.id).catch(() => {}); throw err; }
   }
   async function renameEvaluationTask(id: string, name: string) {
@@ -337,10 +340,10 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     }
     try { localStorage.removeItem(`pixel:collapsed-architectures:${id}`); } catch { /* Optional local view state. */ }
     await taskState.refresh();
-    setToast('评估任务及其聊天已删除');
+    setToast(t("评估任务及其聊天已删除"));
   }
   function openTask(id: string, view: TaskView) {
-    if (uploading) { setToast('请等待附件上传完成'); return; }
+    if (uploading) { setToast(t("请等待附件上传完成")); return; }
     setSelectedTaskId(id); setTaskView(view); setMobileOpen(false); setRenaming(false);
   }
   async function updateMode(mode: Mode) {
@@ -352,7 +355,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     catch (err) { setToast(errorText(err)); } finally { setModePending(false); }
   }
   function selectChat(id: string) {
-    if (uploading) { setToast('请等待附件上传完成'); return; }
+    if (uploading) { setToast(t("请等待附件上传完成")); return; }
     rememberDraft();
     setSelectedTaskId(conversations.find(c => c.id === id)?.taskId || searchResults.find(c => c.id === id)?.taskId || ''); setTaskView('chat');
     setEnteredId(id); setActiveId(id);
@@ -371,7 +374,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     if (demoMode) {
       const next = demo.remove(id); drafts.current.delete(id);
       if (active.id === id) { setActiveId(next.id); setDraft(''); setFiles([]); setEnteredId(null); }
-      setToast('本地演示对话已删除'); return;
+      setToast(t("本地演示对话已删除")); return;
     }
     try {
       await api(`/conversations/${id}`, { method: 'DELETE' });
@@ -382,7 +385,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
         setActiveId(''); setDraft(''); setFiles([]); setEnteredId(null); setTaskView('architecture');
       }
       await taskState.refresh();
-      setToast('对话已删除');
+      setToast(t("对话已删除"));
     } catch (err) { setToast(errorText(err)); }
   }
   async function send() {
@@ -418,10 +421,10 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   }
   async function upload(selected: File[]) {
     if (!active.id || uploading) return;
-    if (files.length + selected.length > 20) { setToast('每次提交最多附带 20 个文件'); return; }
+    if (files.length + selected.length > 20) { setToast(t("每次提交最多附带 20 个文件")); return; }
     if (demoMode) {
       setFiles(prev => [...prev, ...selected.map(file => ({ id: requestId(), conversationId: active.id, name: file.name, size: file.size, kind: 'upload' as const, createdAt: Date.now() }))]);
-      setToast('演示附件仅记录名称，未上传或解析内容'); return;
+      setToast(t("演示附件仅记录名称，未上传或解析内容")); return;
     }
     setUploading(true);
     try {
@@ -435,7 +438,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   function prompt(mode: Mode, value: string) {
     updateMode(mode);
     const hasCustomDraft = draft.trim() && !evaluationPanels.some((panel) => panel.prompt === draft);
-    if (hasCustomDraft) setToast(`已切换至${mode}，保留现有草稿`);
+    if (hasCustomDraft) setToast(t("已切换至{0}，保留现有草稿", t(mode)));
     else setDraft(value);
     setEnteredId(active.id);
   }
@@ -462,13 +465,13 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       setCopied(message.id);
       setTimeout(() => setCopied(""), 1800);
     } catch {
-      setToast("无法访问剪贴板，请手动选择文字复制");
+      setToast(t("无法访问剪贴板，请手动选择文字复制"));
     }
   }
   function exportChat() {
     const blob = new Blob(
       [
-        `# ${active.title}\n\n${active.messages.map((m) => `## ${m.role === "user" ? "你" : demoMode ? "Pixel（演示）" : "Pixel"}\n\n${messageMarkdown(m)}${m.files?.length ? `\n\n附件名称：${m.files.map(file => file.name).join("、")}` : ""}`).join("\n\n")}`,
+        `# ${active.title}\n\n${active.messages.map((m) => `## ${m.role === "user" ? t("你") : demoMode ? t("Pixel（演示）") : "Pixel"}\n\n${messageMarkdown(m)}${m.files?.length ? t("\n\n附件名称：{0}", m.files.map(file => file.name).join(t("、"))) : ""}`).join("\n\n")}`,
       ],
       { type: "text/markdown;charset=utf-8" },
     );
@@ -478,7 +481,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     link.download = "pixel-chat.md";
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setToast("对话已导出");
+    setToast(t("对话已导出"));
   }
 
   return (
@@ -486,7 +489,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       {mobileOpen && (
         <button
           className="sidebar-overlay"
-          aria-label="关闭侧边栏"
+          aria-label={t("关闭侧边栏")}
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -509,7 +512,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               PIXEL<span className="brand-light">CHAT</span>
             </span>
           </a>
-          <button className="icon-button" aria-label="收起侧边栏" title="收起侧边栏（Ctrl / Cmd + B）" onClick={() => {
+          <button className="icon-button" aria-label={t("收起侧边栏")} title={t("收起侧边栏（Ctrl / Cmd + B）")} onClick={() => {
             toggleSidebar();
             sidebarToggleRef.current?.focus();
           }}>
@@ -517,25 +520,25 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
           </button>
         </div>
         {!demoMode ? <>
-          <button className="search-trigger" onClick={() => setDialog('search')}><Search /><span>搜索任务和聊天</span></button>
+          <button className="search-trigger" onClick={() => setDialog('search')}><Search /><span>{t("搜索任务和聊天")}</span></button>
           <TaskNavigation tasks={taskState.tasks} conversations={conversations} runs={runs} activeTaskId={activeTaskId} activeChatId={active.id} view={taskView}
             disabled={loading || uploading || pending.size > 0 || !!transition}
             onView={openTask} onChat={selectChat} onCreateChat={createChat} onCreateTask={createEvaluationTask} onRenameTask={renameEvaluationTask} onDeleteTask={deleteEvaluationTask} onDeleteChat={deleteChat} />
-          {taskState.error && <div className="workspace-error" role="alert">{taskState.error}<button onClick={() => void taskState.refresh()}>重试</button></div>}
+          {taskState.error && <div className="workspace-error" role="alert">{localizeMessage(taskState.error)}<button onClick={() => void taskState.refresh()}>{t("重试")}</button></div>}
         </> : <>
         <button className="new-chat" onClick={() => createChat()}>
           <Plus />
-          <span>新建评估</span>
+          <span>{t("新建评估")}</span>
         </button>
         <button className="search-trigger" onClick={() => setDialog("search")}>
           <Search />
-          <span>搜索对话</span>
+          <span>{t("搜索对话")}</span>
         </button>
         <div className="history-heading">
-          <span>最近对话</span>
+          <span>{t("最近对话")}</span>
           <button
             className="icon-button"
-            aria-label="搜索全部对话"
+            aria-label={t("搜索全部对话")}
             onClick={() => setDialog("search")}
           >
             <Ellipsis />
@@ -550,12 +553,12 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               >
                 <button onClick={() => selectChat(c.id)}>
                   <MessageSquare />
-<span>{c.title}{(c.activeRun || (runs[c.id] && isActiveRun(runs[c.id].status))) ? " · 运行中" : ""}</span>
+<span>{c.title}{(c.activeRun || (runs[c.id] && isActiveRun(runs[c.id].status))) ? t(" · 运行中") : ""}</span>
                 </button>
                 <button
                   className="delete-chat"
                   disabled={pending.has(c.id) || (uploading && c.id === active.id)}
-                  aria-label={`删除对话：${c.title}`}
+                  aria-label={t("删除对话：{0}", c.title)}
                   onClick={() => deleteChat(c.id)}
                 >
                   <Trash2 />
@@ -563,14 +566,14 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               </div>
             ))
           ) : (
-            <p className="history-empty">暂无对话</p>
+            <p className="history-empty">{t("暂无对话")}</p>
           )}
         </div>
         </>}
         </div>
         <div className="sidebar-bottom">
           <button className="profile" onClick={() => setDialog("settings")}>
-            <span>设置</span>
+            <span>{t("设置")}</span>
             <Settings2 />
           </button>
         </div>
@@ -582,8 +585,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             <button
               ref={sidebarToggleRef}
               className="icon-button"
-              aria-label={sidebarVisible ? "收起侧边栏" : "展开侧边栏"}
-              title="切换侧边栏（Ctrl / Cmd + B）"
+              aria-label={sidebarVisible ? t("收起侧边栏") : t("展开侧边栏")}
+              title={t("切换侧边栏（Ctrl / Cmd + B）")}
               aria-controls="chat-sidebar"
               aria-expanded={sidebarVisible}
               aria-keyshortcuts="Control+b Meta+b"
@@ -592,24 +595,24 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               {sidebarVisible ? <PanelLeftClose /> : <Menu />}
             </button>
             {!demoMode && <span className="task-breadcrumb" title={activeTask?.name}>{activeTask?.name}</span>}
-            {taskView === 'chat' ? <button className="current-title" title="重命名或移动聊天" onClick={() => { setRenameTitle(active.title); setMoveTaskId(active.taskId || ''); setRenaming(true); }}>{active.messages.length ? active.title : showCards ? "内存冗余架构评估" : active.mode}</button> : <span>{taskViewLabels[taskView]}</span>}
+            {taskView === 'chat' ? <button className="current-title" title={t("重命名或移动聊天")} onClick={() => { setRenameTitle(active.title); setMoveTaskId(active.taskId || ''); setRenaming(true); }}>{active.messages.length ? active.title : showCards ? t("内存冗余架构评估") : t(active.mode)}</button> : <span>{taskViewLabels[taskView]}</span>}
           </div>
           <div className="topbar-right">
             {taskView === 'chat' && !showCards && !active.messages.length && (
-              <button className="return-directions" disabled={!!transition} onClick={() => setEnteredId(null)}>选择方向</button>
+              <button className="return-directions" disabled={!!transition} onClick={() => setEnteredId(null)}>{t("选择方向")}</button>
             )}
             <button
               className="icon-button"
               disabled={!!transition || taskView !== 'chat' || !active.id}
-              aria-label="导出当前对话"
-              title="导出当前对话"
+              aria-label={t("导出当前对话")}
+              title={t("导出当前对话")}
               onClick={exportChat}
             >
               <Download />
             </button>
             <button
               className="icon-button"
-              aria-label="工作台设置"
+              aria-label={t("工作台设置")}
               onClick={() => setDialog("settings")}
             >
               <Settings2 />
@@ -625,14 +628,14 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               e.preventDefault();
               if (demoMode) { demo.update(active.id, { title: renameTitle.trim() }); setRenaming(false); return; }
               try { upsert(await api<Conversation>(`/conversations/${active.id}`, { method: 'PATCH', body: JSON.stringify({ title: renameTitle.trim(), taskId: moveTaskId || undefined }) })); if (moveTaskId) setSelectedTaskId(moveTaskId); setRenaming(false); void taskState.refresh(); } catch (err) { setToast(errorText(err)); }
-            }}><input aria-label="对话标题" value={renameTitle} onChange={e => setRenameTitle(e.target.value)} autoFocus required maxLength={120} />{!demoMode && <select aria-label="所属任务" value={moveTaskId} disabled={busy || submitting} onChange={event => setMoveTaskId(event.target.value)}>{taskState.tasks.map(task => <option key={task.id} value={task.id}>{task.name}</option>)}</select>}<button className="action-button" disabled={!renameTitle.trim() || submitting}>保存</button><button type="button" className="action-button" onClick={() => setRenaming(false)}>取消</button></form>}
-            {error && <div className="workspace-error" role="alert">{error}<button onClick={() => window.location.reload()}>重新连接</button><button onClick={() => setError('')}>关闭</button></div>}
-            {loading && <p role="status">正在读取会话…</p>}
+            }}><input aria-label={t("对话标题")} value={renameTitle} onChange={e => setRenameTitle(e.target.value)} autoFocus required maxLength={120} />{!demoMode && <select aria-label={t("所属任务")} value={moveTaskId} disabled={busy || submitting} onChange={event => setMoveTaskId(event.target.value)}>{taskState.tasks.map(task => <option key={task.id} value={task.id}>{task.name}</option>)}</select>}<button className="action-button" disabled={!renameTitle.trim() || submitting}>{t("保存")}</button><button type="button" className="action-button" onClick={() => setRenaming(false)}>{t("取消")}</button></form>}
+            {error && <div className="workspace-error" role="alert">{localizeMessage(error)}<button onClick={() => window.location.reload()}>{t("重新连接")}</button><button onClick={() => setError('')}>{t("关闭")}</button></div>}
+            {loading && <p role="status">{t("正在读取会话…")}</p>}
 
-            {!demoMode && taskView !== 'chat' ? (activeTaskId ? <TaskPanel key={activeTaskId} taskId={activeTaskId} view={taskView} revision={taskState.revision} conversations={conversations} connections={connections} models={models} modelId={model} onRefresh={taskState.refresh} onChat={selectChat} onRepairChat={async id => { try { await refresh(id); selectChat(id); } catch (err) { setToast(errorText(err)); } }} onCreateChat={createChat} onGeneratePreview={generateArchitecturePreview} previewAvailable={!!model && !loading && !uploading} /> : <p>请先新建任务。</p>) : <>
+            {!demoMode && taskView !== 'chat' ? (activeTaskId ? <TaskPanel key={activeTaskId} taskId={activeTaskId} view={taskView} revision={taskState.revision} conversations={conversations} connections={connections} models={models} modelId={model} onRefresh={taskState.refresh} onChat={selectChat} onRepairChat={async id => { try { await refresh(id); selectChat(id); } catch (err) { setToast(errorText(err)); } }} onCreateChat={createChat} onGeneratePreview={generateArchitecturePreview} previewAvailable={!!model && !loading && !uploading} /> : <p>{t("请先新建任务。")}</p>) : <>
             {showCards ? (
               <div ref={cardViewportRef} className="card-stage">
-                <section className="welcome" aria-label="内存冗余架构评估工作台">
+                <section className="welcome" aria-label={t("内存冗余架构评估工作台")}>
                   <div ref={cardGridRef} className="evaluation-panels">
                     {evaluationPanels.map((panel, index) => (
                       <section
@@ -644,7 +647,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                           <div className={`evaluation-panel ${active.mode === panel.mode ? "selected" : ""}`}>
                             <div className="evaluation-card-top">
                               <panel.icon />
-                              <h1 className="evaluation-heading" id={`panel-${index}`}>{panel.mode}</h1>
+                              <h1 className="evaluation-heading" id={`panel-${index}`}>{t(panel.mode)}</h1>
                               <span className="evaluation-indicator" aria-hidden="true">
                                 {active.mode === panel.mode ? <Check /> : <ArrowRight />}
                               </span>
@@ -653,8 +656,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                               <EvaluationDiagram kind={panel.kind} />
                             </figure>
                             <dl className="evaluation-details">
-                              <div><dt>输入</dt><dd>{panel.input}</dd></div>
-                              <div><dt>目标</dt><dd>{panel.outcome}</dd></div>
+                              <div><dt>{t("输入")}</dt><dd>{panel.input}</dd></div>
+                              <div><dt>{t("目标")}</dt><dd>{panel.outcome}</dd></div>
                             </dl>
                           </div>
                         </div>
@@ -688,14 +691,14 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                   const grid = getPixelUnit();
                   followMessages.current = element.scrollHeight - element.scrollTop - element.clientHeight <= 16 * grid;
                 }}
-                aria-label="对话消息"
+                aria-label={t("对话消息")}
                 aria-busy={busy}
               >
                 {visibleMessages.map((m) => (
                   <article key={m.id} className={`message ${m.role}`}>
                     <div className="message-body">
                       <div className="message-author">
-                        {m.role === "assistant" ? demoMode ? "Pixel（本地演示）" : "Pixel" : "你"}
+                        {m.role === "assistant" ? demoMode ? t("Pixel（本地演示）") : "Pixel" : t("你")}
                       </div>
                       <div className="message-content">
                         {!demoMode && m.role === "assistant" ? <StreamingReply message={m} pending={busy && m.runId === currentRun?.id} /> : m.text ? (m.role === "assistant" ? <MarkdownMessage text={m.text} /> : <UserMessageText text={m.text} />) :
@@ -706,9 +709,9 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                               <i />
                             </span>
                           ) : (
-                            m.delivery === "stopped" ? "回复已停止。" : null
+                            m.delivery === "stopped" ? t("回复已停止。") : null
                           ))}
-                        {m.delivery === "stopped" && m.text && <p className="message-delivery-status">回复已停止，以上内容可能不完整。</p>}
+                        {m.delivery === "stopped" && m.text && <p className="message-delivery-status">{t("回复已停止，以上内容可能不完整。")}</p>}
                         {m.role === "assistant" && m.tools?.length ? <InteractiveTools
                           tools={m.tools}
                           disabled={!demoMode || busy || m.delivery === "streaming"}
@@ -720,7 +723,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                           {m.files.map((f) => (
                             demoMode ? <span key={f.id}><Paperclip />{f.name}</span> : <a key={f.id} href={fileUrl(f)} download><Paperclip />{f.name}</a>
                           ))}
-                          {demoMode && <small>演示：附件未上传</small>}
+                          {demoMode && <small>{t("演示：附件未上传")}</small>}
                         </div>
                       ) : null}
                       {m.role === "assistant" && Boolean(m.text || m.tools?.length) && (
@@ -730,7 +733,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                           ) : (
                             <Copy />
                           )}
-                          {copied === m.id ? "已复制" : "复制"}
+                          {copied === m.id ? t("已复制") : t("复制")}
                         </button>
                       )}
                     </div>
@@ -740,9 +743,9 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             )}
 
             <div className="run-context">
-              {demoMode && <div className="run-status" role="status">{busy ? '本地演示回复中 · 可停止' : '本地工具演示 · 仅保存在当前浏览器，未连接模型'}</div>}
-              {demoMode && demo.storageError && <div className="workspace-error" role="alert">{demo.storageError}</div>}
-              {(currentRun || submitting || uploading) && <div className="run-status" role="status">{uploading ? '附件上传中' : submitting ? '正在提交…' : `${statusLabel[currentRun!.status]}${busy && connections[active.id] ? ` · ${connections[active.id]}` : ''}`}{currentRun?.error && <span className="error-text">{currentRun.error}</span>}</div>}
+              {demoMode && <div className="run-status" role="status">{busy ? t("本地演示回复中 · 可停止") : t("本地工具演示 · 仅保存在当前浏览器，未连接模型")}</div>}
+              {demoMode && demo.storageError && <div className="workspace-error" role="alert">{localizeMessage(demo.storageError)}</div>}
+              {(currentRun || submitting || uploading) && <div className="run-status" role="status">{uploading ? t("附件上传中") : submitting ? t("正在提交…") : `${statusLabel[currentRun!.status]}${busy && connections[active.id] ? ` · ${localizeMessage(connections[active.id])}` : ''}`}{currentRun?.error && <span className="error-text">{localizeMessage(currentRun.error)}</span>}</div>}
 
             </div>
             <div className="composer-area">
@@ -752,8 +755,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                   value={draft}
                   disabled={submitting}
                   onChange={(e) => setDraft(e.target.value)}
-                  placeholder={`补充${active.mode}的目标、已知条件或问题…`}
-                  aria-label="输入消息"
+                  placeholder={t("补充{0}的目标、已知条件或问题…", t(active.mode))}
+                  aria-label={t("输入消息")}
                   rows={2}
                   onKeyDown={(e) => {
                     if (
@@ -774,7 +777,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                         {f.name}
                         <button
                           disabled={submitting}
-                          aria-label={`移除附件 ${f.name}`}
+                          aria-label={t("移除附件 {0}", f.name)}
                           onClick={() =>
                             setFiles((prev) => prev.filter((v) => v.id !== f.id))
                           }
@@ -783,7 +786,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                         </button>
                       </span>
                     ))}
-                    {demoMode && <small>演示：附件未上传</small>}
+                    {demoMode && <small>{t("演示：附件未上传")}</small>}
                   </div>
                 )}
                 <div className="composer-bottom">
@@ -797,8 +800,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                     />
                     <button
                       className="icon-button"
-                      aria-label={demoMode ? "添加演示附件" : "上传附件"}
-                      title={demoMode ? "添加演示附件（仅记录文件名）" : "上传附件"} disabled={uploading || submitting || !active.id}
+                      aria-label={demoMode ? t("添加演示附件") : t("上传附件")}
+                      title={demoMode ? t("添加演示附件（仅记录文件名）") : t("上传附件")} disabled={uploading || submitting || !active.id}
                       onClick={() => uploadRef.current?.click()}
                     >
                       <Paperclip />
@@ -813,14 +816,14 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                           setModelOpen(false);
                         }}
                       >
-                        {active.mode}
+                        {t(active.mode)}
                         <ChevronDown />
                       </button>
                       {modeOpen && (
                         <div className="dropdown mode-dropdown">
                           {modes.map((m) => (
                             <button key={m} onClick={() => updateMode(m)}>
-                              {m}
+                              {t(m)}
                               {active.mode === m && <Check />}
                             </button>
                           ))}
@@ -830,21 +833,21 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                     <div className="dropdown-anchor">
                       <button
                         className="model-trigger"
-                        title="选择模型"
+                        title={t("选择模型")}
                         aria-expanded={modelOpen}
                         onClick={() => {
                           setModelOpen(!modelOpen);
                           setModeOpen(false);
                         }}
                       >
-                        {demoMode ? "本地工具演示" : models.find(item => item.id === model)?.label || "尚未配置模型"}
+                        {demoMode ? t("本地工具演示") : models.find(item => item.id === model)?.label || t("尚未配置模型")}
                         <ChevronDown />
                       </button>
                       {modelOpen && (
                         <div className="dropdown model-dropdown">
-                          <small>可用模型</small>
-                          {demoMode ? <a className="demo-mode-link" href={window.location.pathname}>返回服务端工作台</a> : <a className="demo-mode-link" href="?demo=tools" target="_blank" rel="noopener noreferrer">打开本地工具演示</a>}
-                          <a className="demo-mode-link" href="?demo=charts" target="_blank" rel="noopener noreferrer">查看像素图表演示</a>
+                          <small>{t("可用模型")}</small>
+                          {demoMode ? <a className="demo-mode-link" href={window.location.pathname}>{t("返回服务端工作台")}</a> : <a className="demo-mode-link" href="?demo=tools" target="_blank" rel="noopener noreferrer">{t("打开本地工具演示")}</a>}
+                          <a className="demo-mode-link" href="?demo=charts" target="_blank" rel="noopener noreferrer">{t("查看像素图表演示")}</a>
                           {models.map((m) => (
                             <button
                               key={m.id}
@@ -864,7 +867,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                   <div className="send-tools">
                     <button
                       className={`send-button ${busy ? "is-busy" : ""}`}
-                      aria-label={busy ? "停止回复" : "发送消息"}
+                      aria-label={busy ? t("停止回复") : t("发送消息")}
                       disabled={busy ? currentRun?.status === "cancelling" : (!draft.trim() || submitting || uploading || modePending || (!demoMode && !model) || !active.id)}
                       onClick={busy ? stopReply : send}
                     >
@@ -892,10 +895,10 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       >
         <div className="modal-inner">
           <div className="modal-heading">
-            <h2>{dialog === "search" ? "搜索评估对话" : "工作台设置"}</h2>
+            <h2>{dialog === "search" ? t("搜索评估对话") : t("工作台设置")}</h2>
             <button
               className="icon-button"
-              aria-label="关闭弹窗"
+              aria-label={t("关闭弹窗")}
               onClick={() => setDialog(null)}
             >
               <X />
@@ -907,21 +910,20 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                 <Search />
                 <input
                   autoFocus
-                  placeholder="搜索任务名、聊天标题或内容…"
-                  aria-label="搜索对话"
+                  placeholder={t("搜索任务名、聊天标题或内容…")}
+                  aria-label={t("搜索对话")}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
               </div>
-              <div className="search-results">{searching && <p role="status">搜索中…</p>}
+              <div className="search-results">{searching && <p role="status">{t("搜索中…")}</p>}
                 {searchResults.map((c) => (
                     <button key={c.id} onClick={() => selectChat(c.id)}>
                       <MessageSquare />
                       <span>
                         {c.title}
                         <small>
-                          {taskState.tasks.find(task => task.id === c.taskId)?.name || c.mode} · {c.messages.length} 条消息
-                        </small>
+                          {taskState.tasks.find(task => task.id === c.taskId)?.name || t(c.mode)} · {c.messages.length} {" " + t("条消息")}</small>
                       </span>
                       <ArrowRight />
                     </button>
@@ -931,8 +933,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                     <Folder />
                     <p>
                       {query
-                        ? "没有找到相关对话"
-                        : "还没有对话，先聊点什么吧。"}
+                        ? t("没有找到相关对话")
+                        : t("还没有对话，先聊点什么吧。")}
                     </p>
                   </div>
                 )}
@@ -940,20 +942,21 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             </>
           ) : (
             <>
-              <div className="panel-actions account-tabs" role="group" aria-label="设置页面">
-                {([['settings', '外观'], ...(!demoMode ? [['account', '账号'], ['usage', '用量']] : []), ...(user.role === 'admin' ? [['users', '用户管理']] : [])] as [typeof accountTab, string][]).map(([tab, label]) => <button key={tab} className="action-button" aria-pressed={accountTab === tab} onClick={() => setAccountTab(tab)}>{label}</button>)}
+              <div className="panel-actions account-tabs" role="group" aria-label={t("设置页面")}>
+                {([['settings', t("外观")], ...(!demoMode ? [['account', t("账号")], ['usage', t("用量")]] : []), ...(user.role === 'admin' ? [['users', t("用户管理")]] : [])] as [typeof accountTab, string][]).map(([tab, label]) => <button key={tab} className="action-button" aria-pressed={accountTab === tab} onClick={() => setAccountTab(tab)}>{label}</button>)}
               </div>
               {accountTab === 'account' && <AccountPanel user={user} />}
               {accountTab === 'users' && user.role === 'admin' && <UsersPanel user={user} />}
               {accountTab === 'usage' && <UsagePanel user={user} models={models} />}
               {accountTab === 'settings' && <>
+              <div className="setting-row"><LanguageSelect /></div>
               <div className="setting-row theme-row">
-                <span>外观</span>
-                <div className="theme-options" role="group" aria-label="外观模式">
+                <span>{t("外观")}</span>
+                <div className="theme-options" role="group" aria-label={t("外观模式")}>
                   {([
-                    { value: "system", label: "跟随系统" },
-                    { value: "light", label: "亮色" },
-                    { value: "dark", label: "暗色" },
+                    { value: "system", label: t("跟随系统") },
+                    { value: "light", label: t("亮色") },
+                    { value: "dark", label: t("暗色") },
                   ] as const).map(({ value, label }) => (
                     <button
                       key={value}
@@ -967,12 +970,11 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               </div>
               <div className="setting-row">
                 <div>
-                  界面动效
-                </div>
+                  {t("界面动效")}</div>
                 <button
                   role="switch"
                   aria-checked={motion}
-                  aria-label="界面动效"
+                  aria-label={t("界面动效")}
                   className={`toggle ${motion ? "on" : ""}`}
                   onClick={() => setMotion(!motion)}
                 >
@@ -981,12 +983,9 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               </div>
               <button className="export-button" onClick={exportChat}>
                 <Download />
-                导出当前对话为 Markdown
-              </button>
+                {t("导出当前对话为 Markdown")}</button>
               <div className="settings-note">
-                Ctrl / Cmd + K 搜索对话
-                <br />Ctrl / Cmd + B 收起 / 展开侧栏
-              </div></>}
+                {t("Ctrl / Cmd + K 搜索对话")}<br />{t("Ctrl / Cmd + B 收起 / 展开侧栏")}</div></>}
             </>
           )}
         </div>
@@ -994,7 +993,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       {toast && (
         <div className="toast" role="status">
           <Check />
-          {toast}
+          {localizeMessage(toast)}
         </div>
       )}
     </div>

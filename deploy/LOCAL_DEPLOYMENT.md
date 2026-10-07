@@ -67,7 +67,7 @@ Back up the entire persistent data directory while the service is stopped. Keep 
 
 ## Synthetic fail data
 
-The admin task `1024×1024 模拟失效数据` contains `fails.csv`, `roster.csv`,
+The admin task for the `1024×1024 synthetic failure data` contains `fails.csv`, `roster.csv`,
 `manifest.json`, and `README.md` from
 `datasets/synthetic-fails-1024x1024-seed20260920/`: 100 synthetic samples,
 10 zero-fail samples, and 18,329 unique per-sample fail coordinates. Coordinates
@@ -78,8 +78,8 @@ but do not automatically appear in the task data panel. Use the existing upload
 and task-file APIs to register them. `scripts/import-synthetic-dataset.mjs` does
 this for the named task, reads the login password from stdin, compares hashes on
 repeat imports, and refuses to replace different existing data. It creates no
-model run and logs out its temporary login session. Open the task's **数据** view
-to access the registered files; other tasks can use **从已有上传添加**.
+model run and logs out its temporary login session. Open the task's **Data** view
+to access the registered files; other tasks can use **Add from existing uploads**.
 
 The data panel now previews CSV tables (first 50 rows; up to 3 MB / 50,000 rows /
 256 columns). Selecting `manifest.json` with the matching roster and fail files
@@ -93,7 +93,7 @@ client check.
 
 ## Architecture templates
 
-In each task's **架构 → 新建架构**, the parameter editor offers four editable
+In each task's **Architecture → New architecture**, the parameter editor offers four editable
 examples: 1024×1024 row/column redundancy, row-only redundancy, eight column
 resource groups, and a 1024×8192 eight-group array. Array rows/columns, input
 coordinate base, spare rows, column group count/offset, per-group spare columns,
@@ -113,7 +113,7 @@ agent as before; it is not itself an executable experiment plan.
 ## Architecture drawing activity
 
 Architecture headings toggle each record's preview, definition, and detailed
-activity panel. **全部展开 / 全部折叠** controls the current task's records. Folded
+activity panel. **Expand all / Collapse all** controls the current task's records. Folded
 records retain their names, parameter summaries, drawing status and error hints.
 Preferences are stored per task in the browser when local storage is available;
 folding unloads the preview renderer but does not cancel the server-side run.

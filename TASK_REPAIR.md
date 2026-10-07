@@ -1,38 +1,38 @@
-# 批量 C++ 修补任务
+# Batch C++ Repair Tasks
 
-任务导航增加“任务求解”。先在“架构”保存定义，在“数据”登记并关联 wafer，再选择多份架构、多片 wafer 和编码引擎，查看组合后点击“添加并运行”。目前一份数据集对应一片已登记的 `.pwafer`；例如 2 个架构和 3 片 wafer 生成 6 项。单批最多 100 项，每个用户最多 200 项待完成任务。
+Task navigation includes "Task solving". First save definitions under "Architecture", register and link wafers under "Data", then select multiple architectures, wafers, and a coding engine. Review the combinations and click "Add and run". Currently, one dataset corresponds to one registered `.pwafer`; for example, 2 architectures and 3 wafers produce 6 jobs. A batch is limited to 100 jobs; each user may have at most 200 unfinished jobs.
 
-服务需要可用的 Pi 模型配置及支持 C++17 的 `g++`。部署时使用原有根目录 `npm run build` 和启动流程，保留 `backend/repair-cpp/` 以及 `scripts/repair-supervisor.mjs`；求解器在点击运行后按任务编译。源代码实现已接入，本次未执行构建、编译、实际模型调用或浏览器验收。
+The service requires a working Pi model configuration and `g++` with C++17 support. Deploy using the existing root-level `npm run build` and startup flow, retaining `backend/repair-cpp/` and `scripts/repair-supervisor.mjs`. The solver is compiled per job after running is requested. Source integration is complete; this development did not run builds, compilation, real model calls, or browser acceptance checks.
 
-## 执行过程
+## Execution Flow
 
-1. 提交时冻结架构名称、定义、指纹、wafer 元数据和文件 SHA-256。批量添加是一个事务；同一请求标识不会重复入队。
-2. 后端用所选引擎创建独立的编码聊天，提供架构快照和 C++ 契约。Agent 只实现 `dev.hpp`，负责校验架构参数、生成资源池和修补候选，不执行编译或求解。同批次同一架构复用一次生成结果。
-3. 后端复制可信 `main.cpp`、`model.hpp`、`repair_most.hpp`，加入生成的 `dev.hpp` 和输入快照，调用 `g++`。编译参数固定；编译失败在任务中显示错误，日志可下载。
-4. C++ 对非空 region 独立执行 repairMost，每步选择预算允许且覆盖最多未覆盖 fail 的动作，同分按动作 ID 排序。结束后重新计算覆盖与资源用量，核对生成的方案。
-5. 后端检查 C++ 退出码、JSONL 进度、完整数据分母、原始良品计数、良率公式、磁盘结果与 stdout 摘要、输入与代码指纹。全部通过才发布完成状态和良率。
+1. Submission freezes architecture names, definitions, fingerprints, wafer metadata, and file SHA-256 hashes. Batch addition is transactional; the same request identifier does not enqueue duplicate jobs.
+2. The backend creates an independent coding chat with the selected engine, providing an architecture snapshot and the C++ contract. The agent implements only `dev.hpp`, validating architecture parameters and generating resource pools and repair candidates, without compiling or solving. Jobs with the same architecture in a batch reuse one generated result.
+3. The backend copies trusted `main.cpp`, `model.hpp`, and `repair_most.hpp`, adds the generated `dev.hpp` and input snapshot, and invokes `g++` with fixed compilation arguments. Compilation failures appear in the job, and logs are downloadable.
+4. C++ runs repairMost independently for each nonempty region. At each step, it selects a budget-feasible action covering the most uncovered fails; ties are ordered by action ID. It then recomputes coverage and resource usage to verify the generated plan.
+5. The backend checks the C++ exit code, JSONL progress, complete data denominators, original passing-unit counts, yield formulas, disk results against the stdout summary, and input/code fingerprints. Only after all checks pass does it publish completion and yield.
 
-当前是单个后台求解队列，限制同时编码、编译和求解的数量。可以逐项取消；服务重启将未完成任务标为“中断”，不会自动重跑或重复调用模型。关闭或重置账号会停止相关任务。取消编码中的一项后，同架构剩余任务需要重新编码；已完成的代码可以复用。
+There is currently one background solving queue, with limits on concurrent coding, compilation, and solving. Jobs can be canceled individually. Service restarts mark unfinished jobs as "Interrupted" without automatically rerunning them or repeating model calls. Disabling or resetting an account stops its jobs. Canceling a job during coding requires recoding for the remaining jobs with that architecture; completed code can be reused.
 
-## dev.hpp 与架构约束
+## dev.hpp and Architecture Constraints
 
-模板及函数契约见 [C++ README](backend/repair-cpp/README.md) 和 [dev.hpp](backend/repair-cpp/dev.hpp)。仓库的 `dev.hpp` 是显式报错的占位模板，不能直接拿默认参数计算。每批 Agent 写的是其编码会话 `work/repair-codegen/dev.hpp`，后端再将其冻结到求解目录，不覆盖仓库模板。
+See the [C++ README](backend/repair-cpp/README.md) and [dev.hpp](backend/repair-cpp/dev.hpp) for templates and function contracts. The repository's `dev.hpp` is a placeholder that explicitly errors; it cannot be used to compute with default parameters. For each batch, the agent writes its coding conversation's `work/repair-codegen/dev.hpp`; the backend then freezes it into the solving directory without overwriting the repository template.
 
-Agent 必须实现 `dev::validate_layout(rows, cols)` 与 `dev::build_model(region)`。输入全部为零基坐标。通用模型表达动作对一个或多个资源池的非负消耗与容量上界；不能表达的规则必须报错。核心检查模型的索引、重复、覆盖和预算，不自动证明 Agent 的映射符合物理器件；生成代码和规则需要按架构核对。
+The agent must implement `dev::validate_layout(rows, cols)` and `dev::build_model(region)`. All input coordinates are zero-based. The generic model expresses nonnegative action consumption from one or more resource pools and capacity limits. Rules that cannot be expressed must cause an error. The core checks model indices, duplicates, coverage, and budgets; it does not automatically prove that the agent's mapping matches the physical device. Generated code and rules must be checked against the architecture.
 
-CCR 遵循 [已确认的架构定义](MEMORY_REDUNDANCY_DEFINITIONS.md)：一个 region 共享一个全局 row 池，列池按 `(segment, col % groups)` 独立；不能跨 region、segment 或子组借用列容量。segment 必须使用 section/subsection 公式，不按行数平均切分。所有资源数量取提交的架构快照。
+CCR follows the [confirmed architecture definitions](MEMORY_REDUNDANCY_DEFINITIONS.md): each region shares one global row pool; column pools are independent by `(segment, col % groups)`. Column capacity cannot be borrowed across regions, segments, or subgroups. Segments must use the section/subsection formula rather than equal row partitions. All resource quantities come from the submitted architecture snapshot.
 
-## 良率口径与产物
+## Yield Definitions and Artifacts
 
-- Region 良率 =（原始零 fail region + 找到完整修补方案的 region）/ 完整 region 数。
-- Wafer 的 chip 良率 = 所有 region 都通过的 chip 数 / 该 wafer 完整 chip 数。
-- `heuristic_unresolved` 表示 repairMost 未修成，不证明无解；这些比例是本启发式找到方案的通过率。合成 wafer 会持续标注，不代表真实量产良率。
-- 缺席的稀疏 region 表示零 fail，仍计入完整分母；逐 region JSONL 仅列非空 region，末尾包含完整汇总。
+- Region yield = (original zero-fail regions + regions with a complete repair plan found) / complete region count.
+- Wafer chip yield = chips whose regions all pass / the wafer's complete chip count.
+- `heuristic_unresolved` means repairMost did not find a repair, not that infeasibility was proved. These ratios are pass rates for plans found by this heuristic. Synthetic wafers remain labeled as synthetic and do not represent real production yield.
+- Omitted sparse regions represent zero fails and remain in the complete denominator. Per-region JSONL lists only nonempty regions and ends with a complete summary.
 
-每项执行快照保存在 `PIXEL_DATA_DIR/users/<userId>/repair-jobs/<jobId>/`，包括 wafer、规范整数输入、核心源码、`dev.hpp`、编译文件、日志和结果。界面提供 `dev.hpp`、`manifest.json`、`compile.log`、`result.jsonl` 下载；早期失败或取消可能尚未生成对应文件。任务面板保留架构指纹和时间，架构修改后旧结果继续对应旧快照。
+Each execution snapshot is saved under `PIXEL_DATA_DIR/users/<userId>/repair-jobs/<jobId>/`, including the wafer, normalized integer input, core source code, `dev.hpp`, compilation files, logs, and results. The interface offers downloads for `dev.hpp`, `manifest.json`, `compile.log`, and `result.jsonl`; early failures or cancellations may leave some files ungenerated. The task panel retains architecture fingerprints and timestamps, so old results remain associated with their old snapshots after an architecture changes.
 
-编译上限 60 秒，求解上限 10 分钟；日志、输出和模型规模有限制，Linux 安装 `prlimit` 时应用 CPU、地址空间与文件大小限制。进程监督器监控服务 IPC，服务退出时清理执行组。这些控制沿用项目的可信团队部署边界，具体说明见 [执行边界](backend/repair-cpp/EXECUTION.md)。
+Compilation is limited to 60 seconds and solving to 10 minutes. Logs, output, and model size are bounded. On Linux, CPU, address-space, and file-size limits are applied when `prlimit` is installed. The process supervisor monitors service IPC and cleans up the execution group when the service exits. These controls retain the project's trusted-team deployment boundary; see [execution boundaries](backend/repair-cpp/EXECUTION.md).
 
-## 手动验收建议
+## Suggested Manual Acceptance Checks
 
-从 2 个尺寸匹配架构 × 2 片小 wafer 开始，确认 4 项入队，同一架构使用同一次编码聊天。再查看全零 wafer、零容量且含 fail、恰好用完资源、CCR 不同 segment 同列、尺寸不匹配和服务中断后的状态。全零输入也必须通过架构校验；错误与中断不能发布良率。核对下载的代码、规则及逐 region 方案后，再使用大 wafer。
+Start with 2 size-compatible architectures × 2 small wafers. Confirm that 4 jobs are queued and jobs with the same architecture use one coding chat. Then check all-zero wafers, zero-capacity inputs with fails, exact resource exhaustion, the same CCR column in different segments, size mismatches, and states after service interruption. All-zero inputs must still pass architecture validation; errors and interruptions must not publish yield. Check downloaded code, rules, and per-region plans before using large wafers.

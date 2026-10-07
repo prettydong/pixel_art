@@ -1,3 +1,4 @@
+import { localizeMessage, getLanguage, t } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import type { ArchitecturePreview as PreviewRecord } from '@pixel/contracts';
 import { validateArchitectureScene } from '@pixel/contracts/architecture-scene';
@@ -10,8 +11,8 @@ export function ArchitecturePreview({ previews }: { previews: PreviewRecord[] })
   const preview = previews.find(item => item.file.id === selected) ?? previews[0];
   if (!preview) return null;
   return <div className="architecture-preview">
-    <div className="panel-actions"><span>Agent 绘图 · Pixi</span>
-      {previews.length > 1 && <select aria-label="预览版本" value={preview.file.id} onChange={event => setSelected(event.target.value)}>{previews.map((item, index) => <option key={item.file.id} value={item.file.id}>版本 {previews.length - index} · {new Date(item.createdAt).toLocaleString()}</option>)}</select>}
+    <div className="panel-actions"><span>{t("Agent 绘图 · Pixi")}</span>
+      {previews.length > 1 && <select aria-label={t("预览版本")} value={preview.file.id} onChange={event => setSelected(event.target.value)}>{previews.map((item, index) => <option key={item.file.id} value={item.file.id}>{t("版本") + " "}{previews.length - index} · {new Date(item.createdAt).toLocaleString(getLanguage())}</option>)}</select>}
     </div>
     {preview.scene.draw ? <PixiDrawPreview key={preview.file.id} preview={preview} /> : <LegacyArchitecturePreview key={preview.file.id} previews={[preview]} />}
   </div>;
@@ -53,7 +54,7 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
         const style = getComputedStyle(document.documentElement);
         const color = (key: string) => {
           const value = style.getPropertyValue(scene.palette[key]).trim();
-          if (!/^#[0-9a-fA-F]{6}$/.test(value)) throw new Error(`主题颜色不可用：${key}`);
+          if (!/^#[0-9a-fA-F]{6}$/.test(value)) throw new Error(t("主题颜色不可用：{0}", key));
           return value;
         };
         for (const child of app.stage.removeChildren()) child.destroy();
@@ -69,7 +70,7 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
             const label = new Text({ text: node.text, resolution: getPixelDensity(), style: { fontFamily: 'Fusion Pixel', fontSize: 12, fontWeight: '400', fill: color(node.color) } });
             label.roundPixels = true; label.position.set(node.x, node.y);
             if (Math.ceil(label.width) > node.width || Math.ceil(label.height) > node.height) {
-              label.destroy(); throw new Error(`文字超出预留尺寸：${node.id}，请让Agent调整布局`);
+              label.destroy(); throw new Error(t("文字超出预留尺寸：{0}，请让Agent调整布局", node.id));
             }
             app.stage.addChild(label);
           } else if (node.type === 'grid') {
@@ -82,31 +83,31 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
         }
         app.render(); canvas.style.visibility = 'visible'; setReady(true); setError('');
       };
-      const redraw = () => { try { paint(); } catch (err) { canvas.style.visibility = 'hidden'; setReady(false); setError(err instanceof Error ? err.message : '预览绘制失败'); } };
+      const redraw = () => { try { paint(); } catch (err) { canvas.style.visibility = 'hidden'; setReady(false); setError(err instanceof Error ? err.message : t("预览绘制失败")); } };
       const observer = new MutationObserver(() => { app.renderer.resize(scene.canvas.width, scene.canvas.height, getPixelDensity()); redraw(); });
       observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-pixel-ratio'] });
-      const lost = (event: Event) => { event.preventDefault(); setError('图形上下文丢失，请重新打开预览'); setReady(false); };
+      const lost = (event: Event) => { event.preventDefault(); setError(t("图形上下文丢失，请重新打开预览")); setReady(false); };
       canvas.addEventListener('webglcontextlost', lost);
       cleanup = () => { observer.disconnect(); canvas.removeEventListener('webglcontextlost', lost); app.destroy(); };
       redraw();
-    })().catch(err => { if (!cancelled) { setError(err instanceof Error ? err.message : '预览加载失败'); setReady(false); } });
+    })().catch(err => { if (!cancelled) { setError(err instanceof Error ? err.message : t("预览加载失败")); setReady(false); } });
     return () => { cancelled = true; cleanup?.(); canvas.remove(); };
   }, [preview, visible]);
   if (!preview) return null;
   const { scene } = preview;
   return <div className="architecture-preview">
-    <div className="architecture-canvas-scroll" tabIndex={0} role="region" aria-label={`${scene.title}预览，可横向滚动`}>
+    <div className="architecture-canvas-scroll" tabIndex={0} role="region" aria-label={t("{0}预览，可横向滚动", scene.title)}>
       <div ref={hostRef} className="architecture-canvas" data-render-state={error ? 'error' : ready ? 'ready' : 'loading'} style={{ width: `${scene.canvas.width}rem`, height: `${scene.canvas.height}rem` }} />
     </div>
-    {error && <p role="alert" className="error-text">{error}</p>}
-    {!ready && !error && visible && <p role="status">正在绘制…</p>}
+    {error && <p role="alert" className="error-text">{localizeMessage(error)}</p>}
+    {!ready && !error && visible && <p role="status">{t("正在绘制…")}</p>}
     <p className="task-note">{scene.description}</p>
     {scene.assumptions.length > 0 && <ul>{scene.assumptions.map((item, i) => <li key={i}>{item}</li>)}</ul>}
-    <details className="drawing-record"><summary>绘图记录 · {scene.canvas.width} × {scene.canvas.height} 格 · {scene.nodes.length} 个图元</summary>
-      <p>架构指纹：<code>{scene.fingerprint}</code></p>
-      <div className="drawing-table"><table><thead><tr><th>颜色角色</th><th>主题变量</th><th>亮色记录</th><th>暗色记录</th></tr></thead><tbody>{Object.entries(scene.palette).map(([role, token]) => <tr key={role}><td>{role}</td><td>{token}</td><td>{preview.themeSnapshot[token]?.light}</td><td>{preview.themeSnapshot[token]?.dark}</td></tr>)}</tbody></table></div>
-      <div className="drawing-table"><table><thead><tr><th>区域 / 分割线</th><th>起点</th><th>尺寸 / 网格</th><th>颜色角色</th></tr></thead><tbody>{scene.nodes.filter(node => node.type !== 'text').map(node => <tr key={node.id}><td>{node.label || node.id}</td><td>{node.x}, {node.y}</td><td>{node.type === 'grid' ? `${node.rows} × ${node.cols}；单元 ${node.cellWidth} × ${node.cellHeight}；线宽 ${node.lineWidth}` : `${node.width} × ${node.height}`}</td><td>{node.type === 'grid' ? node.lineColor : node.type === 'rect' ? node.fill : node.color}</td></tr>)}</tbody></table></div>
-      <div className="panel-actions"><a className="action-button" href={fileUrl(preview.file)} download>下载场景 JSON</a><a className="action-button" href={fileUrl(preview.recipe)} download>下载 Agent 脚本</a></div>
+    <details className="drawing-record"><summary>{t("绘图记录 ·") + " "}{scene.canvas.width} × {scene.canvas.height} {" " + t("格 ·") + " "}{scene.nodes.length} {" " + t("个图元")}</summary>
+      <p>{t("架构指纹：")}<code>{scene.fingerprint}</code></p>
+      <div className="drawing-table"><table><thead><tr><th>{t("颜色角色")}</th><th>{t("主题变量")}</th><th>{t("亮色记录")}</th><th>{t("暗色记录")}</th></tr></thead><tbody>{Object.entries(scene.palette).map(([role, token]) => <tr key={role}><td>{role}</td><td>{token}</td><td>{preview.themeSnapshot[token]?.light}</td><td>{preview.themeSnapshot[token]?.dark}</td></tr>)}</tbody></table></div>
+      <div className="drawing-table"><table><thead><tr><th>{t("区域 / 分割线")}</th><th>{t("起点")}</th><th>{t("尺寸 / 网格")}</th><th>{t("颜色角色")}</th></tr></thead><tbody>{scene.nodes.filter(node => node.type !== 'text').map(node => <tr key={node.id}><td>{node.label || node.id}</td><td>{node.x}, {node.y}</td><td>{node.type === 'grid' ? t("{0} × {1}；单元 {2} × {3}；线宽 {4}", node.rows, node.cols, node.cellWidth, node.cellHeight, node.lineWidth) : `${node.width} × ${node.height}`}</td><td>{node.type === 'grid' ? node.lineColor : node.type === 'rect' ? node.fill : node.color}</td></tr>)}</tbody></table></div>
+      <div className="panel-actions"><a className="action-button" href={fileUrl(preview.file)} download>{t("下载场景 JSON")}</a><a className="action-button" href={fileUrl(preview.recipe)} download>{t("下载 Agent 脚本")}</a></div>
     </details>
   </div>;
 }

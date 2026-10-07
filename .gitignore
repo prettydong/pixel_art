@@ -7,7 +7,7 @@ dist/
 !.env.example
 .playwright-cli/
 output/
-data/
+/data/
 config/models.json
 backend/models.json
 *.log

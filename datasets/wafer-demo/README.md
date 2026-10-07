@@ -1,11 +1,11 @@
-# 合成 wafer 数据
+# Synthetic Wafer Data
 
-仅用于开发和演示，不代表真实制造缺陷分布或良率。
+For development and demos only; this does not represent real manufacturing defect distributions or yield.
 
-产品结构：每片 64 个 chip，每个 chip 8 个 region，每个 region 1024 × 1024。所有索引从 0 开始。
+Product structure: 64 chips per wafer, 8 regions per chip, and 1024 × 1024 per region. All indices start at 0.
 
-随机种子：20260926；模式：mixed；前 1 片无 fail。每个非空 region 恰有 8 个唯一 fail；其余 region 无 fail。
+Random seed: 20260926; pattern: mixed; the first 1 wafer has no fails. Each nonempty region has exactly 8 unique fails; remaining regions have no fails.
 
-在数据页新建相同结构的产品，导入 .pwafer 文件。manifest.json 保存生成参数、各片总数和 SHA-256；不要把它当 wafer 导入。
+Create a product with matching structure on the data page and import the .pwafer files. manifest.json stores generation parameters, per-wafer totals, and SHA-256 hashes; do not import it as a wafer.
 
-格式及读写方法见项目 WAFER_FORMAT.md。完整 chip/region 名册由头部结构定义，不能用非空记录数量代替总数。
+See the project's WAFER_FORMAT.md for the format and reading/writing methods. The complete chip/region roster is defined by the header structure; nonempty-record counts must not replace total counts.

@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useId, useRef, useState, type FormEvent } from "react";
 import type { InteractiveTool, MessageTool, ToolResult } from "./chatTypes";
 import "./interactiveTools.css";
@@ -14,18 +15,18 @@ function ownValue<T>(record: Record<string, T>, key: string): T | undefined {
 
 function resultSummary(tool: InteractiveTool): string {
   const result = tool.result;
-  if (!result || result.type !== tool.type) return "已提交，回答记录不可用。";
+  if (!result || result.type !== tool.type) return t("已提交，回答记录不可用。");
   if (tool.type === "single" && result.type === "single") {
-    return `已选择：${tool.options.find((option) => option.value === result.value)?.label ?? result.value}`;
+    return t("已选择：{0}", tool.options.find((option) => option.value === result.value)?.label ?? result.value);
   }
   if (tool.type === "multi" && result.type === "multi") {
-    return `已选择：${result.value.map((value) => tool.options.find((option) => option.value === value)?.label ?? value).join("、")}`;
+    return t("已选择：{0}", result.value.map((value) => tool.options.find((option) => option.value === value)?.label ?? value).join(t("、")));
   }
-  if (result.type === "confirm") return result.value ? "已确认" : "已取消";
+  if (result.type === "confirm") return result.value ? t("已确认") : t("已取消");
   if (tool.type === "form" && result.type === "form") {
-    return tool.fields.map((field) => `${field.label}：${ownValue(result.value, field.id) ?? "未填写"}`).join("；");
+    return tool.fields.map((field) => t("{0}：{1}", field.label, ownValue(result.value, field.id) ?? t("未填写"))).join(t("；"));
   }
-  return "已提交";
+  return t("已提交");
 }
 
 function InteractiveToolCard({ tool, disabled, onSubmit }: {
@@ -59,7 +60,7 @@ function InteractiveToolCard({ tool, disabled, onSubmit }: {
     if (locked) return;
     if (tool.type === "single") {
       if (!tool.options.some((option) => option.value === single)) {
-        setErrors({ selection: "请选择一项后提交。" });
+        setErrors({ selection: t("请选择一项后提交。") });
         return;
       }
       setErrors({});
@@ -67,7 +68,7 @@ function InteractiveToolCard({ tool, disabled, onSubmit }: {
     } else if (tool.type === "multi") {
       const selected = tool.options.filter((option) => multiple.includes(option.value)).map((option) => option.value);
       if (!selected.length) {
-        setErrors({ selection: "请至少选择一项后提交。" });
+        setErrors({ selection: t("请至少选择一项后提交。") });
         return;
       }
       setErrors({});
@@ -79,14 +80,14 @@ function InteractiveToolCard({ tool, disabled, onSubmit }: {
         const value = (ownValue(values, field.id) ?? "").trim();
         const control = event.currentTarget.elements.namedItem(field.id);
         if (field.type === "number" && control instanceof HTMLInputElement && control.validity.badInput) {
-          nextErrors[field.id] = "请输入有效数字。";
+          nextErrors[field.id] = t("请输入有效数字。");
         } else if (!value) {
-          if (field.required) nextErrors[field.id] = "此项为必填项。";
+          if (field.required) nextErrors[field.id] = t("此项为必填项。");
         } else if (field.type === "number") {
           const numeric = Number(value);
-          if (!Number.isFinite(numeric)) nextErrors[field.id] = "请输入有限的有效数字。";
-          else if (field.min !== undefined && numeric < field.min) nextErrors[field.id] = `不能小于 ${field.min}。`;
-          else if (field.max !== undefined && numeric > field.max) nextErrors[field.id] = `不能大于 ${field.max}。`;
+          if (!Number.isFinite(numeric)) nextErrors[field.id] = t("请输入有限的有效数字。");
+          else if (field.min !== undefined && numeric < field.min) nextErrors[field.id] = t("不能小于 {0}。", field.min);
+          else if (field.max !== undefined && numeric > field.max) nextErrors[field.id] = t("不能大于 {0}。", field.max);
           else result[field.id] = numeric;
         } else {
           result[field.id] = value;
@@ -150,7 +151,7 @@ function InteractiveToolCard({ tool, disabled, onSubmit }: {
               const fieldError = ownValue(errors, field.id);
               return (
                 <div className="interactive-tool-field" key={field.id}>
-                  <label htmlFor={fieldId}>{field.label}{field.required ? "（必填）" : "（选填）"}</label>
+                  <label htmlFor={fieldId}>{field.label}{field.required ? t("（必填）") : t("（选填）")}</label>
                   <input
                     id={fieldId}
                     name={field.id}
@@ -168,7 +169,7 @@ function InteractiveToolCard({ tool, disabled, onSubmit }: {
                       setErrors((current) => ({ ...current, [field.id]: "" }));
                     }}
                   />
-                  {hasRange && <small id={hintId}>{[field.min !== undefined ? `最小 ${field.min}` : "", field.max !== undefined ? `最大 ${field.max}` : ""].filter(Boolean).join("，")}</small>}
+                  {hasRange && <small id={hintId}>{[field.min !== undefined ? t("最小 {0}", field.min) : "", field.max !== undefined ? t("最大 {0}", field.max) : ""].filter(Boolean).join(t("，"))}</small>}
                   {fieldError && <p className="interactive-tool-error" id={fieldErrorId} role="alert">{fieldError}</p>}
                 </div>
               );
@@ -179,14 +180,14 @@ function InteractiveToolCard({ tool, disabled, onSubmit }: {
         {tool.status === "pending" && (
           <div className="interactive-tool-actions">
             {tool.type === "confirm" ? <>
-              <button type="button" className="interactive-tool-submit" onClick={() => submit({ toolId: tool.id, type: "confirm", value: true })}>{tool.confirmLabel ?? "确认"}</button>
-              <button type="button" onClick={() => submit({ toolId: tool.id, type: "confirm", value: false })}>{tool.cancelLabel ?? "取消"}</button>
-            </> : <button type="submit" className="interactive-tool-submit">提交回答</button>}
-            {disabled && <span className="interactive-tool-status">等待回复完成后可提交</span>}
+              <button type="button" className="interactive-tool-submit" onClick={() => submit({ toolId: tool.id, type: "confirm", value: true })}>{tool.confirmLabel ?? t("确认")}</button>
+              <button type="button" onClick={() => submit({ toolId: tool.id, type: "confirm", value: false })}>{tool.cancelLabel ?? t("取消")}</button>
+            </> : <button type="submit" className="interactive-tool-submit">{t("提交回答")}</button>}
+            {disabled && <span className="interactive-tool-status">{t("等待回复完成后可提交")}</span>}
           </div>
         )}
         {tool.status === "submitted" && <p className="interactive-tool-result" role="status">{resultSummary(tool)}</p>}
-        {tool.status === "expired" && <p className="interactive-tool-status">此工具已失效，无法继续提交。</p>}
+        {tool.status === "expired" && <p className="interactive-tool-status">{t("此工具已失效，无法继续提交。")}</p>}
       </fieldset>
     </form>
   );
@@ -198,7 +199,7 @@ export function InteractiveTools({ tools, disabled = false, onSubmit }: Interact
       {tools.map((tool) => tool.type === "unavailable" ? (
         <section className="interactive-tool interactive-tool-unavailable" key={tool.id}>
           <h3>{tool.title}</h3>
-          <p className="interactive-tool-status">工具格式未知或记录损坏，无法操作。</p>
+          <p className="interactive-tool-status">{t("工具格式未知或记录损坏，无法操作。")}</p>
         </section>
       ) : <InteractiveToolCard key={tool.id} tool={tool} disabled={disabled} onSubmit={onSubmit} />)}
     </div>

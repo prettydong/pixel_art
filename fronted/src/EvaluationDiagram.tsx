@@ -1,9 +1,10 @@
+import { t } from './i18n';
 type DiagramKind = "data" | "architecture" | "repair";
 
 const descriptions: Record<DiagramKind, string> = {
-  data: "失效分布示意：阵列中标出失效单元，下方展示分布柱形。",
-  architecture: "CCR 架构示意：一个 Region 内包含多个 Segment，各 Segment 右侧为独立 CCR col 资源；Region 下方为所有 Segment 共享的全局备用 row 池，默认 128 条。示意不按实际数量或比例绘制。",
-  repair: "row 替换示意：将包含失效单元的一条原始 row 映射至 Region 共享的全局备用 row。",
+  get data() { return t("失效分布示意：阵列中标出失效单元，下方展示分布柱形。"); },
+  get architecture() { return t("CCR 架构示意：一个 Region 内包含多个 Segment，各 Segment 右侧为独立 CCR col 资源；Region 下方为所有 Segment 共享的全局备用 row 池，默认 128 条。示意不按实际数量或比例绘制。"); },
+  get repair() { return t("row 替换示意：将包含失效单元的一条原始 row 映射至 Region 共享的全局备用 row。"); },
 };
 
 // Native design-pixel geometry: 144 × 112 units, rendered at 144rem × 112rem.

@@ -1,27 +1,27 @@
 ---
 name: data-analysis
-description: 分析用户上传的表格、CSV 和 DRAM 失效坐标数据，生成可复现的统计、空间分布与报告。用于数据分析或明确要求生成模拟数据的任务。
+description: Analyze user-uploaded tables, CSV files, and DRAM failure coordinates to produce reproducible statistics, spatial distributions, and reports. Use for data-analysis tasks or explicit requests to generate synthetic data.
 ---
 
-# 数据分析
+# Data Analysis
 
-## 工作目录
+## Working Directory
 
-Pi 从当前用户根目录启动，根目录不是本轮的工作目录。以启动提示和环境变量为准：
+Pi starts from the current user's root directory, which is not the current run's working directory. Follow the startup prompt and environment variables:
 
-- `PIXEL_UPLOADS_DIR`：当前用户共享的 uploads，跨会话复用。先查看文件清单或用户指定附件；原始输入保持不变。
-- `PIXEL_WORK_DIR`：当前会话 work。脚本、临时数据与中间结果放在这里。执行分析命令时显式切换到这个目录。
-- `${PIXEL_WORK_DIR}/artifacts/`：本轮可下载报告、图表和结果。最终回复引用文件名，服务会登记这些产物。
-- `PIXEL_SKILLS_DIR`：当前用户自己的 skills。只有用户要求维护技能时才修改；不要把单次结果写回 skill。
+- `PIXEL_UPLOADS_DIR`: the current user's shared uploads, reused across conversations. First inspect the file inventory or user-specified attachments; keep original inputs unchanged.
+- `PIXEL_WORK_DIR`: the current conversation's work directory. Place scripts, temporary data, and intermediate results here. Explicitly switch to this directory when running analysis commands.
+- `${PIXEL_WORK_DIR}/artifacts/`: downloadable reports, charts, and results for the current run. Reference filenames in the final reply; the service registers these artifacts.
+- `PIXEL_SKILLS_DIR`: the current user's own skills. Modify only when the user requests skill maintenance; do not write one-off results back into a skill.
 
-不要修改 `.pi/agent/` 中的运行配置、原生 session 文件或服务数据库。共享 uploads 不用于保存中间产物，不要把其他会话的 work 当成本轮输出目录。
+Do not modify runtime configuration in `.pi/agent/`, native session files, or the service database. Shared uploads are not for intermediate artifacts; do not use another conversation's work directory for current outputs.
 
-## 分析流程
+## Analysis Workflow
 
-1. 读取指定输入，确认每行含义、单位、样本数、缺失值及字段。未指定附件但提到文件名时，在共享 uploads 中寻找；同名文件有歧义时说明候选，不随意合并。
-2. 先检查现有 Python/命令行依赖，再选择计算方法。普通 CSV 统计可用 Python 标准库。保留可复用的分析脚本和参数到 work；报告中记录输入文件、口径与假设。
-3. 区分原始数据、计算结果和模拟数据。只有用户要求生成模拟数据时才造数，记录随机种子、分布和参数。不要用预设均值的模拟结果推断真实器件。
-4. 根据问题输出足够的统计：数量、均值、中位数、样本标准差、范围、分位数及必要的组间差异。说明标准差分母、分位数算法和比例分母；零值与缺失值分开处理。
-5. DRAM 数据先读 [DRAM 数据口径](references/dram.md)。采样统计与空间统计分别计算，不把累计事件数当作不同坏单元数。
-   涉及冗余修补、可修复率或良率时，再读取 `$PIXEL_SKILLS_DIR/repair-evaluation/SKILL.md`，使用 `$PIXEL_REPAIR_DIR` 中的框架和 device；先明确数据、资源数量与修补规则。
-6. 核对关键结果能由输入复算，图表标明单位和聚合粒度。最终给出结论、实际生成的文件和仍缺失的必要条件。用户要求手动测试时不替其运行应用测试或浏览器验收。
+1. Read specified inputs and confirm row meanings, units, sample counts, missing values, and fields. If a filename is mentioned without a selected attachment, search shared uploads. Explain candidate files when identical names are ambiguous; do not merge them arbitrarily.
+2. Check existing Python/command-line dependencies before choosing a computation method. Ordinary CSV statistics can use the Python standard library. Save reusable analysis scripts and parameters in work; record input files, definitions, and assumptions in reports.
+3. Distinguish original data, computed results, and synthetic data. Generate synthetic data only when requested, recording the random seed, distribution, and parameters. Do not infer real device behavior from synthetic results with preset means.
+4. Provide sufficient statistics for the question: count, mean, median, sample standard deviation, range, quantiles, and relevant between-group differences. State the standard-deviation denominator, quantile algorithm, and ratio denominators; treat zeros separately from missing values.
+5. For DRAM data, first read [DRAM data definitions](references/dram.md). Compute sampling and spatial statistics separately; do not treat cumulative event counts as distinct failed-cell counts.
+   For redundancy repair, repairability rates, or yield, also read `$PIXEL_SKILLS_DIR/repair-evaluation/SKILL.md` and use the framework and device in `$PIXEL_REPAIR_DIR`. First establish the data, resource quantities, and repair rules.
+6. Verify that key results can be recomputed from the inputs. Label chart units and aggregation granularity. Finish with conclusions, files actually generated, and necessary conditions still missing. If the user requests manual testing, do not run application tests or browser acceptance on their behalf.

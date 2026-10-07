@@ -1,10 +1,11 @@
+import { t } from './i18n';
 import { useId, useMemo, useState, type CSSProperties } from 'react';
 import type { CategoryChart, ScatterChart, HeatmapChart } from '@pixel/contracts/charts';
 import { axisNumber, colors, shortLabel } from './chartGeometry';
 import { revealChartCell, useChartViewport } from './useChartViewport';
 
 const colorStyle = (index: number) => ({ '--series-color': colors[index] } as CSSProperties);
-const unitValue = (value: number | null, unit?: string) => value === null ? '缺失' : `${value}${unit ? ` ${unit}` : ''}`;
+const unitValue = (value: number | null, unit?: string) => value === null ? t("缺失") : `${value}${unit ? ` ${unit}` : ''}`;
 
 export function PiePlot({ chart }: { chart: CategoryChart }) {
   const [selected, setSelected] = useState(0);
@@ -36,13 +37,13 @@ export function PiePlot({ chart }: { chart: CategoryChart }) {
     return result;
   }, [chart]);
   return <div className="pixel-chart-pie">
-    <svg width={`${size}rem`} height={`${size}rem`} viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges" role="img" aria-label={`${chart.title}；各分类数值和占比见旁边列表`}>
-      {paths.map((path, index) => <path key={index} d={path} fill={colors[index]} onPointerEnter={() => setSelected(index)}><title>{chart.labels[index]}：{unitValue(values[index], chart.unit)}（{(proportions[index] * 100).toFixed(1)}%）</title></path>)}
+    <svg width={`${size}rem`} height={`${size}rem`} viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges" role="img" aria-label={t("{0}；各分类数值和占比见旁边列表", chart.title)}>
+      {paths.map((path, index) => <path key={index} d={path} fill={colors[index]} onPointerEnter={() => setSelected(index)}><title>{chart.labels[index]}{t("：")}{unitValue(values[index], chart.unit)}{t("（")}{(proportions[index] * 100).toFixed(1)}{t("%）")}</title></path>)}
     </svg>
     <div className="pixel-chart-pie-legend">{chart.labels.map((label, index) => <button key={label} type="button" className={selected === index ? 'is-selected' : ''} style={colorStyle(index)} onClick={() => setSelected(index)} onFocus={() => setSelected(index)} aria-pressed={selected === index}>
-      <i aria-hidden="true" /><span>{index + 1}. {label}：{unitValue(values[index], chart.unit)} · {values[index] === null ? '无占比' : `${(proportions[index] * 100).toFixed(1)}%`}</span>
+      <i aria-hidden="true" /><span>{index + 1}. {label}{t("：")}{unitValue(values[index], chart.unit)} · {values[index] === null ? t("无占比") : `${(proportions[index] * 100).toFixed(1)}%`}</span>
     </button>)}</div>
-    <p className="pixel-chart-caption">{chart.series[0].name} · 占比按有效数值总和计算，缺失值不计入总和。</p>
+    <p className="pixel-chart-caption">{chart.series[0].name} {" " + t("· 占比按有效数值总和计算，缺失值不计入总和。")}</p>
   </div>;
 }
 
@@ -58,7 +59,7 @@ export function ScatterPlot({ chart }: { chart: ScatterChart }) {
   const id = useId();
   const { viewport, available } = useChartViewport();
   const [selected, setSelected] = useState(0);
-  const points = chart.series.flatMap((series, seriesIndex) => series.points.map((point, index) => ({ ...point, series: series.name, seriesIndex, label: point.label || `点 ${index + 1}` })));
+  const points = chart.series.flatMap((series, seriesIndex) => series.points.map((point, index) => ({ ...point, series: series.name, seriesIndex, label: point.label || t("点 {0}", index + 1) })));
   const point = points[Math.min(selected, points.length - 1)];
   const width = Math.max(360, available), height = 208, left = 88, top = 12, plotWidth = width - left - 48, plotHeight = 160;
   const xs = numericScale(points.map(point => point.x)), ys = numericScale(points.map(point => point.y));
@@ -68,7 +69,7 @@ export function ScatterPlot({ chart }: { chart: ScatterChart }) {
   return <>
     <div className="pixel-chart-legend">{chart.series.map((series, index) => <span key={series.name} style={colorStyle(index)}><i aria-hidden="true" />{index + 1}. {series.name}</span>)}</div>
     <p className="pixel-chart-caption">{chart.yLabel || 'Y'}{chart.unit ? ` · ${chart.unit}` : ''}</p>
-    <div ref={viewport} className="pixel-chart-viewport" tabIndex={0} role="group" aria-label="散点图，左右方向键逐点查看，Home 和 End 跳到首尾" aria-describedby={`${id}-selection`} onKeyDown={event => {
+    <div ref={viewport} className="pixel-chart-viewport" tabIndex={0} role="group" aria-label={t("散点图，左右方向键逐点查看，Home 和 End 跳到首尾")} aria-describedby={`${id}-selection`} onKeyDown={event => {
       if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
       const next = event.key === 'Home' ? 0 : event.key === 'End' ? points.length - 1 : Math.max(0, Math.min(points.length - 1, selected + (event.key === 'ArrowRight' ? 1 : -1)));
@@ -86,8 +87,8 @@ export function ScatterPlot({ chart }: { chart: ScatterChart }) {
         {ticks.map(tick => <span key={`x${tick}`} className="pixel-chart-x-tick" style={{ left: `${left + Math.round(plotWidth * tick / 4) - 40}rem`, top: `${top + plotHeight + 8}rem`, width: '80rem' }}>{axisNumber((xs.min + (xs.max - xs.min) * tick / 4) * xs.magnitude)}</span>)}
       </div>
     </div>
-    <p className="pixel-chart-caption">{chart.xLabel || 'X'}{chart.xUnit ? ` · ${chart.xUnit}` : ''} · 数值坐标轴 · 方向键逐点查看</p>
-    <p id={`${id}-selection`} className="pixel-chart-selection">{point.series} / {point.label}：{chart.xLabel || 'X'} = {unitValue(point.x, chart.xUnit)}，{chart.yLabel || 'Y'} = {unitValue(point.y, chart.unit)}</p>
+    <p className="pixel-chart-caption">{chart.xLabel || 'X'}{chart.xUnit ? ` · ${chart.xUnit}` : ''} {" " + t("· 数值坐标轴 · 方向键逐点查看")}</p>
+    <p id={`${id}-selection`} className="pixel-chart-selection">{point.series} / {point.label}{t("：")}{chart.xLabel || 'X'} = {unitValue(point.x, chart.xUnit)}{t("，")}{chart.yLabel || 'Y'} = {unitValue(point.y, chart.unit)}</p>
   </>;
 }
 
@@ -103,8 +104,8 @@ export function HeatmapPlot({ chart }: { chart: HeatmapChart }) {
   const width = left + cell * chart.xLabels.length + 8, height = top + cell * chart.yLabels.length + 8;
   const row = Math.min(selected.row, chart.yLabels.length - 1), column = Math.min(selected.column, chart.xLabels.length - 1);
   return <>
-    <p className="pixel-chart-caption">col：{chart.xLabel || '分类'} · row：{chart.yLabel || '分类'}</p>
-    <div className="pixel-chart-viewport" tabIndex={0} role="group" aria-label="热力图，方向键选择单元格，Home 和 End 跳到当前 row 首尾" aria-describedby={`${id}-selection`} onKeyDown={event => {
+    <p className="pixel-chart-caption">{t("col：")}{chart.xLabel || t("分类")} {t(" · row：")}{chart.yLabel || t("分类")}</p>
+    <div className="pixel-chart-viewport" tabIndex={0} role="group" aria-label={t("热力图，方向键选择单元格，Home 和 End 跳到当前 row 首尾")} aria-describedby={`${id}-selection`} onKeyDown={event => {
       if (!['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
       const next = {
@@ -124,8 +125,8 @@ export function HeatmapPlot({ chart }: { chart: HeatmapChart }) {
         {chart.yLabels.map((label, index) => <span key={label} className="pixel-chart-y-tick" title={label} style={{ left: '0rem', top: `${top + index * cell + 4}rem`, width: `${left - 8}rem` }}>{shortLabel(label, left - 8)}</span>)}
       </div>
     </div>
-    <div className="pixel-chart-legend"><span>低 {axisNumber(min)}</span>{[0, 1, 2, 3, 4].map(index => <i key={index} className="pixel-chart-heat-key" style={{ background: `var(--heat-${index})` }} aria-hidden="true" />)}<span>高 {axisNumber(max)}{chart.unit ? ` ${chart.unit}` : ''} · 点纹为缺失{min === max ? ' · 数值全部相同' : ''}</span></div>
-    <p className="pixel-chart-caption">col 编号对应数据表顺序 · 五档等宽色阶 · 方向键或指针查看单元格</p>
-    <p id={`${id}-selection`} className="pixel-chart-selection">{chart.yLabels[row]} / {chart.xLabels[column]}：{unitValue(chart.values[row][column], chart.unit)}</p>
+    <div className="pixel-chart-legend"><span>{t("低") + " "}{axisNumber(min)}</span>{[0, 1, 2, 3, 4].map(index => <i key={index} className="pixel-chart-heat-key" style={{ background: `var(--heat-${index})` }} aria-hidden="true" />)}<span>{t("高") + " "}{axisNumber(max)}{chart.unit ? ` ${chart.unit}` : ''} {" " + t("· 点纹为缺失")}{min === max ? t(" · 数值全部相同") : ''}</span></div>
+    <p className="pixel-chart-caption">{t("col 编号对应数据表顺序 · 五档等宽色阶 · 方向键或指针查看单元格")}</p>
+    <p id={`${id}-selection`} className="pixel-chart-selection">{chart.yLabels[row]} / {chart.xLabels[column]}{t("：")}{unitValue(chart.values[row][column], chart.unit)}</p>
   </>;
 }

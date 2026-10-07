@@ -1,3 +1,4 @@
+import { localizeMessage, t } from './i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { isActiveRun, type Run, type ToolCall } from '@pixel/contracts';
 import type { Conversation } from './chatTypes';
@@ -13,9 +14,11 @@ export function findArchitectureDrawing(conversations: Conversation[], architect
     const run = conversation.activeRun ?? conversation.lastRun;
     if (!run) return [];
     const promptMatches = conversation.messages.some(message =>
-      message.role === 'user' && message.runId === run.id && message.text.startsWith(drawingPrompt)
-      && message.text.includes('架构预览')
-      && (!architectureId || message.text.includes(`（ID：${architectureId}，`)));
+      message.role === 'user' && message.runId === run.id
+      && ((message.text.startsWith(drawingPrompt) && message.text.includes('架构预览'))
+        || message.text.startsWith('Independently design and generate a Pixi architecture preview for architecture '))
+      && (!architectureId || message.text.includes(t("（ID：{0}，", architectureId))
+        || message.text.includes(`(ID: ${architectureId},`)));
     return promptMatches ? [{ conversation, run }] : [];
   });
   return candidates.sort((left, right) => {
@@ -29,29 +32,29 @@ function tail(value: string, maximum: number) {
 }
 
 export function statusText(run: Run | undefined, starting: boolean, previewReady: boolean) {
-  if (!run) return starting ? '正在启动绘制 Agent…' : '等待绘制任务';
+  if (!run) return starting ? t("正在启动绘制 Agent…") : t("等待绘制任务");
   switch (run.status) {
-    case 'starting': return 'Agent 正在启动绘制…';
-    case 'running': return 'Agent 正在绘制…';
-    case 'cancelling': return 'Agent 正在取消…';
-    case 'completed': return previewReady ? '预览已生成' : 'Agent 已结束，尚未发现有效预览；请查看绘制聊天。';
-    case 'failed': return 'Agent 绘制失败';
-    case 'cancelled': return 'Agent 已取消';
-    case 'interrupted': return 'Agent 已中断';
+    case 'starting': return t("Agent 正在启动绘制…");
+    case 'running': return t("Agent 正在绘制…");
+    case 'cancelling': return t("Agent 正在取消…");
+    case 'completed': return previewReady ? t("预览已生成") : t("Agent 已结束，尚未发现有效预览；请查看绘制聊天。");
+    case 'failed': return t("Agent 绘制失败");
+    case 'cancelled': return t("Agent 已取消");
+    case 'interrupted': return t("Agent 已中断");
   }
 }
 
 function toolStatus(tool: ToolCall, active: boolean) {
-  if (tool.status === 'running') return active ? '执行中' : '已中断';
-  if (tool.status === 'completed') return '完成';
-  if (tool.status === 'failed') return '失败';
-  return '已中断';
+  if (tool.status === 'running') return active ? t("执行中") : t("已中断");
+  if (tool.status === 'completed') return t("完成");
+  if (tool.status === 'failed') return t("失败");
+  return t("已中断");
 }
 
 function elapsedText(createdAt: number, now: number) {
   const total = Math.max(0, Math.floor((now - createdAt) / 1000));
   const minutes = Math.floor(total / 60);
-  return `${minutes ? `${minutes} 分 ` : ''}${total % 60} 秒`;
+  return t("{0}{1} 秒", minutes ? t("{0} 分 ", minutes) : '', total % 60);
 }
 
 function assistantMessages(conversation: Conversation | undefined, runId: string | undefined) {
@@ -101,26 +104,26 @@ export function ArchitectureDrawingProgress({ drawing, starting = false, connect
   const noVisibleOutput = !visibleText && !tools.length;
   if (!drawing && !starting) return null;
 
-  return <section className="architecture-drawing-progress" aria-label="Agent 绘制进度" aria-busy={starting || active}>
+  return <section className="architecture-drawing-progress" aria-label={t("Agent 绘制进度")} aria-busy={starting || active}>
     <div className="architecture-drawing-progress-heading">
-      <div><h3>Agent 绘制进度</h3><p role="status" className={run?.status === 'failed' ? 'error-text' : 'architecture-drawing-status'}>{state}</p></div>
-      {run && <span className="architecture-drawing-elapsed">已用时 {elapsedText(run.createdAt, active ? now : (run.finishedAt ?? run.createdAt))}</span>}
-      {!run && starting && <span className="architecture-drawing-elapsed">已等待 {elapsedText(startedLocally.current, now)}</span>}
+      <div><h3>{t("Agent 绘制进度")}</h3><p role="status" className={run?.status === 'failed' ? 'error-text' : 'architecture-drawing-status'}>{localizeMessage(state)}</p></div>
+      {run && <span className="architecture-drawing-elapsed">{t("已用时") + " "}{elapsedText(run.createdAt, active ? now : (run.finishedAt ?? run.createdAt))}</span>}
+      {!run && starting && <span className="architecture-drawing-elapsed">{t("已等待") + " "}{elapsedText(startedLocally.current, now)}</span>}
     </div>
     {(connection || error) && <div className="architecture-drawing-meta">
-      {connection && <span>连接：{connection}</span>}
-      {error && <span className="error-text">{error}</span>}
+      {connection && <span>{t("连接：")}{localizeMessage(connection)}</span>}
+      {error && <span className="error-text">{localizeMessage(error)}</span>}
     </div>}
-    <div className="architecture-drawing-output" ref={outputRef} onScroll={observeScroll} tabIndex={0} role="log" aria-live="off" aria-label="Agent 绘制输出">
+    <div className="architecture-drawing-output" ref={outputRef} onScroll={observeScroll} tabIndex={0} role="log" aria-live="off" aria-label={t("Agent 绘制输出")}>
       {visibleText && <div className="architecture-drawing-text">{visibleText}</div>}
-      {!visibleText && hasGenerationOnly && active && <p className="architecture-drawing-waiting">正在生成…</p>}
-      {noVisibleOutput && (!hasGenerationOnly || !active) && <p className="architecture-drawing-waiting">{active || starting ? '等待首段输出…' : '无文字输出'}</p>}
+      {!visibleText && hasGenerationOnly && active && <p className="architecture-drawing-waiting">{t("正在生成…")}</p>}
+      {noVisibleOutput && (!hasGenerationOnly || !active) && <p className="architecture-drawing-waiting">{active || starting ? t("等待首段输出…") : t("无文字输出")}</p>}
       {tools.map(({ tool }, index) => <details className="architecture-drawing-tool" key={tool.id} open={tool.status === 'failed' || (active && index === tools.length - 1)}>
         <summary><span>{tool.name}</span><span className={tool.status === 'failed' ? 'error-text' : ''}>{toolStatus(tool, active)}</span></summary>
-        {tool.text !== undefined ? <pre>{tail(tool.text, 1000) || '无文本输出'}</pre> : <p>无工具输出</p>}
+        {tool.text !== undefined ? <pre>{tail(tool.text, 1000) || t("无文本输出")}</pre> : <p>{t("无工具输出")}</p>}
       </details>)}
     </div>
-    {!following && <button type="button" className="action-button architecture-drawing-follow" onClick={follow}>继续跟随输出</button>}
-    {drawing && <button type="button" className="action-button" onClick={() => onOpenChat(drawing.conversation.id)}>查看绘制聊天</button>}
+    {!following && <button type="button" className="action-button architecture-drawing-follow" onClick={follow}>{t("继续跟随输出")}</button>}
+    {drawing && <button type="button" className="action-button" onClick={() => onOpenChat(drawing.conversation.id)}>{t("查看绘制聊天")}</button>}
   </section>;
 }

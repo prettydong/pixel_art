@@ -1,3 +1,4 @@
+import { t, useLanguage } from './i18n';
 import { memo, useId, useState, type CSSProperties } from 'react';
 import { chartTable, chartTools, type PixelChart as ChartData, type CategoryChart } from '@pixel/contracts/charts';
 import { colors, pixelLine, axisNumber, shortLabel } from './chartGeometry';
@@ -6,24 +7,27 @@ import { revealChartCell, useChartViewport } from './useChartViewport';
 import './pixelCharts.css';
 
 export const PixelChart = memo(function PixelChart({ chart }: { chart: ChartData }) {
+  useLanguage();
   const id = useId();
   const table = chartTable(chart);
-  const label = Object.values(chartTools).find(tool => tool.kind === chart.kind)!.label;
+  const label = t(Object.values(chartTools).find(tool => tool.kind === chart.kind)!.label);
+  if (chart.kind === 'scatter') { table.headers[0] = t('系列'); table.headers[1] = t('标签'); }
+  else if (chart.kind !== 'heatmap' && !chart.xLabel) table.headers[0] = t('分类');
   return <figure className="pixel-chart" aria-labelledby={`${id}-title`}>
     <figcaption id={`${id}-title`} className="pixel-chart-title"><span>{chart.title}</span><span className="pixel-chart-kind">{label}</span></figcaption>
     {chart.description && <p>{chart.description}</p>}
     {chart.kind === 'pie' ? <PiePlot chart={chart} /> : chart.kind === 'scatter' ? <ScatterPlot chart={chart} /> : chart.kind === 'heatmap' ? <HeatmapPlot chart={chart} /> : <CategoryPlot chart={chart} />}
     <details className="pixel-chart-data">
-      <summary>查看数据表（{table.rows.length} 项）</summary>
-      <div className="pixel-chart-table-scroll" tabIndex={0} role="region" aria-label={`${chart.title}原始数据`}>
+      <summary>{t("查看数据表（")}{table.rows.length} {" " + t("项）")}</summary>
+      <div className="pixel-chart-table-scroll" tabIndex={0} role="region" aria-label={t("{0}原始数据", chart.title)}>
         <table>
-          <caption>{chart.title}{chart.unit ? `（${chart.unit}）` : ''}</caption>
+          <caption>{chart.title}{chart.unit ? t("（{0}）", chart.unit) : ''}</caption>
           <thead><tr>{table.headers.map((header, index) => <th key={index} scope="col">{header}</th>)}</tr></thead>
-          <tbody>{table.rows.map((row, index) => <tr key={index}>{row.map((cell, column) => column === 0 ? <th key={column} scope="row">{cell}</th> : <td key={column}>{cell ?? '缺失'}</td>)}</tr>)}</tbody>
+          <tbody>{table.rows.map((row, index) => <tr key={index}>{row.map((cell, column) => column === 0 ? <th key={column} scope="row">{cell}</th> : <td key={column}>{cell ?? t("缺失")}</td>)}</tr>)}</tbody>
         </table>
       </div>
     </details>
-    {chart.source && <p className="pixel-chart-caption">来源：{chart.source}</p>}
+    {chart.source && <p className="pixel-chart-caption">{t("来源：")}{chart.source}</p>}
   </figure>;
 });
 
@@ -66,7 +70,7 @@ function CategoryPlot({ chart }: { chart: CategoryChart }) {
   return <>
     <div className="pixel-chart-legend">{chart.series.map((series, index) => <span key={series.name} style={seriesStyle(index)}><i aria-hidden="true" />{index + 1}. {series.name}</span>)}</div>
     {(chart.yLabel || chart.unit) && <p className="pixel-chart-caption">{[chart.yLabel, chart.unit].filter(Boolean).join(' · ')}</p>}
-    <div ref={viewport} className="pixel-chart-viewport" tabIndex={0} role="group" aria-label="图表绘图区，左右方向键选择分类，Home 和 End 跳到首尾" aria-describedby={`${id}-selection`} onKeyDown={selectKey}>
+    <div ref={viewport} className="pixel-chart-viewport" tabIndex={0} role="group" aria-label={t("图表绘图区，左右方向键选择分类，Home 和 End 跳到首尾")} aria-describedby={`${id}-selection`} onKeyDown={selectKey}>
       <div className="pixel-chart-plot" style={{ width: `${width}rem`, height: `${height}rem` }} onPointerMove={event => {
         const rect = event.currentTarget.getBoundingClientRect();
         const gridX = (event.clientX - rect.left) * width / rect.width;
@@ -103,10 +107,10 @@ function CategoryPlot({ chart }: { chart: CategoryChart }) {
         {chart.labels.map((label, index) => <span key={label} className="pixel-chart-x-tick" title={label} style={{ left: `${left + index * slot}rem`, top: `${bottom + 8}rem`, width: `${slot}rem` }}>{shortLabel(label, slot - 4)}</span>)}
       </div>
     </div>
-    <p className="pixel-chart-caption">{chart.xLabel || '分类'}{chart.kind !== 'bar' ? ' · 等距分类轴' : ''}{chart.kind === 'area' ? ' · 非堆叠' : ''} · 方向键或指针查看数值</p>
+    <p className="pixel-chart-caption">{chart.xLabel || t("分类")}{chart.kind !== 'bar' ? t(" · 等距分类轴") : ''}{chart.kind === 'area' ? t(" · 非堆叠") : ''} {" " + t("· 方向键或指针查看数值")}</p>
     <div id={`${id}-selection`} className="pixel-chart-selection">
       <span>{chart.labels[selectedIndex]}</span>
-      {chart.series.map((series, index) => <span key={series.name} style={seriesStyle(index)}><i aria-hidden="true" />{series.name}：{series.values[selectedIndex] === null ? '缺失' : `${series.values[selectedIndex]}${chart.unit ? ` ${chart.unit}` : ''}`}</span>)}
+      {chart.series.map((series, index) => <span key={series.name} style={seriesStyle(index)}><i aria-hidden="true" />{series.name}{t("：")}{series.values[selectedIndex] === null ? t("缺失") : `${series.values[selectedIndex]}${chart.unit ? ` ${chart.unit}` : ''}`}</span>)}
     </div>
   </>;
 }

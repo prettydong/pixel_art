@@ -1,18 +1,18 @@
-# DRAM 数据口径
+# DRAM Data Definitions
 
-优先使用输入元数据；不要把下列示例的尺寸、样本数或均值硬编码成所有任务的默认值。
+Prioritize input metadata. Do not hard-code the following example's dimensions, sample counts, or means as defaults for every task.
 
-本项目 A/B/C 示例：`metadata.json` 定义 1024×1024 阵列、每组 100 次采样。`A_fails.csv`、`B_fails.csv`、`C_fails.csv` 为稀疏坐标，字段 `group,sample_id,row,col`。行列为 0-based，样本编号 1-based；记录表示 fail=1，其余单元为 pass=0。`sample_counts.csv` 是样本名册，包含零失效采样；不能仅从坐标表推断样本总数。`summary.csv` 为预计算答案，可作为复核资料，不能替代原始数据分析。
+Project A/B/C example: `metadata.json` defines a 1024×1024 array and 100 samples per group. `A_fails.csv`, `B_fails.csv`, and `C_fails.csv` contain sparse coordinates with fields `group,sample_id,row,col`. Rows/columns are zero-based and sample IDs one-based. Records represent fail=1; all other cells are pass=0. `sample_counts.csv` is the complete sample roster, including zero-fail samples; do not infer total samples from coordinate tables alone. `summary.csv` contains precomputed answers for cross-checking, not a replacement for original-data analysis.
 
-先验证坐标在范围内、同组同采样坐标唯一、样本编号存在于名册。存在重复记录、缺失元数据或计数不一致时指出问题，不静默去重或用零补齐缺失采样。
+First verify coordinate bounds, uniqueness within each group/sample, and sample membership in the roster. Flag duplicates, missing metadata, or inconsistent counts rather than silently deduplicating or filling missing samples with zeros.
 
-- 单次 fail 数：该采样中不同失效坐标的数量。
-- 单元失效比例：单次 fail 数 / 阵列单元数；ppm 再乘 1,000,000。没有读写次数时不能称为 BER。
-- 累计失效事件：所有采样 fail 数之和。
-- 不同失效单元：同一组跨采样坐标并集大小。重复单元数为出现至少两次的坐标数；重复事件数为累计事件减去并集大小。
-- 数量波动：样本标准差（n−1，n<2 时不可计算）、CV（均值为0时不可计算）、P95/P99与峰值。说明分位数采用最近秩还是插值。
-- 空间分布：受影响行列数、每行/列 fail 数、重复地址及按明确网格大小聚合的热图。热图颜色深不直接证明物理热点；跨组比较使用相同色标或说明归一化方式。
+- Per-sample fail count: number of distinct failed coordinates in that sample.
+- Cell failure proportion: per-sample fail count / total array cells; multiply by 1,000,000 for ppm. Do not call this BER without read/write operation counts.
+- Cumulative failure events: sum of fail counts across all samples.
+- Distinct failed cells: size of the coordinate union across samples within a group. Repeated cells are coordinates appearing at least twice; repeated events are cumulative events minus union size.
+- Count variability: sample standard deviation (n−1; undefined for n<2), CV (undefined for zero mean), P95/P99, and peak. State whether quantiles use nearest rank or interpolation.
+- Spatial distribution: affected row/column counts, fails per row/column, repeated addresses, and heatmaps aggregated at an explicit grid size. Dark heatmap colors do not directly prove physical hotspots. Use the same color scale across groups or explain normalization.
 
-本示例计数由 Dirichlet 权重加固定总数的多项分配生成。A/B/C 的均值 50/60/70 是人为约束，组内 100 个计数存在总量约束，不能使用独立同分布假设作真实均值推断。坐标每次重新均匀抽取，没有永久坏点或时序机理。其他输入应根据真实采样机制重新判断。
+This example generates counts using Dirichlet weights and multinomial allocation with fixed totals. A/B/C means of 50/60/70 are imposed constraints. The 100 counts within each group share a total constraint, so an independent-identically-distributed assumption cannot support inference about real means. Coordinates are resampled uniformly each time, without permanent bad cells or temporal mechanisms. Reassess other inputs according to their actual sampling mechanism.
 
-若用户要修复率或良率，还需备用行列数、修复规则、ECC 配置与判定标准。不要仅凭 fail 数给出可修复结论。
+Repair rates or yield also require spare-row/column counts, repair rules, ECC configuration, and passing criteria. Do not conclude repairability from fail counts alone.

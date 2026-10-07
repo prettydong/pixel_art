@@ -1,82 +1,82 @@
-# Pixel Chat 后端
+# Pixel Chat Backend
 
-Node.js >= 22.19，Linux 单机单实例，Fastify + SQLite WAL + Pi RPC 子进程。依赖 Pi 固定为 `@earendil-works/pi-coding-agent@0.85.1`。保留真实 coding agent 的读写、脚本、上下文压缩、重试、技能与原生会话恢复。扩展、提示模板和主题自动发现关闭；显式加载项目内的 `backend/extensions/pixel-charts.js`，提供六种只读图表工具，参数见 [图表工具说明](../PIXEL_CHART_TOOLS.md)。本版不提供需要用户提交答案的 Pi 交互式扩展 UI。
+Node.js >= 22.19, a single instance on one Linux machine, Fastify + SQLite WAL + Pi RPC subprocesses. Pi is pinned to `@earendil-works/pi-coding-agent@0.85.1`. Full coding-agent capabilities are retained: reading/writing, scripting, context compaction, retries, skills, and native session recovery. Automatic discovery of extensions, prompt templates, and themes is disabled. The project explicitly loads `backend/extensions/pixel-charts.js`, providing six read-only chart tools; see [chart tool parameters](../PIXEL_CHART_TOOLS.md). This version does not provide interactive Pi extension UI requiring user-submitted answers.
 
-普通任务聊天还加载 `backend/extensions/pixel-task-tools.js`，提供 `pixel_create_architecture`（新增架构）：传入 `name` 和 `description`，或 `name` 和 `descriptionFile`。文件路径相对本轮 work，或使用该 work、共享 uploads、当前任务已登记文件的绝对路径。名称最多 120 字符，UTF-8 内容最多 30000 字符。工具通过受监管的 IPC 请求服务端保存，任务与用户身份由服务端绑定，无需数据库权限或登录凭据。同名同内容复用已有记录，同名不同内容报错，不覆盖；成功返回架构 ID、fingerprint，并刷新本轮任务上下文和页面。若 `contextUpdated=false`，架构仍已保存，下一轮再取得新上下文做预览。面板发起的 C++ 编码轮次不开放此工具。
+Regular task chats also load `backend/extensions/pixel-task-tools.js`, providing `pixel_create_architecture` (create architecture). Pass `name` and `description`, or `name` and `descriptionFile`. File paths are relative to the current run's work directory, or absolute paths within that work directory, shared uploads, or the current task's registered files. Names are limited to 120 characters and UTF-8 content to 30000 characters. The tool requests server-side saving through supervised IPC; the server binds task and user identity, requiring no database access or login credentials. Identical names and content reuse existing records; identical names with different content produce an error without overwriting. Success returns the architecture ID and fingerprint and refreshes the current task context and page. If `contextUpdated=false`, the architecture is still saved; obtain updated context on the next run before previewing. Panel-initiated C++ coding runs do not expose this tool.
 
-## 配置和启动
+## Configuration and Startup
 
-在仓库根目录执行 `npm install`；复制 `backend/.env.example` 为根目录 `.env`，复制 `backend/models.example.json` 为 `backend/models.json`，配置模型后手动执行 `npm run build`。服务启动命令为根目录 `npm start`。
+Run `npm install` at the repository root. Copy `backend/.env.example` to root `.env` and `backend/models.example.json` to `backend/models.json`. Configure models, then manually run `npm run build`. Start the service with root-level `npm start`.
 
-模型配置的 `models` 是可公开的选择目录；`providers` 是 Pi 原生 models.json providers 配置，支持自定义 baseUrl/api/model/cost。`env` 明确列出需要传递给 Pi 的凭据环境变量。API key 环境引用使用 `$TEAM_MODEL_API_KEY`，不是裸变量名。不要提交真实 models.json 或 .env。示例中的模型价格全零仅为配置占位。每个公开模型目录项支持仅服务端可见的 `pricingKnown`，默认 false；请核实对应 providers 模型的所有单价后才设为 true。该确认随 run 保存，后续修改配置不会追溯改变旧账。仅实际 provider/model 与确认过的选择完全匹配时记录费用；否则费用为 null，不能把 Pi 默认零价格当成免费。压缩记录缺少可靠实际模型身份时费用同样保持未知。`skills` 可列管理员维护的技能目录/文件路径；相对路径从仓库根目录解析。
+The model configuration's `models` field is the publicly visible selection catalog; `providers` uses Pi's native models.json provider configuration, supporting custom baseUrl/api/model/cost. `env` explicitly lists credential environment variables to pass to Pi. Reference API-key environment variables as `$TEAM_MODEL_API_KEY`, not bare variable names. Do not commit real models.json or .env files. All-zero model prices in the example are placeholders. Each public model catalog entry supports a server-only `pricingKnown` flag, defaulting to false; set it to true only after verifying every unit price for the corresponding providers model. This confirmation is saved with each run; later configuration changes do not retroactively alter old accounting. Record cost only when the actual provider/model exactly matches the confirmed selection; otherwise cost is null. Pi's default zero prices must not be interpreted as free usage. Compaction records without reliable actual model identity also retain unknown cost. `skills` may list administrator-maintained skill directories/file paths; relative paths resolve from the repository root.
 
-Pi 在 `users/<userId>/` 启动，`PI_CODING_AGENT_DIR` 指向该用户的 `.pi/agent/`。管理员模型配置以原子替换方式写入用户的 `models.json`，已有用户 `settings.json` 不覆盖。服务启动时载入模型配置；修改模型、管理员技能路径列表、凭据后重启生效。只公开 id/label/provider/model，不公开地址和密钥。
+Pi starts in `users/<userId>/`; `PI_CODING_AGENT_DIR` points to that user's `.pi/agent/`. Administrator model configuration is written into the user's `models.json` by atomic replacement; existing user `settings.json` files are not overwritten. Model configuration loads at service startup. Restart after changing models, administrator skill paths, or credentials. Only id/label/provider/model are public; endpoints and keys are not exposed.
 
-用户技能位于 `.pi/skills/`，首次使用时从 `backend/skills/data-analysis/` 补齐数据分析 skill；已有文件不覆盖。用户可以自行维护这些技能，新 run 会重新加载。Pi 使用 `--no-skills` 加显式 `--skill` 加载用户技能和管理员配置的技能目录，避免自动引入宿主机其它技能。`--no-approve --no-context-files` 关闭项目资源信任及祖先 AGENTS/CLAUDE 自动发现，不触发 RPC 无法回答的信任询问。数据分析模式会明确要求读取用户的 `data-analysis/SKILL.md`。技能内容按需读取，上传内容不视为指令。
+User skills live in `.pi/skills/`. On first use, missing data-analysis skill files are supplied from `backend/skills/data-analysis/`; existing files are not overwritten. Users may maintain these skills themselves; new runs reload them. Pi uses `--no-skills` with explicit `--skill` arguments to load user skills and administrator-configured skill directories, avoiding automatic inclusion of other host skills. `--no-approve --no-context-files` disables project-resource trust checks and automatic discovery of ancestor AGENTS/CLAUDE files, avoiding trust questions that RPC cannot answer. Data-analysis mode explicitly requests reading the user's `data-analysis/SKILL.md`. Skill content is read on demand; uploaded content is not treated as instructions.
 
-同时补齐 `backend/skills/repair-evaluation/`；修补/良率任务由追加系统提示引导读取该 skill。每个会话从 `backend/repair-evaluation/` 补齐到 `work/repair-evaluation/`，`PIXEL_REPAIR_DIR` 指向这里，已有 device 与框架文件不覆盖。数据校验、HiGHS、规则扩展与输出见 [评估框架说明](repair-evaluation/README.md)。这是当前 Pi 的脚本工作流，不是新的交互式 UI 或常驻 Python 服务。
+Missing files from `backend/skills/repair-evaluation/` are also supplied. Appended system prompts guide repair/yield tasks to read this skill. Each conversation receives missing files from `backend/repair-evaluation/` into `work/repair-evaluation/`, pointed to by `PIXEL_REPAIR_DIR`; existing device and framework files are not overwritten. See [evaluation framework documentation](repair-evaluation/README.md) for data validation, HiGHS, rule extensions, and output. This is the current Pi scripting workflow, without a new interactive UI or persistent Python service.
 
-“任务求解”面板使用独立的 C++17 repairMost 队列：架构 × 已关联 wafer 批量添加，Pi 仅生成 `dev.hpp`，服务编译并求解。该编码模式不加载上述 Python/HiGHS 工作流。需要服务环境安装 `g++`，迁移 v8 保存批次、架构代码及任务状态。操作、约束、良率口径和手动验收说明见 [批量修补任务](../TASK_REPAIR.md)。求解快照目录只通过已鉴权的任务下载接口开放四种指定产物。
+The "Task solving" panel uses a separate C++17 repairMost queue: batch-add architectures × linked wafers; Pi generates only `dev.hpp`, while the service compiles and solves. This coding mode does not load the Python/HiGHS workflow above. The service environment requires `g++`; migration v8 stores batches, architecture code, and job states. See [batch repair tasks](../TASK_REPAIR.md) for operations, constraints, yield definitions, and manual acceptance checks. Solving snapshot directories expose only four specified artifacts through authenticated job-download endpoints.
 
-若模型请求需要代理，在根目录 `.env` 配置 `HTTPS_PROXY`、`NO_PROXY` 和 `NODE_USE_ENV_PROXY=1`，使用支持该开关的 Node 运行时。后端会将这些网络变量（含 HTTP/HTTPS/NO_PROXY 的小写形式）传给 Pi 子进程，不必加入模型配置的凭据 `env` 列表。Node 不会自动使用 macOS 系统代理；代理配置变更后重启后端。
+If model requests require a proxy, configure `HTTPS_PROXY`, `NO_PROXY`, and `NODE_USE_ENV_PROXY=1` in root `.env`, using a Node runtime that supports this option. The backend passes these network variables, including lowercase HTTP/HTTPS/NO_PROXY forms, to Pi subprocesses; they do not need to be added to the model credential `env` list. Node does not automatically use the macOS system proxy. Restart the backend after changing proxy configuration.
 
-首次启动前创建管理员（服务必须停止）：
+Create an administrator before the first startup (the service must be stopped):
 
 ```sh
-# 在根目录；避免把密码放在命令行参数/历史中
+# Run at the root; avoid putting passwords in command-line arguments or history.
 read -s PIXEL_ADMIN_PASSWORD
 export PIXEL_ADMIN_PASSWORD
 npm run admin:create -- admin
 unset PIXEL_ADMIN_PASSWORD
 ```
 
-密码至少 12 字符。管理员 CLI 也支持从 stdin 第一行读取密码。密码以随机盐 scrypt 保存；登录凭据仅在数据库保存 SHA-256 摘要。管理员在应用里创建账号、重置密码、启停账号；不开放注册。重置密码撤销登录并停止任务，停用用户同样处理，最后一个启用的管理员不能停用。
+Passwords must contain at least 12 characters. The administrator CLI also accepts a password from the first line of stdin. Passwords are stored using scrypt with random salts; login credentials are stored in the database only as SHA-256 hashes. Administrators create accounts, reset passwords, and enable/disable accounts in the application; public registration is unavailable. Password resets revoke logins and stop tasks; disabling a user does the same. The last enabled administrator cannot be disabled.
 
-`PIXEL_ORIGIN` 用于决定会话 Cookie 是否启用 Secure，例 `https://chat.example.com`；使用 HTTPS 时自动启用 Secure，HttpOnly + SameSite=Strict 始终启用。访问地址无需与该配置完全一致；写入接口仍拒绝 `Sec-Fetch-Site: cross-site` 请求。反向代理必须允许 SSE，关闭响应缓冲。开发前端需通过 Vite `/api` 代理；本地 HTTP 开发时 `PIXEL_ORIGIN` 也应使用 HTTP，以免 Secure Cookie 无法发送。
+`PIXEL_ORIGIN` determines whether session cookies use Secure, for example `https://chat.example.com`. HTTPS automatically enables Secure; HttpOnly + SameSite=Strict are always enabled. The access URL does not have to match this configuration exactly; write endpoints still reject `Sec-Fetch-Site: cross-site` requests. Reverse proxies must allow SSE and disable response buffering. The development frontend must use Vite's `/api` proxy. For local HTTP development, `PIXEL_ORIGIN` should also use HTTP so Secure cookies do not prevent sending.
 
-## 数据与生命周期
+## Data and Lifecycle
 
-数据库 `pixel.sqlite` 只有 Node 主服务写入，登录会话、评估任务、聊天会话、run 分离。任务表保存名称，`task_architectures` 保存多份架构定义，`task_files` 关联输入；会话通过 `task_id` 归属任务。启动迁移 v4 将未删除的旧会话各自归入同名任务，原消息、产物和原生会话路径不变。每次执行在当前 work 生成独立的 `task-context-<runId>.json`，包含任务架构、输入及同任务历史产物清单，由 Pi 读取；不共享可写 work 或 session。目录相对于 `PIXEL_DATA_DIR`：
+Only the main Node service writes to `pixel.sqlite`. Login sessions, evaluation tasks, chat conversations, and runs are separate. The task table stores names; `task_architectures` stores multiple architecture definitions, and `task_files` links inputs. Conversations belong to tasks through `task_id`. Startup migration v4 assigns each undeleted old conversation to a task with the same name, retaining original messages, artifacts, and native session paths. Each execution creates an independent `task-context-<runId>.json` in its current work directory, listing task architectures, inputs, and historical artifacts from the same task for Pi to read. Writable work and session files are not shared. Paths are relative to `PIXEL_DATA_DIR`:
 
 ```text
-users/<userId>/                   Pi 启动目录
-  uploads/                        该用户跨会话共享的原始输入
-  .pi/skills/data-analysis/        该用户可维护的数据分析技能
-  .pi/agent/                      用户 Pi 运行配置
+users/<userId>/                   Pi startup directory
+  uploads/                        Original inputs shared across this user's conversations
+  .pi/skills/data-analysis/        User-maintained data-analysis skill
+  .pi/agent/                      User Pi runtime configuration
   conversations/<conversationId>/
-    session.jsonl                 当前会话原生历史
-    work/                         当前会话脚本、中间数据
-      artifacts/                  当前会话可下载产物
+    session.jsonl                 Current conversation's native history
+    work/                         Current conversation's scripts and intermediate data
+      artifacts/                  Current conversation's downloadable artifacts
 ```
 
-`PIXEL_USER_DIR`、`PIXEL_UPLOADS_DIR`、`PIXEL_WORK_DIR`、`PIXEL_CONVERSATION_DIR`、`PIXEL_SKILLS_DIR` 环境变量与追加系统提示明确本轮路径。Pi 的 cwd 是用户目录，执行分析时需显式切换到 `PIXEL_WORK_DIR`。不要将可变的“当前会话”状态写到用户共享文件。同用户会话可并行，原始 uploads 按约定保持不变。
+`PIXEL_USER_DIR`, `PIXEL_UPLOADS_DIR`, `PIXEL_WORK_DIR`, `PIXEL_CONVERSATION_DIR`, and `PIXEL_SKILLS_DIR`, together with appended system prompts, specify the current run's paths. Pi's cwd is the user directory; explicitly switch to `PIXEL_WORK_DIR` for analysis. Do not write mutable "current conversation" state into shared user files. The same user's conversations may run concurrently; original uploads remain unchanged by agreement.
 
-上传记录归属用户（`conversationId=null`），下载和提交附件均校验 user_id。删除来源会话不删除共享上传。产物仍校验当前会话归属。文件名加入 UUID 避免同名覆盖；上传先写隐藏 `.incoming/`，完成后原子发布。共享列表会登记手动放入 uploads 的普通文件，跳过隐藏项和软链接，最多扫描 12 层子目录。直接放入的文件建议先以隐藏名称写完再重命名。HTTP 只提供 uploads 和当前会话 artifacts 内的文件，不下载原生 session、技能配置或任意 work 文件。
+Upload records belong to the user (`conversationId=null`); downloads and attachment submissions validate user_id. Deleting the source conversation does not delete shared uploads. Artifacts still require current-conversation ownership checks. UUIDs in filenames prevent overwriting identical names. Uploads first write into hidden `.incoming/` and publish atomically on completion. The shared list registers regular files manually placed in uploads, skipping hidden items and symlinks and scanning at most 12 subdirectory levels. For directly placed files, finish writing under a hidden name before renaming. HTTP serves only uploads and current-conversation artifacts, not native sessions, skill configuration, or arbitrary work files.
 
-启动时自动迁移旧 `conversations/<id>/` 到对应用户目录，旧上传保存在 `uploads/legacy/<conversationId>/`，保留原文件 ID 和旧目录。迁移在服务单实例锁下执行，完成复制后事务更新文件表。Pi 恢复历史时会采用 session 头部 cwd，因此迁移还会备份并更新 session 头部，按字节差额同步 runs.native_start，保持历史用量边界。迁移中断可再次启动续做；目标内容冲突或软链接会停止迁移并保留原件。升级前停服备份整个数据目录；迁移后回退旧服务需要恢复匹配的数据库和目录备份。
+Startup automatically migrates old `conversations/<id>/` directories into corresponding user directories, placing old uploads in `uploads/legacy/<conversationId>/` while retaining original file IDs and old directories. Migration runs under the service's single-instance lock, updating the file table transactionally after copying. Pi restores cwd from the session header, so migration also backs up and updates headers and adjusts runs.native_start by byte differences to preserve historical usage boundaries. Interrupted migration can resume on startup. Conflicting destination content or symlinks stop migration while preserving originals. Stop the service and back up the entire data directory before upgrading; rolling back after migration requires restoring matching database and directory backups.
 
-HTTP 的归属和路径校验不等于 OS 沙箱；Pi 仍使用服务 OS 账号的文件权限。用户目录及会话目录是工作组织边界。
+HTTP ownership and path validation are not an OS sandbox. Pi still uses the service OS account's file permissions. User and conversation directories are organizational work boundaries.
 
-每个聊天会话同一时刻只能运行一个任务，跨会话可以并行。请求幂等键按用户去重；不同请求复用键返回 409。取消先发 RPC abort，超时后关闭监督进程组；进程监督器也在主服务 IPC 断开时清理 Pi 与追踪到的 Linux detached shell 子进程。任务终态在清理与会话同步后提交，agent_settled 才表示 Pi 含重试/压缩在内的真正空闲。
+Each chat conversation permits only one running execution at a time; different conversations may run concurrently. Request idempotency keys are deduplicated per user; different requests reusing a key return 409. Cancellation first sends RPC abort, then closes the supervised process group after timeout. The process supervisor also cleans up Pi and tracked Linux detached-shell children when main-service IPC disconnects. Terminal states are committed after cleanup and session synchronization. Only agent_settled indicates Pi is truly idle, including retries and compaction.
 
-Linux 使用内核 abstract Unix socket 单实例锁，崩溃自动释放；启动等待监督器清理后把活动任务标为 interrupted，绝不重放脚本。macOS 开发使用 PID 文件锁；崩溃遗留锁需要确认服务已停止后手动删除 `<data>/server.lock`。不要使用共享网络文件系统或复制相同数据目录给多个实例。
+Linux uses a kernel abstract Unix-socket single-instance lock, automatically released after a crash. Startup waits for supervisor cleanup, then marks active tasks interrupted without replaying scripts. macOS development uses a PID-file lock; confirm that the service has stopped before manually deleting a crash-left `<data>/server.lock`. Do not use shared network filesystems or copy the same data directory to multiple instances.
 
-消息、事件先落库后推送；SSE event 为 `run`，payload 见 `@pixel/contracts`，支持 `Last-Event-ID` 和 `after`。SSE 断开不取消任务，慢客户端通过数据库游标回放并遵守写入背压。每 15 秒复查登录有效性。聊天软删除前取消执行，用量记录保留；文件物理清理暂不自动执行。
+Messages and events are persisted before streaming. The SSE event is `run`; see `@pixel/contracts` for payloads. `Last-Event-ID` and `after` are supported. SSE disconnection does not cancel execution; slow clients replay through database cursors with write backpressure. Login validity is rechecked every 15 seconds. Execution is canceled before soft-deleting a chat; usage records remain. Physical file cleanup is not currently automatic.
 
-Pi 0.85 的 `message_update` 不包含完整 `message`；后端从 `message_start` 建立当前消息，按 `contentIndex` 拼接文字增量并即时推送 `text.delta`，最后以 `message_end` 校准。工具事件关联所属消息，会话快照从持久事件恢复工具状态。前端将一次 run 的模型轮次合成一条持续更新的回复，工具调用内联显示，不为仅调用工具的轮次生成空白回复。
+Pi 0.85's `message_update` does not contain a complete `message`. The backend initializes the current message from `message_start`, concatenates text deltas by `contentIndex`, immediately emits `text.delta`, and reconciles with `message_end`. Tool events link to their owning messages; conversation snapshots restore tool state from persisted events. The frontend combines a run's model rounds into one continuously updated reply, displaying tools inline without creating blank replies for tool-only rounds.
 
-思考文本通过 `reasoning.delta` 传递，模型调用统计随文本/思考增量或 `generation.updated` 更新，并写入启动时自动创建的 `message_details` 表。只传递模型提供的可读 thinking 内容，不传递签名或已标记 redacted 的最终内容。回复速度为各轮输出 token 总数 / 各轮模型调用耗时总和（包含首 token 等待，排除工具执行时间）；未获得非零模型用量时按 ASCII 约四字符/token、其他字符约一字符/token 估算并显式标注。最终以模型返回用量校准，重启恢复使用原生记录时间，不使用重启时间。工具事件保存调用参数、累计文本输出及执行耗时；参数和输出分别限制为 64000 字符，超出会显示截断提示。前端提供默认收起的工具和思考详情，缺失历史输出时明确提示。
+Reasoning text travels through `reasoning.delta`. Model-call statistics update with text/reasoning deltas or `generation.updated` and persist in `message_details`, created automatically at startup. Only readable model-provided thinking is passed through, excluding signatures and final content marked redacted. Reply speed is total output tokens across rounds divided by total model-call duration across rounds, including first-token wait and excluding tool execution. Without nonzero model usage, tokens are explicitly estimated at about four ASCII characters per token and one other character per token. Final values are reconciled with model usage. Restart recovery uses native record timestamps, not restart time. Tool events retain arguments, cumulative text output, and execution duration; arguments and output are each limited to 64000 characters, with truncation notices. Tool and reasoning details are collapsed by default; missing historical output is explicitly indicated.
 
-用量以原生条目 ID 去重，从 native_start 字节边界划分 run；模型调用、工具调用、压缩汇总、无法确认的重试分别标明粒度。重启按原生会话补账。失败/取消且 Pi 给出全零占位时记录未知，不当作零消耗。每次 assistant 调用跟踪到原生记录；即使前面的调用已有用量，最后一次调用未能持久化仍单独增加未知记录。正常关闭服务先发 RPC abort，等待配置的取消时限，再清理进程并保存 interrupted 终态。Pi 不提供的失败重试/压缩细分数据无法还原，账本不会声称精确。成本为配置模型单价得到的 USD 估算，不是供应商账单。没有余额、扣费或用量配额。
+Usage is deduplicated by native entry ID and assigned to runs using native_start byte boundaries. Model calls, tool calls, compaction summaries, and unconfirmed retries have separately labeled granularity. Restarts reconcile accounting from native sessions. Failed/canceled calls with all-zero Pi placeholders are recorded as unknown rather than zero consumption. Each assistant call is tracked to a native record; if the final call was not persisted, a separate unknown record is added even when earlier calls have usage. Normal shutdown sends RPC abort, waits for the configured cancellation deadline, cleans up processes, and saves an interrupted terminal state. Missing retry/compaction breakdowns cannot be reconstructed; the ledger does not claim precision. Costs are USD estimates using configured model prices, not supplier bills. There are no balances, charges, or usage quotas.
 
-## 运维与验收
+## Operations and Acceptance
 
-只支持单机内部可信团队。Pi 与服务使用同一 OS 账号，可执行脚本、访问账号有权限的文件与网络；不要将它作为不可信多租户沙箱。工具不能启动长期后台服务或故意脱离进程树；监督器不等同容器隔离。需要隔离时另增 OS 用户/容器边界。
+Only a trusted internal team on a single machine is supported. Pi and the service use the same OS account, capable of scripting and accessing files/networks available to that account. Do not treat this as an untrusted multi-tenant sandbox. Tools must not start long-lived background services or intentionally detach from the process tree; supervision is not container isolation. Add OS-user/container boundaries if isolation is required.
 
-生产使用独立服务账号、反向代理 HTTPS、绝对 PIXEL_DATA_DIR。备份时停止服务并整体复制数据目录（数据库、WAL/SHM、原生会话和文件必须一致）；不要只复制正在写入的 sqlite 文件。恢复时同样停服整体恢复。
+In production, use a dedicated service account, HTTPS reverse proxy, and absolute PIXEL_DATA_DIR. Stop the service before copying the entire data directory for backup; database, WAL/SHM, native sessions, and files must be consistent. Do not copy only a SQLite file while it is being written. Stop the service for full restoration as well.
 
-接口与手动验收场景见根目录 contracts README 和 MANUAL_CHECKS.md。遵循项目约定，本次未运行测试、构建、类型检查或浏览器自动验收；需用户手动验证。
+See the contracts README and MANUAL_CHECKS.md referenced from the project root for interfaces and manual acceptance scenarios. In accordance with the project agreement, this development did not run tests, builds, type checks, or automated browser acceptance checks; users must verify manually.
 
-## 架构预览 Harness
+## Architecture Preview Harness
 
-Agent 读取每轮任务上下文中的架构 ID 与指纹，自行编写浏览器执行的 `draw.mjs` 及元数据生成脚本；`PIXEL_ARCHITECTURE_HARNESS` 指向校验/归档命令，`PIXEL_NODE` 指向执行它的 Node，`PIXEL_TASK_CONTEXT` 指向本轮资料。前端注入 Pixi、可缩放的默认网格、视野与主题颜色，实时执行 `draw(ctx)`。真实阵列尺寸与显示视口分开，支持大阵列按视野绘制。Harness 检查元数据与颜色引用，保留函数源码、脚本、SHA256、主题颜色快照及各次发布版本。后端再次校验文件归属和完整性；这些检查不证明器件语义正确。流程与 draw 接口见 [README](architecture-preview/README.md)。
+The agent reads architecture IDs and fingerprints from each run's task context and writes browser-executed `draw.mjs` and metadata-generation scripts. `PIXEL_ARCHITECTURE_HARNESS` points to the validation/archiving command, `PIXEL_NODE` to the Node runtime that executes it, and `PIXEL_TASK_CONTEXT` to current materials. The frontend injects Pixi, a zoomable default grid, viewport, and theme colors, then executes `draw(ctx)` live. Actual array dimensions are separate from the display viewport, enabling view-based rendering of large arrays. The Harness validates metadata and color references, preserving function source, scripts, SHA256 hashes, theme-color snapshots, and every published version. The backend rechecks file ownership and integrity; these checks do not prove device semantics. See [README](architecture-preview/README.md) for the workflow and draw interface.

@@ -1,50 +1,50 @@
-# 前端交互工具与 Markdown
+# Frontend Interactive Tools and Markdown
 
-## 体验入口
+## Demo Entry Point
 
-前端地址后加 `?demo=tools`，例如开发环境的 `http://localhost:5173/?demo=tools`。登录页和模型菜单也提供「打开本地工具演示」。无需登录或配置模型；这里复用聊天界面，但不会请求会话、上传、运行或账号接口。
+Append `?demo=tools` to the frontend URL, for example `http://localhost:5173/?demo=tools` in development. The login page and model menu also offer "Open local tool demo". No login or model configuration is required. The demo reuses the chat interface but does not call conversation, upload, run, or account APIs.
 
-依赖使用项目根目录的 npm workspaces 和 `package-lock.json`；不要在 `fronted/` 使用旧的独立锁文件安装。启动准备沿用 README：根目录安装依赖，先构建共享 contracts，再启动前端。本次开发没有执行构建、测试或浏览器验收。
+Dependencies use npm workspaces and `package-lock.json` at the project root. Do not install in `fronted/` using the old standalone lockfile. Follow the README for startup: install dependencies at the root, build shared contracts first, then start the frontend. This development did not run builds, tests, or browser acceptance checks.
 
-普通工作台仍使用原有登录和后端会话。Markdown 渲染同时用于普通工作台的 assistant 消息；可提交交互工具目前仅在本地演示中接入。
+The regular workspace continues to use the existing login and backend conversations. Markdown rendering also applies to assistant messages in the regular workspace; interactive tools accepting submissions are currently connected only in the local demo.
 
-真实 Pi 会话现已接入六种只读像素图表工具：柱状图、折线图、面积图、饼图、散点图和热力图。图表直接显示在回复中，详情见 [图表工具说明](PIXEL_CHART_TOOLS.md)。固定示例入口为 `?demo=charts`；这些图表不需要用户提交答案。
+Real Pi conversations now support six read-only pixel-chart tools: bar, line, area, pie, scatter, and heatmap. Charts appear directly in replies; see [chart tools](PIXEL_CHART_TOOLS.md). Fixed examples are available at `?demo=charts`; these charts do not require submitted answers.
 
-## 三条演示流程
+## Three Demo Flows
 
-选择首页方向或输入栏中的方向，发送任意非空消息即可开始固定演示。
+Select a direction on the home page or in the input area, then send any nonempty message to start the fixed demo.
 
-| 方向 | 交互 | 模拟回复 |
+| Direction | Interaction | Simulated Reply |
 | --- | --- | --- |
-| 数据分析 | 单选目标 → 多选指标 | Markdown 配置表、只读任务列表 |
-| 产品架构设置 | 产品名、阵列规模、冗余资源、选填备注 | 参数表、JSON 代码块 |
-| 修补规则设计 | 确认或取消示例规则 | 对应的记录或取消说明 |
+| Data analysis | Single-choice goal → multiple-choice metrics | Markdown configuration table, read-only task list |
+| Product architecture settings | Product name, array size, redundancy resources, optional notes | Parameter table, JSON code block |
+| Repair rule design | Confirm or cancel an example rule | Corresponding record or cancellation explanation |
 
-这三条流程只收集输入，不读取附件、不计算失效指标、不验证真实架构、不执行修补。表单数字支持有限小数与配置中的范围限制，示例范围不代表真实产品规格。
+These flows only collect input. They do not read attachments, compute failure metrics, validate real architectures, or perform repairs. Numeric form fields support finite decimal values and configured range limits; example ranges do not represent real product specifications.
 
-选择或表单提交后控件锁定，原消息回显答案，用户回答追加到会话。模拟回复完成前不能再次提交工具。普通新消息使此前待回答工具失效；停止或刷新只保留已生成的正文，不补发尚未完整出现的工具。切换到其他会话时，该会话的模拟回复仍可继续。
+After a choice or form submission, controls lock, the original message displays the answer, and the user's answer is appended to the conversation. Tools cannot be submitted again before the simulated reply completes. A regular new message invalidates previously unanswered tools. Stopping or refreshing retains only generated body text and does not add tools that have not fully appeared. A conversation's simulated reply may continue while another conversation is selected.
 
-## 组件接口与数据
+## Component Interfaces and Data
 
-- `fronted/src/chatTypes.ts` 定义前端消息扩展：保留现有服务器消息字段，新增可选 `tools` 和本地回复 `delivery`，不修改服务端契约。
-- `InteractiveTools({ tools, disabled, onSubmit })` 渲染单选、多选、确认和表单，结果为带 `toolId`、`type`、`value` 的 `ToolResult`。单选值是选项 ID，多选是选项 ID 数组，确认是布尔值，表单是字段 ID 到文本/数字的映射。空选填字段省略。
-- `MarkdownMessage({ text })` 只渲染正文；不会将正文、任务列表或代码块识别成可执行工具。支持常用 GFM、代码复制和局部横向滚动，不启用原始 HTML、公式、Mermaid 或语法高亮。
-- `chatTools.ts` 在恢复和提交边界检查工具配置与答案，损坏工具单独降级为不可操作提示；`messageMarkdown` 将工具问题、选项、字段和答案加入复制/导出内容。
-- `useDemoWorkspace.ts` 管理演示会话、同步提交锁、逐步输出和保存；`demoReplies.ts` 提供固定流程。后续真实 agent 适配需要在接收边界规范化工具，再把提交回调连接到后端，组件不直接发请求。
+- `fronted/src/chatTypes.ts` defines frontend message extensions: existing server message fields are retained, with optional `tools` and local-reply `delivery` added; server contracts are unchanged.
+- `InteractiveTools({ tools, disabled, onSubmit })` renders single choice, multiple choice, confirmation, and forms. It returns a `ToolResult` containing `toolId`, `type`, and `value`. Single-choice values are option IDs; multiple-choice values are arrays of option IDs; confirmations are booleans; forms map field IDs to text/numbers. Empty optional fields are omitted.
+- `MarkdownMessage({ text })` renders only the body. It does not interpret body text, task lists, or code blocks as executable tools. It supports common GFM, code copying, and local horizontal scrolling, without raw HTML, equations, Mermaid, or syntax highlighting.
+- `chatTools.ts` validates tool configuration and answers at restoration and submission boundaries. Corrupt tools individually fall back to a noninteractive notice. `messageMarkdown` adds tool questions, options, fields, and answers to copied/exported content.
+- `useDemoWorkspace.ts` manages demo conversations, synchronous submission locks, incremental output, and persistence; `demoReplies.ts` provides fixed flows. Future real-agent integration needs to normalize tools at the receiving boundary and connect submission callbacks to the backend; components do not make requests directly.
 
-本地数据保存在 `pixel-chat-tools-v1`。首次没有新历史时读取旧 `pixel-chat-v1` 的兼容数据，旧键不删除、不上传。已提交答案、工具状态和正文持久化；尚未提交的控件输入只保留在当前挂载的组件中。刷新或离开该会话后可重新填写未提交工具。存储不可用时显示提示，当前页面仍可操作。
+Local data is stored under `pixel-chat-tools-v1`. If no new history exists on first use, compatible data is read from the old `pixel-chat-v1` key; the old key is neither deleted nor uploaded. Submitted answers, tool states, and body text persist. Unsubmitted control input stays only in the currently mounted component. After refreshing or leaving a conversation, unanswered tools can be filled in again. If storage is unavailable, a notice appears and the current page remains usable.
 
-## 手动验收
+## Manual Acceptance Checks
 
-以下是待执行清单，不代表已通过：
+The following checklist is pending execution and does not indicate that checks have passed:
 
-1. 在 `?demo=tools` 中完成三条流程。单选和多选空提交应提示；多选至少一项；表单检查空白必填、非法数字、上下限和选填空值；确认与取消各执行一次。
-2. 快速重复点击提交，只追加一次回答和一次模拟回复。回复期间禁用工具；已提交工具锁定并显示答案。
-3. 待回答时另发消息，旧工具显示失效。回复中点击停止，保留部分正文且不出现未完成工具；发送新消息仍可继续。
-4. 开两个演示会话，回复时切换、再返回；内容不串会话。运行中删除会话，不应随后被计时器重新创建。刷新后已提交答案仍锁定，中断回复不自动恢复。
-5. 检查旧本地会话、附件名称、标题搜索和重命名。复制整条回复及导出 Markdown 应含问题、选项和答案；代码复制保留换行，剪贴板拒绝时显示提示。
-6. 可先备份演示数据，再在浏览器本地存储中将某工具的 `type` 改成未知值，或删去选项、破坏结果；刷新应只降级该工具，其他消息仍保留。将 `status` 改成数组也应视为损坏。
-7. 检查标题、引用、列表、表格、代码块和逐步输出中的未闭合代码围栏。任务列表不可点击提交，原始 HTML 不执行，危险链接协议不可执行。宽表格和长代码只在自身容器内滚动。
-8. 回复较长时向上滚动阅读，新内容不得强制拉到底部；回到底部后继续跟随。键盘操作单选、多选和表单时焦点应保持稳定。
-9. 切换亮色、暗色、跟随系统，缩窄窗口并调整浏览器缩放；控件、文字、边框继续遵循现有像素网格，无横向撑破主页面。
-10. 在浏览器 Network 面板中查看演示的新建、搜索、重命名、上传、发送、停止和删除操作，不应出现 `/api` 请求。返回普通工作台后，原登录、真实会话、文件和运行流程仍可用。
+1. Complete all three flows in `?demo=tools`. Empty single-choice and multiple-choice submissions should show a validation message; multiple choice requires at least one item. Check blank required fields, invalid numbers, minimum/maximum values, and empty optional fields. Try both confirm and cancel.
+2. Click submit repeatedly in quick succession. Only one answer and one simulated reply should be appended. Tools are disabled during replies; submitted tools remain locked and display their answers.
+3. Send another message while a tool is unanswered; the old tool should become invalid. Stop during a reply; retain partial body text without unfinished tools. Sending a new message should still work.
+4. Open two demo conversations, switch during a reply, and return; content must not cross conversations. Deleting a running conversation must not allow timers to recreate it. After refreshing, submitted answers stay locked and interrupted replies do not resume automatically.
+5. Check old local conversations, attachment names, title search, and renaming. Copying an entire reply and exporting Markdown should include questions, options, and answers. Code copying preserves line breaks; denied clipboard access shows a notice.
+6. Back up demo data first, then change a tool's `type` to an unknown value in browser local storage, remove its options, or corrupt its result. Refreshing should degrade only that tool while retaining other messages. An array-valued `status` should also be treated as corrupt.
+7. Check headings, quotes, lists, tables, code blocks, and unclosed code fences during incremental output. Task lists cannot submit actions; raw HTML and dangerous link protocols must not execute. Wide tables and long code scroll only within their own containers.
+8. Scroll upward to read a long reply; new content must not force scrolling to the bottom. Following resumes after returning to the bottom. Focus should remain stable when using the keyboard for single choice, multiple choice, and forms.
+9. Switch between light, dark, and system themes, narrow the window, and adjust browser zoom. Controls, text, and borders must retain the existing pixel grid without making the main page overflow horizontally.
+10. Use the browser Network panel to inspect demo operations: create, search, rename, upload, send, stop, and delete. No `/api` requests should appear. Returning to the regular workspace should preserve existing login, real conversations, files, and execution flows.

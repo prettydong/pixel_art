@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isActiveRun, type Conversation, type Message, type ModelOption, type Run, type RunEvent, type ListResponse, type EvaluationTask } from '@pixel/contracts';
 import { api, apiUrl, errorText, RequestError } from './api';
@@ -59,7 +60,7 @@ export function useWorkspace(enabled = true) {
       const oldest = streams.current.entries().next().value;
       if (!oldest) break;
       oldest[1].source.close(); streams.current.delete(oldest[0]);
-      setConnections(prev => ({ ...prev, [oldest[1].run.conversationId]: '后台更新（每 3 秒）' }));
+      setConnections(prev => ({ ...prev, [oldest[1].run.conversationId]: t("后台更新（每 3 秒）") }));
     }
     const source = new EventSource(apiUrl(`/runs/${run.id}/events?after=0`));
     streams.current.set(run.id, { source, run });
@@ -73,10 +74,10 @@ export function useWorkspace(enabled = true) {
       setConnections(prev => ({ ...prev, [run.conversationId]: '' }));
       void refresh(run.conversationId).catch(e => { if (!removed.current.has(run.conversationId)) setError(errorText(e)); });
     };
-    source.onopen = () => { if (live()) setConnections(prev => ({ ...prev, [run.conversationId]: '已连接' })); };
+    source.onopen = () => { if (live()) setConnections(prev => ({ ...prev, [run.conversationId]: t("已连接") })); };
     source.onerror = () => {
       if (!live()) { source.close(); return; }
-      setConnections(prev => ({ ...prev, [run.conversationId]: '连接断开，正在重连…' }));
+      setConnections(prev => ({ ...prev, [run.conversationId]: t("连接断开，正在重连…") }));
       if (checking) return;
       checking = true;
       api<Run>(`/runs/${run.id}`).then(current => {
@@ -90,7 +91,7 @@ export function useWorkspace(enabled = true) {
     source.addEventListener('run', event => {
       if (!live()) { source.close(); return; }
       let data: RunEvent;
-      try { data = JSON.parse((event as MessageEvent<string>).data) as RunEvent; } catch { setError('事件格式错误，请刷新页面'); return; }
+      try { data = JSON.parse((event as MessageEvent<string>).data) as RunEvent; } catch { setError(t("事件格式错误，请刷新页面")); return; }
       if (data.id <= cursor || data.runId !== run.id) return;
       cursor = data.id;
       if (data.type === 'message.updated' || data.type === 'text.delta' || data.type === 'reasoning.delta' || data.type === 'generation.updated') {
@@ -171,12 +172,12 @@ export function useWorkspace(enabled = true) {
           // Keep the one-SSE budget for the visible run and refresh the others.
           await refresh(run.conversationId);
           if (!cancelled && latestRuns.current.get(run.conversationId)?.id === run.id && !streams.current.has(run.id)) {
-            setConnections(prev => ({ ...prev, [run.conversationId]: isActiveRun(current.status) ? '后台更新（每 3 秒）' : '' }));
+            setConnections(prev => ({ ...prev, [run.conversationId]: isActiveRun(current.status) ? t("后台更新（每 3 秒）") : '' }));
           }
         } catch (e) {
           if (cancelled || removed.current.has(run.conversationId)) return;
           if (e instanceof RequestError && (e.status === 404 || e.status === 403)) forget(run.conversationId);
-          else if (!streams.current.has(run.id)) setConnections(prev => ({ ...prev, [run.conversationId]: '后台更新失败，正在重试…' }));
+          else if (!streams.current.has(run.id)) setConnections(prev => ({ ...prev, [run.conversationId]: t("后台更新失败，正在重试…") }));
           setError(errorText(e));
         }
       })).finally(() => { polling = false; });

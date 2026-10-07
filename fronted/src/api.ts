@@ -1,3 +1,4 @@
+import { getLanguage, localizeMessage, t } from './i18n';
 import type { ApiError, FileRecord } from '@pixel/contracts';
 
 export class RequestError extends Error {
@@ -7,19 +8,19 @@ export const apiUrl = (path: string) => `${import.meta.env.BASE_URL}api${path}`;
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(apiUrl(path), {
     credentials: 'same-origin', ...options,
-    headers: { ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}), ...options.headers },
+    headers: { 'Accept-Language': getLanguage(), ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}), ...options.headers },
   });
   if (!response.ok) {
     const data = await response.json().catch(() => null) as ApiError | null;
     if (response.status === 401) window.dispatchEvent(new Event('pixel:unauthorized'));
-    throw new RequestError(data?.error?.message || `请求失败（${response.status}）`, response.status, data?.error?.code || 'request_failed');
+    throw new RequestError(data?.error?.message || t("请求失败（{0}）", response.status), response.status, data?.error?.code || 'request_failed');
   }
   return response.json() as Promise<T>;
 }
 export const fileUrl = (file: FileRecord) => file.kind === 'upload'
   ? apiUrl(`/uploads/${encodeURIComponent(file.id)}`)
   : apiUrl(`/conversations/${encodeURIComponent(file.conversationId ?? '')}/files/${encodeURIComponent(file.id)}`);
-export const errorText = (error: unknown) => error instanceof Error ? error.message : '请求失败，请重试';
+export const errorText = (error: unknown) => error instanceof Error ? localizeMessage(error.message) : t("请求失败，请重试");
 // getRandomValues also works on an internal HTTP development origin.
 export function requestId(): string {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();

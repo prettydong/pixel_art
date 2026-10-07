@@ -33,7 +33,9 @@ export function migrateTasks(db: Db) {
     db.prepare("INSERT INTO schema_migrations VALUES(4,?)").run(Date.now());
   })();
   if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=7').get()) db.transaction(() => {
-    db.exec('ALTER TABLE tasks ADD COLUMN deleted_at INTEGER; CREATE INDEX tasks_user_deleted ON tasks(user_id,deleted_at)');
+    const columns = db.prepare('PRAGMA table_info(tasks)').all() as { name: string }[];
+    if (!columns.some(column => column.name === 'deleted_at')) db.exec('ALTER TABLE tasks ADD COLUMN deleted_at INTEGER');
+    db.exec('CREATE INDEX IF NOT EXISTS tasks_user_deleted ON tasks(user_id,deleted_at)');
     db.prepare('INSERT INTO schema_migrations(version,applied_at) VALUES(7,?)').run(Date.now());
   })();
 }

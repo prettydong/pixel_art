@@ -1,58 +1,58 @@
-# 手动验收
+# Manual Acceptance Checks
 
-本次开发不自动运行测试、构建或浏览器验收。以下步骤由使用者在配置好模型、安装依赖并构建后执行。模型调用会产生真实用量。
+This development does not automatically run tests, builds, or browser acceptance checks. Users should perform the steps below after configuring models, installing dependencies, and building. Model calls incur real usage.
 
-## 账户与访问
+## Accounts and Access
 
-1. 用初始化管理员登录，创建普通用户 A、B。退出后分别登录，确认历史互不显示。
-2. 登录 A，在浏览器开发者工具中取得 A 的会话、任务和文件 ID；使用 B 登录后访问这些 ID，HTTP 应拒绝，不能返回 A 的数据。管理员的用量权限不应自动变成读取所有用户对话的权限。
-3. A 修改密码后，原有浏览器登录会话失效；管理员重置 A 密码也应使旧登录失效。
-4. A 执行任务时管理员停用 A：任务终止、A 的登录失效；历史用量仍可查询。重新启用后用当前密码重新登录。
+1. Sign in as the initialized administrator and create regular users A and B. Sign out and sign in as each user; confirm that neither sees the other's history.
+2. Sign in as A and obtain A's conversation, task, and file IDs from browser developer tools. Sign in as B and access those IDs; HTTP must reject access without returning A's data. Administrator usage permissions must not automatically grant access to all users' conversations.
+3. After A changes their password, previous browser login sessions must become invalid. An administrator resetting A's password must also invalidate old logins.
+4. Disable A as an administrator while A has a running task: the task must stop and A's login must become invalid; historical usage remains queryable. After re-enabling A, sign in again with the current password.
 
-## 对话、并行与文件
+## Conversations, Concurrency, and Files
 
-1. 新建两个会话，分别让 agent 创建 `marker.txt`，内容分别为 `session-a`、`session-b`。同时执行，文件和回复不得串到另一会话。
-2. 在一个会话运行期间从另一个标签页提交新任务，应得到忙碌状态；另一个会话仍可提交。
-3. 以同一个幂等键重发相同提交，只返回原 run；换正文但复用同一键应报冲突。
-4. 上传一个小型文本或 CSV 文件，让 agent 读取、分析并生成文件，确认附件及产物都能下载。下载不能接受客户端任意服务器路径。
-5. 让 agent 创建指向会话目录外的符号链接；文件接口不应把链接当成可下载产物。这里验证的是 HTTP 文件访问边界，不是 agent 的 OS 沙箱。
-6. 修改标题、搜索正文、切换模式、导出 Markdown，刷新后数据仍在。删除会话后不再出现在列表，用量不被删除。
+1. Create two conversations and ask the agent to create `marker.txt` with `session-a` and `session-b`, respectively. Run them concurrently; files and replies must not appear in the other conversation.
+2. Submit a new execution from another tab while the same conversation is running; it should report a busy state. Another conversation should still accept submissions.
+3. Resend the same submission with the same idempotency key; only the original run should be returned. Reusing the key with different body text should produce a conflict.
+4. Upload a small text or CSV file, ask the agent to read and analyze it and generate a file, then confirm that both attachments and artifacts can be downloaded. Downloads must not accept arbitrary server paths supplied by the client.
+5. Ask the agent to create a symbolic link pointing outside the conversation directory; the file API must not treat it as a downloadable artifact. This checks the HTTP file-access boundary, not an OS sandbox for the agent.
+6. Rename titles, search body text, switch modes, and export Markdown. Data must remain after refreshing. Deleted conversations should disappear from the list while usage is retained.
 
-## 流式输出与生命周期
+## Streaming and Lifecycle
 
-### 用户目录、共享上传与技能
+### User Directories, Shared Uploads, and Skills
 
-1. 升级前停服备份 data。启动新版后确认旧消息的附件与产物仍能下载；旧目录保留，新位置为 `users/<userId>/conversations/<id>/`，旧上传为 `uploads/legacy/<id>/`。再次重启不得重复登记附件或用量。
-2. 同一用户在会话 A 上传文件，新建会话 B，在“共享上传”中选择“添加到本次分析”，确认不用再次上传且 Pi 可以读到原文件。删除 A 后，B 中的共享文件仍可下载。不同用户不能列出、下载或提交这个 file ID。
-3. 两个会话同时分析：请 Pi 报告启动目录与 `PIXEL_WORK_DIR`，启动目录均是该用户根目录，work 分别属于当前会话；脚本、中间数据和 artifacts 分别落到各自 work。旧会话恢复后的 Pi cwd 也应是用户根目录。
-4. 让 Pi 读取用户 `.pi/skills/data-analysis/SKILL.md`；按用户要求修改该 skill 后开始新的 run，确认改动仍在且已生效。另一个用户的副本不应改变。
-5. 在共享 uploads 中放入已经写完的普通文件，刷新文件列表，确认登记后可选择和下载。零字节文件仍是文件。上传过程中刷新列表不应登记 `.incoming` 临时文件。不同会话上传同名文件应保留两个 ID。
-6. 使用 `uploads/dram_1024_abc/` 的 A/B/C、sample_counts 和 metadata 做分析，确认每组 100 次、均值 50/60/70，C 的零失效采样不丢失。报告写到当前会话 artifacts，不覆盖 uploads。
+1. Stop the service and back up data before upgrading. After starting the new version, confirm that attachments and artifacts from old messages remain downloadable. Old directories are retained; new locations are `users/<userId>/conversations/<id>/`, with old uploads under `uploads/legacy/<id>/`. Restarting again must not duplicate attachment registration or usage.
+2. Upload a file in conversation A, create conversation B as the same user, select "Add to this analysis" under "Shared uploads", and confirm that no re-upload is needed and Pi can read the original file. After deleting A, the shared file remains downloadable in B. Other users cannot list, download, or submit this file ID.
+3. Analyze concurrently in two conversations. Ask Pi to report its startup directory and `PIXEL_WORK_DIR`: both startup directories are the user root, while each work directory belongs to its current conversation. Scripts, intermediate data, and artifacts must go into their respective work directories. Pi's cwd after restoring an old conversation should also be the user root.
+4. Ask Pi to read the user's `.pi/skills/data-analysis/SKILL.md`. After modifying that skill at the user's request, start a new run and confirm that the change remains and takes effect. Another user's copy must remain unchanged.
+5. Place a fully written regular file in shared uploads, refresh the file list, and confirm that it can be selected and downloaded after registration. A zero-byte file is still a file. Refreshing during an upload must not register `.incoming` temporary files. Same-named uploads from different conversations must retain two IDs.
+6. Analyze A/B/C, sample_counts, and metadata from `uploads/dram_1024_abc/`. Confirm 100 samples per group and means of 50/60/70, retaining C's zero-fail samples. Write reports to the current conversation's artifacts without overwriting uploads.
 
-### 执行与恢复
+### Execution and Recovery
 
-1. 生成较长回复，刷新页面、切换会话、暂时断网再恢复。原任务继续；文本不得重复追加或倒退，最终与历史记录一致。
-2. 在工具执行时点击停止，确认后台脚本子进程也被清理，而不只是界面停止更新。随后同一会话可再次提交。
-3. 对话中断模型服务，观察可理解的错误、终态及可再次提交。RPC 接受 prompt 不代表执行成功；发生重试时不能过早完成。
-4. 有任务运行时正常停止服务，再重启：任务应显示中断，不能自动重复执行脚本。对强制退出另做一次检查，确认没有遗留 pi/脚本进程继续运行。
-5. 在同一个数据目录再次启动服务，应拒绝第二个实例，不能同时写入或启动重复任务。
+1. Generate a long reply, refresh the page, switch conversations, disconnect temporarily, and reconnect. The original task continues; text must not be duplicated or regress, and the final content must match history.
+2. Stop while a tool is running. Confirm that background script child processes are also cleaned up, rather than only stopping UI updates. The same conversation must then accept another submission.
+3. Interrupt the model service during a conversation and check for a comprehensible error, terminal state, and ability to resubmit. RPC acceptance of a prompt does not mean execution succeeded; retries must not cause premature completion.
+4. Stop the service normally while a task is running, then restart. The task must show interruption and must not automatically repeat scripts. Also check a forced exit and confirm that no Pi/script processes remain running.
+5. Start another service instance using the same data directory. The second instance must be rejected rather than writing concurrently or starting duplicate tasks.
 
-## 用量与外观
+## Usage and Appearance
 
-### 回复速度、工具详情与思考展开（待手动验证）
+### Reply Speed, Tool Details, and Reasoning Expansion (Pending Manual Verification)
 
-1. 在真实模型会话生成长回复，确认回复下方持续更新 `token/s`、输出 token 和模型耗时。没有模型用量时显示“估算”；取得模型用量后使用实际输出 token。速度按各轮输出 token 总数除以各轮模型耗时总和，含首 token 等待，排除工具执行时间。
-2. 请求读取附件并执行一个有持续文本输出的工具。点击工具行或使用 Tab + Enter/空格展开，确认参数、实时输出、完成/失败状态与执行耗时可见；流式更新不能自动收起已展开的工具。工具输出是累计快照，不能重复追加。超过 64000 字符应显示截断提示。
-3. 使用会返回 thinking 内容的模型，确认“思考过程”默认折叠，展开后增量更新且正文独立显示。不返回 thinking 的模型不显示空展开区；签名和图片二进制不得展示。
-4. 执行期间刷新、切换会话、断网重连，确认思考内容不重复、工具参数不被结果覆盖、已完成工具不倒退为执行中。结束后刷新或重启服务，详情和最终速度应保留；旧工具记录缺少输出时应明确提示无记录。
-5. 在思考或工具执行期间停止任务，确认停止后的速度不再变化，未结束的工具显示已中断；工具等待时间不应拖低已完成模型轮次的速度。
-6. 在亮色、暗色及窄窗口中展开长参数和结果，确认内容换行、区域可独立滚动，且保持统一像素字号、图标和边框。
+1. Generate a long reply in a real-model conversation. Confirm that `token/s`, output tokens, and model duration update continuously below the reply. Show "Estimated" when model usage is unavailable; switch to actual output tokens when it becomes available. Speed is total output tokens across rounds divided by total model duration across rounds, including first-token wait and excluding tool execution time.
+2. Request attachment reading and a tool with continuous text output. Click its row or use Tab + Enter/Space to expand it. Confirm that arguments, live output, completion/failure state, and execution duration are visible; streaming must not collapse an expanded tool. Tool output is a cumulative snapshot and must not be appended repeatedly. Output beyond 64000 characters must show a truncation notice.
+3. Use a model that returns thinking content. Confirm that "Reasoning" is collapsed by default, updates incrementally when expanded, and remains separate from body text. Models without thinking content must not show an empty expansion area; signatures and binary image data must not appear.
+4. Refresh, switch conversations, and reconnect during execution. Reasoning must not duplicate, tool arguments must not be overwritten by results, and completed tools must not revert to running. After completion, refreshing or restarting the service must retain details and final speed. Old tool records with missing output must explicitly indicate that no output was recorded.
+5. Stop a task during reasoning or tool execution. Speed must stop changing, and unfinished tools must show interruption. Tool wait time must not lower the speed of completed model rounds.
+6. Expand long arguments and results in light, dark, and narrow-window layouts. Content must wrap, areas must scroll independently, and pixel font sizes, icons, and borders must remain consistent.
 
-### 用量汇总与主题
+### Usage Summaries and Themes
 
-1. 让一次任务执行多轮模型与工具调用，查看逐条记录和汇总，工具调用不等于模型调用次数。
-2. 检查失败、取消任务；能取得的 token 必须记录，无法取得的数据显示未知，不能当作零费用。
-3. 执行上下文压缩后检查统计（需足够长的会话或受控配置），压缩用量按实际可获得粒度标注。
-4. 重启服务，再次读取同一原生会话，用量不能翻倍；筛选用户、模型和日期后分页明细与全量汇总一致。
-5. 管理员查看全局记录，普通用户只能查看本人记录。成本标明估算依据，不显示成实际账单。
-6. 亮色、暗色、跟随系统以及窄窗口下，登录、管理和用量界面沿用像素网格；原本保存在浏览器的演示数据不得自动上传。
+1. Run a task with multiple model rounds and tool calls, then inspect individual records and summaries. Tool-call counts are not model-call counts.
+2. Check failed and canceled tasks. Available tokens must be recorded; unavailable data must be shown as unknown rather than zero cost.
+3. Check statistics after context compaction (requiring a sufficiently long conversation or controlled configuration). Label compaction usage at the granularity actually available.
+4. Restart the service and read the same native session again; usage must not double. After filtering by user, model, and date, paginated details must agree with full summaries.
+5. Administrators can view global records; regular users can view only their own. Costs must state the estimation basis rather than appear as actual bills.
+6. Login, administration, and usage pages must follow the pixel grid in light, dark, system, and narrow-window layouts. Browser-stored demo data must not be uploaded automatically.

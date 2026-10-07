@@ -1,51 +1,58 @@
-# 项目协作约定
+# Project Collaboration Guidelines
 
-本文件记录用户已确认的设计与协作要求，适用于整个项目。后续修改应延续这些约定；用户的新指示优先。
+This file records the design and collaboration requirements confirmed by the user and applies to the entire project. Future changes must follow these guidelines; new user instructions take precedence.
 
-## 沟通与分工
+## Communication and Responsibilities
 
-- 冷静、直接、讲事实，不讨好用户。说明实际完成的修改，不把未验证的效果说成已经验证。
-- 保留目录名 `fronted/` 和 `backend/`，不要擅自将 `fronted` 改为 `frontend`。当前优先开发前端。
-- 用户明确表示会手动测试，默认不运行测试套件或浏览器自动验收。用户已要求：以后每次修改程序后默认完成部署，无需再次确认；执行部署必需的构建、服务更新及健康与静态资源检查，遇到失败先修复再继续。部署前确认实际运行目录并保留可回滚产物；有正在执行的任务时避免直接重启中断任务。
-- `agy` 的调用遵循下方规则；仅对有明确收益的独立子任务考虑委派，不要求每次修改都调用。
-- 主 Codex 负责需求理解、架构、整合和核对代理结论；不要未经检查直接采用 `agy` 的意见。不要与代理同时修改同一批文件，不自动委托破坏性操作、凭据处理、外部发布或不可逆变更。用户明确要求使用 `agy` 时，报告其结果及未解决问题。
+- Be calm, direct, and factual. Do not flatter the user. Describe changes actually completed, and do not present unverified results as verified.
+- Keep the directory names `fronted/` and `backend/`. Do not rename `fronted` to `frontend` without authorization. Frontend development is the current priority.
+- The user has explicitly stated that they will test manually. Do not run test suites or automated browser acceptance checks by default. The user has also requested deployment after every program change by default, without asking for confirmation again. Perform the builds, service updates, health checks, and static asset checks required for deployment; fix failures before proceeding. Confirm the actual runtime directory and retain artifacts that allow rollback before deployment. Avoid restarting services in a way that interrupts running tasks.
+- Follow the rules below when calling `agy`. Consider delegation only for independent subtasks with clear benefits; calling it after every change is not required.
+- The primary Codex agent is responsible for understanding requirements, architecture, integration, and verifying agent conclusions. Do not adopt `agy` suggestions without checking them. Do not edit the same files concurrently with an agent, and do not automatically delegate destructive operations, credential handling, external publishing, or irreversible changes. When the user explicitly requests `agy`, report its results and any unresolved issues.
 
-## agy 调用规则
+## Rules for Calling agy
 
-- **先判断收益**：简单修改、已检查过的代码或等待与复核成本高于收益的任务，由主 Codex 直接处理。委派任务必须目标单一、范围明确、能独立完成。
-- **默认提供上下文**：在项目目录使用 `agy --print`，默认只读。直接提供必要代码（附路径和行号）、日志或方案，要求不调用工具、不自行读取文件；不附凭据或无关私密内容。优先通过 subprocess 参数数组传递提示，避免 shell 插值。
-- **读取能力必须有依据**：只有当前环境已有读取成功证据，或用户明确要求验证能力时，才让它自行读取项目。历史登录或读取权限故障未解决时，不重复派发依赖该能力的任务；不自动放宽权限或改变认证配置。
-- **限制耗时**：默认每个子任务调用一次，设置实际进程超时，通常 45 秒、默认不超过 60 秒；yield_time_ms 不是超时。期间继续独立工作，到期终止本次调用及其专属子进程并自行接手，不影响其他 agy 进程。
-- **失败后停止重复尝试**：登录失败、读取受限或超时后，停止同类自动重试；跨轮次沿用已知失败状态。只有阻塞条件已改变，或直接提供代码等方式能移除失败依赖且仍有收益时，允许一次有针对性的重试。纯文本模式也登录失败则直接接手；用户明确要求重试时按其指示执行。
-- **要求可核对的输出**：默认最多 3 条关键结论。代码审查需给出问题位置、触发条件、代码证据和最小修复；方案分析区分事实、假设和建议。允许回答未发现问题，不扩大用户需求。
-- **按实际贡献记录**：在当前任务记录中区分已派发、已返回、已核对采用和失败接手。主 Codex 核对后才采纳；不能把调用次数、成功退出或泛泛建议算成已完成的检查或修复。
-- **保持项目验证约定**：功能仍由用户手动测试，不自动运行测试套件或浏览器验收；主 Codex 按上述约定执行每次程序修改后的必要构建与部署检查。
+- **Assess the benefit first**: The primary Codex agent should directly handle simple changes, code already checked, and tasks whose waiting and review costs exceed their benefits. Each delegated task must have a single objective, a clear scope, and be independently completable.
+- **Provide context by default**: Run `agy --print` in the project directory, with read-only behavior by default. Provide the necessary code directly, including paths and line numbers, along with relevant logs or proposals. Instruct it not to call tools or read files itself. Do not include credentials or unrelated private information. Prefer passing prompts through a subprocess argument array to avoid shell interpolation.
+- **Require evidence of reading capability**: Allow it to read the project itself only when successful reading has already been demonstrated in the current environment, or when the user explicitly requests capability verification. If prior login or read-permission failures remain unresolved, do not repeatedly delegate tasks that depend on that capability. Do not automatically broaden permissions or change authentication configuration.
+- **Limit execution time**: By default, make one call per subtask and set an actual process timeout, normally 45 seconds and no more than 60 seconds by default. `yield_time_ms` is not a process timeout. Continue independent work while waiting. At the timeout, terminate that invocation and its dedicated child processes, then take over the task without affecting other `agy` processes.
+- **Stop repeated attempts after failure**: After a login failure, restricted read access, or timeout, stop automatic retries of the same kind. Carry known failure states across turns. Allow one targeted retry only when the blocking condition has changed, or when an approach such as directly providing code removes the failed dependency and still offers a clear benefit. If login also fails in plain-text mode, take over directly. Follow the user's instructions when they explicitly request a retry.
+- **Require verifiable output**: Request no more than three key conclusions by default. Code reviews must identify the issue location, triggering conditions, code evidence, and a minimal fix. Proposal analysis must distinguish facts, assumptions, and recommendations. Allow a conclusion that no issues were found, and do not expand the user's scope.
+- **Record actual contributions**: In the current task record, distinguish tasks dispatched, results returned, conclusions verified and adopted, and failures taken over. Adopt conclusions only after the primary Codex agent verifies them. Do not count call volume, successful process exits, or generic suggestions as completed checks or fixes.
+- **Preserve the project's verification agreement**: The user continues to test functionality manually. Do not automatically run test suites or browser acceptance checks. The primary Codex agent performs the necessary build and deployment checks after every program change as specified above.
 
-## 像素风格：统一网格
+## Pixel Style: A Unified Grid
 
-- 必须是真正统一的像素风格，文字、图标、边框、间距及控件都遵循同一网格。仅放置像素插画不满足要求。
-- 1440p 适配后，常规窗口采用 **1 个设计像素 = 2 × 2 个物理像素**；仅当可见视口物理宽至少 2880、高至少 1800 像素时采用 3 × 3。渲染前读取屏幕尺寸、窗口尺寸和 `devicePixelRatio`，CSS 基础单位为该整数倍数除以 `devicePixelRatio` px；Canvas 保持相同比例。
-- `fronted/src/pixelGrid.ts` 是网格计算入口；CSS 中 `1rem` 表示一个设计像素。尺寸使用整数格，必要的居中偏移也取整到网格；不要随意加入独立的 px 字号、缩放倍率或小数格偏移。
-- JavaScript 用 `getPixelUnit()` 读取 `--pixel` 换算网格，不能用根元素的 computed `font-size`：浏览器最小字体策略可能放大该读数，但 `rem` 布局尺寸并没有一起变化。
-- 切换屏幕、窗口尺寸或浏览器缩放时重新计算。按实际窗口布局，不直接拿整块屏幕的尺寸铺页面。
-- 整数物理像素比例在不同 DPR 下对应不同 CSS 字号。浏览器无法绕过操作系统额外的显示缩放，不能声称所有显示环境都能绝对无抗锯齿。
-- 中英文统一使用本地 Fusion Pixel 12px 字体，字号 `12rem`，字重 400；标题与正文不混用不同原生字体网格。保留字体许可。字体未覆盖的用户输入允许回退，以保证可读。
-- 图标使用项目自己的 16 × 16 方格 SVG，显示为 `16rem × 16rem`，轮廓沿整数网格，使用 `crispEdges`。不要引入平滑线性图标或用系统 Unicode 装饰符号替代像素图标。
-- 保持直角、实色和必要的硬边阴影。避免圆角、模糊阴影、渐变、旋转和使网格错位的装饰动效。
+- Use a genuinely unified pixel style: text, icons, borders, spacing, and controls must all follow the same grid. Merely adding pixel illustrations does not satisfy this requirement.
+- With the 1440p adaptation, normal windows use **1 design pixel = 2 × 2 physical pixels**. Use 3 × 3 only when the visible viewport is at least 2880 physical pixels wide and 1800 physical pixels high. Read screen dimensions, window dimensions, and `devicePixelRatio` before rendering. The CSS base unit is this integer scale divided by `devicePixelRatio`, in px; Canvas must use the same scale.
+- `fronted/src/pixelGrid.ts` is the entry point for grid calculations. In CSS, `1rem` represents one design pixel. Use whole grid units for dimensions, and snap necessary centering offsets to the grid as well. Do not arbitrarily introduce independent px font sizes, scaling factors, or fractional grid offsets.
+- In JavaScript, use `getPixelUnit()` to read `--pixel` for grid conversions. Do not use the root element's computed `font-size`: the browser's minimum font-size policy may inflate that value without changing `rem` layout dimensions accordingly.
+- Recalculate when switching screens, resizing the window, or changing browser zoom. Base the layout on the actual window rather than the entire screen's dimensions.
+- Integer physical-pixel scales correspond to different CSS font sizes at different DPR values. Browsers cannot bypass additional operating-system display scaling, so do not claim that every display environment can be completely free of anti-aliasing.
+- Use the local Fusion Pixel 12px font for both English and Chinese, with a font size of `12rem` and a font weight of 400. Do not mix different native font grids for headings and body text. Retain the font license. Allow fallback fonts for user input that the font does not cover, to preserve readability.
+- Use the project's own SVG icons on a 16 × 16 grid, displayed at `16rem × 16rem`, with outlines aligned to integer grid coordinates and `crispEdges`. Do not introduce smooth line icons or replace pixel icons with decorative system Unicode symbols.
+- Keep square corners, solid colors, and necessary hard-edged shadows. Avoid rounded corners, blurred shadows, gradients, rotation, and decorative animations that misalign the grid.
 
-## 布局：高空间利用率，less is more
+## Layout: Efficient Use of Space, Less Is More
 
-- 主区域占满可用宽度，不恢复居中的窄内容列或大面积欢迎区留白。
-- 已确认的紧凑基线：主区边距 4 格、侧栏宽 144 格、顶栏高 32 格；默认文字 12 格、行高 16 格。调整时继续优先保证空间利用率与可操作性。
-- 空白会话把剩余区域用于编辑草稿；开始对话后，消息区占据剩余高度并独立滚动，紧凑输入框留在底部。
-- 模式、附件、引擎选择放在同一条紧凑工具栏，小窗口允许换行。窄屏折叠侧栏，不通过缩小像素单位硬塞内容。
-- 删除纯装饰的小字、英文标语、星点、角色、卡牌及状态栏。不要重新添加占空间的营销文案、重复头像或无功能模块。
-- 默认不展示注释性说明、操作教学、实现细节和重复提示；优先让控件标签与数据本身表达含义。不要在完成修改后又添加解释该功能的长段 UI 文案。
-- 保留有实际作用的标签、状态、错误信息及本地演示说明；不要通过隐藏必要信息来制造简洁。
+- The main area must fill the available width. Do not restore a narrow centered content column or large empty welcome areas.
+- The confirmed compact baseline is a main-area margin of 4 grid units, a sidebar width of 144 units, and a top-bar height of 32 units; default text is 12 units with a line height of 16 units. Continue to prioritize efficient use of space and usability when making adjustments.
+- In an empty conversation, use the remaining area for editing the draft. After the conversation begins, the message area fills the remaining height and scrolls independently, with a compact input box at the bottom.
+- Place mode, attachment, and engine selectors in the same compact toolbar, allowing wrapping in small windows. Collapse the sidebar on narrow screens instead of shrinking the pixel unit to force content to fit.
+- Remove purely decorative small text, English slogans, star dots, characters, cards, and status bars. Do not reintroduce marketing copy, duplicate avatars, or nonfunctional modules that occupy space.
+- By default, omit explanatory notes, usage tutorials, implementation details, and repeated hints. Prefer letting control labels and the data itself convey meaning. Do not add long UI explanations of a feature after implementing it.
+- Keep useful labels, statuses, error messages, and local demo notices. Do not create simplicity by hiding necessary information.
 
-## 亮色与暗色
+## Light and Dark Themes
 
-- 提供“跟随系统 / 亮色 / 暗色”，在设置中切换；默认跟随系统，记住用户在当前浏览器中的选择。
-- 两种主题共享完全相同的网格、字号、布局及功能，只改变配色。亮色使用暖白底色与紫色强调色，暗色延续深紫灰底色。
-- 组件颜色使用 `styles.css` 中的语义变量，覆盖正文、次要文字、边框、悬停、选中、禁用、菜单、弹窗、遮罩和阴影。不要在组件中追加只适合暗色的硬编码颜色。
-- `fronted/src/theme.ts` 负责偏好与系统主题响应，首次 React 渲染前应用主题。系统主题变化只影响选择了“跟随系统”的用户；存储不可用时当前会话仍应能切换。
+- Provide "System / Light / Dark" choices in settings. Default to following the system and remember the user's selection in the current browser.
+- Both themes must share exactly the same grid, font sizes, layout, and functionality; only colors change. Use a warm white background with purple accents for the light theme, and retain the deep purple-gray background for the dark theme.
+- Use semantic variables from `styles.css` for component colors, covering body text, secondary text, borders, hover, selection, disabled states, menus, dialogs, overlays, and shadows. Do not add hard-coded colors to components that work only in the dark theme.
+- `fronted/src/theme.ts` handles preferences and system theme changes. Apply the theme before the first React render. System theme changes affect only users who selected "System"; switching must still work within the current session when storage is unavailable.
+
+## Language
+
+- The product supports English and Simplified Chinese. Default to English on the first visit; do not automatically switch to Chinese based on the browser language.
+- Provide a language switch on the login page and in settings, and remember the selection in the current browser. Switching must still work within the current session when storage is unavailable.
+- Use `fronted/src/i18n.ts` and `fronted/src/locales/en.ts` for interface copy, including labels, statuses, errors, accessibility descriptions, and application-generated prompt templates. Both languages share the same pixel grid, font, and layout.
+- Switching languages must not rewrite user messages, saved names, architecture definitions, uploaded content, or historical model replies. Keep mode identifiers in the API compatible.

@@ -1,3 +1,4 @@
+import { getLanguage, t } from './i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DecodedWafer } from '@pixel/contracts/wafer-data';
 import { createWaferMap, MAX_MAP_CHIPS } from '@pixel/contracts/wafer-spatial';
@@ -60,23 +61,23 @@ export function WaferHeatmap({ decoded, selected, onSelect }: Props) {
     event.preventDefault(); onSelect(target); setHovered(null);
     svg.current?.querySelector<SVGRectElement>(`[data-chip="${target}"]`)?.focus();
   }
-  return <section className="wafer-heatmap" aria-label="整片 wafer 热力图">
-    <div className="wafer-heatmap-heading"><h3>Wafer 热力图（示意）</h3><label>色阶<select value={scale} onChange={event => setScale(event.target.value as 'linear' | 'log')}><option value="log">对数</option><option value="linear">线性</option></select></label><span>fail / chip</span></div>
-    <div className="wafer-summary"><span>总 fail {statistics.total.toLocaleString()}</span><span>零 fail chip {statistics.zero.toLocaleString()} / {counts.length.toLocaleString()}</span><span>最大 {statistics.maximum.toLocaleString()} fail / chip</span></div>
+  return <section className="wafer-heatmap" aria-label={t("整片 wafer 热力图")}>
+    <div className="wafer-heatmap-heading"><h3>{t("Wafer 热力图（示意）")}</h3><label>{t("色阶")}<select value={scale} onChange={event => setScale(event.target.value as 'linear' | 'log')}><option value="log">{t("对数")}</option><option value="linear">{t("线性")}</option></select></label><span>fail / chip</span></div>
+    <div className="wafer-summary"><span>{t("总 fail") + " "}{statistics.total.toLocaleString(getLanguage())}</span><span>{t("零 fail chip") + " "}{statistics.zero.toLocaleString(getLanguage())} / {counts.length.toLocaleString(getLanguage())}</span><span>{t("最大") + " "}{statistics.maximum.toLocaleString(getLanguage())} fail / chip</span></div>
     <div className="wafer-map-layout">
-      <div ref={container} className="wafer-disk-scroll">{geometry ? <svg ref={svg} width={`${geometry.width * pitch}rem`} height={`${geometry.height * pitch}rem`} viewBox={`0 0 ${geometry.width * pitch} ${geometry.height * pitch}`} role="group" aria-label="圆盘内 chip 网格，点击或用方向键选择 chip" shapeRendering="crispEdges">
+      <div ref={container} className="wafer-disk-scroll">{geometry ? <svg ref={svg} width={`${geometry.width * pitch}rem`} height={`${geometry.height * pitch}rem`} viewBox={`0 0 ${geometry.width * pitch} ${geometry.height * pitch}`} role="group" aria-label={t("圆盘内 chip 网格，点击或用方向键选择 chip")} shapeRendering="crispEdges">
         {geometry.cells.map(item => {
           const x = item.x * pitch; const y = item.y * pitch; const size = pitch - 1;
           return <g key={item.chip}>
-            <rect role="button" aria-pressed={selected === item.chip} aria-label={`Chip ${item.chip}，${counts[item.chip]} fail`} data-chip={item.chip} tabIndex={selected === item.chip ? 0 : -1} x={x} y={y} width={size} height={size} fill={`var(--wafer-${color(counts[item.chip])})`} onClick={() => { onSelect(item.chip); setHovered(null); }} onFocus={() => setHovered(item.chip)} onBlur={() => setHovered(null)} onMouseEnter={() => setHovered(item.chip)} onMouseLeave={() => setHovered(null)} onKeyDown={event => move(event, item.chip)}>
-              <title>{`Chip ${item.chip} · 网格 (${item.x}, ${item.y}) · ${counts[item.chip]} fail`}</title>
+            <rect role="button" aria-pressed={selected === item.chip} aria-label={t("Chip {0}，{1} fail", item.chip, counts[item.chip])} data-chip={item.chip} tabIndex={selected === item.chip ? 0 : -1} x={x} y={y} width={size} height={size} fill={`var(--wafer-${color(counts[item.chip])})`} onClick={() => { onSelect(item.chip); setHovered(null); }} onFocus={() => setHovered(item.chip)} onBlur={() => setHovered(null)} onMouseEnter={() => setHovered(item.chip)} onMouseLeave={() => setHovered(null)} onKeyDown={event => move(event, item.chip)}>
+              <title>{t("Chip {0} · 网格 ({1}, {2}) · {3} fail", item.chip, item.x, item.y, counts[item.chip])}</title>
             </rect>
             {selected === item.chip && <path pointerEvents="none" fill="var(--text)" d={`M${x} ${y}h${size}v1h-${size}z M${x} ${y + size - 1}h${size}v1h-${size}z M${x} ${y}h1v${size}h-1z M${x + size - 1} ${y}h1v${size}h-1z`} />}
           </g>;
         })}
-      </svg> : <p>圆盘预览上限：{MAX_MAP_CHIPS.toLocaleString()} chip</p>}</div>
-      <div className="wafer-map-key"><div className="wafer-legend" aria-label="fail 数量图例"><span><i style={{ background: 'var(--wafer-0)' }} />0</span>{bands.map(band => <span key={band.color}><i style={{ background: `var(--wafer-${band.color})` }} />{band.low === band.high ? band.low.toLocaleString() : `${band.low.toLocaleString()}–${band.high.toLocaleString()}`}</span>)}</div>
-        <p role="status">Chip {active.toLocaleString()}{cell ? ` · 网格 (${cell.x}, ${cell.y})` : ''}<br />{(counts[active] ?? 0).toLocaleString()} fail · {decoded.layout.regionCount} regions</p>
+      </svg> : <p>{t("圆盘预览上限：")}{MAX_MAP_CHIPS.toLocaleString(getLanguage())} chip</p>}</div>
+      <div className="wafer-map-key"><div className="wafer-legend" aria-label={t("fail 数量图例")}><span><i style={{ background: 'var(--wafer-0)' }} />0</span>{bands.map(band => <span key={band.color}><i style={{ background: `var(--wafer-${band.color})` }} />{band.low === band.high ? band.low.toLocaleString(getLanguage()) : `${band.low.toLocaleString(getLanguage())}–${band.high.toLocaleString(getLanguage())}`}</span>)}</div>
+        <p role="status">Chip {active.toLocaleString(getLanguage())}{cell ? t(" · 网格 ({0}, {1})", cell.x, cell.y) : ''}<br />{(counts[active] ?? 0).toLocaleString(getLanguage())} fail · {decoded.layout.regionCount} regions</p>
       </div>
     </div>
   </section>;

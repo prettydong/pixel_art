@@ -1,5 +1,5 @@
-# 空间合成 wafer 数据
+# Spatially Synthetic Wafer Data
 
-这些数据仅用于开发、演示和 UI 预览。它使用 disk-grid-v1 示意晶圆布局和 spatial-gamma-poisson-v1 统计模型，不代表 DEJOA 或其他产品的实测制造缺陷、良率或工艺参数。
+These data are only for development, demonstrations, and UI previews. They use the disk-grid-v1 schematic wafer layout and spatial-gamma-poisson-v1 statistical model, and do not represent measured manufacturing defects, yield, or process parameters for DEJOA or other products.
 
-产品结构：每片 1000 个 chip，每个 chip 16 个 region，每个 region 32768 × 2048。manifest.json 保存每片实际种子、生成参数、总数和 SHA-256。
+Product structure: 1000 chips per wafer, 16 regions per chip, and 32768 × 2048 per region. manifest.json stores each wafer's actual seed, generation parameters, totals, and SHA-256.

@@ -1,80 +1,80 @@
-# Pi 像素图表工具
+# Pi Pixel-Chart Tools
 
-服务显式加载 `backend/extensions/pixel-charts.js`，每个新 Pi 进程均注册以下六个工具。继续禁用其它扩展的自动发现；不需要修改用户的 `.pi/agent/settings.json` 或模型配置。
+The service explicitly loads `backend/extensions/pixel-charts.js`, registering the following six tools in each new Pi process. Automatic discovery of other extensions remains disabled. No changes to user `.pi/agent/settings.json` files or model configuration are required.
 
-| 工具 | 用途 | 输入与边界 |
+| Tool | Purpose | Input and Limits |
 | --- | --- | --- |
-| `pixel_bar_chart` | 多系列分类比较 | `labels` + `series[].values`，分组柱状图，纵轴含零 |
-| `pixel_line_chart` | 有序趋势 | 同上；等距分类轴，缺失值处断线 |
-| `pixel_area_chart` | 有序趋势与量级 | 同上；非堆叠，各系列从零独立填充 |
-| `pixel_pie_chart` | 组成占比 | 同上；一个系列、最多12项、非负且至少一个正值 |
-| `pixel_scatter_chart` | 两个数值变量的关系 | `series[].points[{x,y,label?}]`；真实数值坐标，每组最多100点 |
-| `pixel_heatmap_chart` | 行列矩阵分布 | `xLabels`、`yLabels`、`values[y][x]`；最多24×24，五档等宽色阶 |
+| `pixel_bar_chart` | Multi-series category comparison | `labels` + `series[].values`; grouped bars; y-axis includes zero |
+| `pixel_line_chart` | Ordered trends | Same input; equally spaced category axis; gaps at missing values |
+| `pixel_area_chart` | Ordered trends and magnitude | Same input; non-stacked; each series filled independently from zero |
+| `pixel_pie_chart` | Composition proportions | Same input; one series, at most 12 items, nonnegative with at least one positive value |
+| `pixel_scatter_chart` | Relationship between two numeric variables | `series[].points[{x,y,label?}]`; actual numeric coordinates; at most 100 points per series |
+| `pixel_heatmap_chart` | Row/column matrix distribution | `xLabels`, `yLabels`, `values[y][x]`; at most 24×24; five equal-width color bands |
 
-所有工具必填 `title`，可选 `description`、`xLabel`、`yLabel`、`unit`、`source`。散点图额外支持 `xUnit`。分类图最多48个标签，分类图和散点图最多4个同单位系列。标签及系列名称不能重复，数值必须有限且介于 ±10^15。饼图不能有负数或全零；其它类型允许负数和全零。分类图与热力图用 `null` 表示缺失，不补零、不跨缺失插值；散点图要求完整的数值坐标。
+All tools require `title` and optionally accept `description`, `xLabel`, `yLabel`, `unit`, and `source`. Scatter charts also accept `xUnit`. Category charts allow at most 48 labels; category and scatter charts allow at most 4 series sharing the same unit. Labels and series names must be unique. Values must be finite and within ±10^15. Pie charts cannot contain negative values or be entirely zero; other types allow negative and all-zero values. Category charts and heatmaps represent missing values with `null`, without zero filling or interpolation across gaps; scatter charts require complete numeric coordinates.
 
-工具只校验和返回图表数据，不读取文件或做统计。Agent 应先用已有脚本工具分析数据，再提交计算结果。数据超过上限时先聚合并说明统计口径。示例值必须标明是示例，不编造来源。
+Tools only validate and return chart data; they do not read files or compute statistics. The agent should analyze data using existing scripting tools before submitting computed results. Aggregate data exceeding the limits and explain the aggregation basis. Label example values as examples and do not invent sources.
 
-## 参数示例
+## Parameter Examples
 
-调用 `pixel_bar_chart`、`pixel_line_chart`、`pixel_area_chart`：
+Calling `pixel_bar_chart`, `pixel_line_chart`, or `pixel_area_chart`:
 
 ```json
 {
-  "title": "季度销量",
-  "labels": ["一季度", "二季度", "三季度"],
+  "title": "Quarterly sales",
+  "labels": ["Q1", "Q2", "Q3"],
   "series": [
-    { "name": "产品 A", "values": [120, 145, 132] },
-    { "name": "产品 B", "values": [90, null, 110] }
+    { "name": "Product A", "values": [120, 145, 132] },
+    { "name": "Product B", "values": [90, null, 110] }
   ],
-  "unit": "件",
-  "description": "示例数据，产品 B 二季度缺失"
+  "unit": "items",
+  "description": "Example data; Product B is missing for Q2"
 }
 ```
 
-调用 `pixel_pie_chart`：
+Calling `pixel_pie_chart`:
 
 ```json
-{"title":"缺陷组成","labels":["行失效","列失效","离散失效"],"series":[{"name":"失效数","values":[42,28,30]}],"unit":"个","description":"示例数据"}
+{"title":"Defect composition","labels":["Row failures","Column failures","Scattered failures"],"series":[{"name":"Fail count","values":[42,28,30]}],"unit":"fails","description":"Example data"}
 ```
 
-调用 `pixel_scatter_chart`：
+Calling `pixel_scatter_chart`:
 
 ```json
-{"title":"温度与失效数","xLabel":"温度","xUnit":"℃","yLabel":"失效数","unit":"个","series":[{"name":"批次 A","points":[{"x":25,"y":4},{"x":40,"y":7},{"x":85,"y":19}]}],"description":"示例数据"}
+{"title":"Temperature and fail count","xLabel":"Temperature","xUnit":"℃","yLabel":"Fail count","unit":"fails","series":[{"name":"Batch A","points":[{"x":25,"y":4},{"x":40,"y":7},{"x":85,"y":19}]}],"description":"Example data"}
 ```
 
-调用 `pixel_heatmap_chart`：
+Calling `pixel_heatmap_chart`:
 
 ```json
-{"title":"阵列分布","xLabels":["C0","C1","C2"],"yLabels":["R0","R1"],"values":[[0,2,8],[1,null,15]],"unit":"个","description":"示例数据"}
+{"title":"Array distribution","xLabels":["C0","C1","C2"],"yLabels":["R0","R1"],"values":[[0,2,8],[1,null,15]],"unit":"fails","description":"Example data"}
 ```
 
-## 协议与显示
+## Protocol and Rendering
 
-`@pixel/contracts/charts` 为共用的 ESM 模块及类型声明，维护参数 JSON Schema、运行时校验、版本化结果、数据表和 Markdown 导出。不依赖单独构建扩展；部署时需包含 `backend/extensions/` 和 `packages/contracts/charts.js`。
+`@pixel/contracts/charts` is the shared ESM module with type declarations, maintaining parameter JSON Schemas, runtime validation, versioned results, data tables, and Markdown export. No separate extension build is required; deployment must include `backend/extensions/` and `packages/contracts/charts.js`.
 
-工具返回一个文本内容块：`{"protocol":"pixel-chart/v1","chart":{...}}`，同时在 Pi 原生 `details.chart` 保留数据。沿现有 `tool.status.text`、数据库事件和 SSE 传递，无需新增数据库表。结果限制48000字符，低于现有工具输出截断阈值64000字符。
+Each tool returns one text content block: `{"protocol":"pixel-chart/v1","chart":{...}}`, and retains data in Pi's native `details.chart`. Data travels through existing `tool.status.text`, database events, and SSE, without a new database table. Results are limited to 48000 characters, below the existing 64000-character tool-output truncation threshold.
 
-前端只识别上述具名工具的成功结果，并重新校验数据；普通 Markdown、任意代码块、失败或执行中的调用不会触发图表显示。结果无效时显示提示，调用参数和原始输出仍在工具详情中。图表独立于“思考与工具”折叠区，刷新/切换会话后从已保存事件还原；若服务在记录完成事件前中断，可从已持久化的 Pi 原生工具结果补回，并按调用 ID 去重。复制回复和导出 Markdown 包含原始数值表。
+The frontend recognizes only successful results from these named tools and revalidates the data. Ordinary Markdown, arbitrary code blocks, failed calls, and running calls do not trigger charts. Invalid results show a notice, while arguments and raw output remain in tool details. Charts are independent of the "Reasoning and tools" collapsed area and are restored from saved events after refreshes or conversation switches. If the service stops before recording a completion event, persisted native Pi tool results can restore the chart, deduplicated by call ID. Copying replies and exporting Markdown includes the original numeric tables.
 
-SVG 的坐标和显示尺寸按整数设计像素对应；折线与饼图轮廓栅格化，字体保持 Fusion Pixel 12格。面积使用像素点纹填充；颜色来自主题语义变量。窄窗口只在图表容器内滚动，不缩放像素单位。数据表保留完整标签、精确数值和缺失信息；坐标刻度会做简写。
+SVG coordinates and display dimensions correspond to integer design pixels. Line and pie outlines are rasterized, with Fusion Pixel text at 12 grid units. Areas use pixel-dot patterns; colors come from semantic theme variables. Narrow windows scroll only inside chart containers without scaling pixel units. Data tables retain complete labels, exact values, and missing-value information; axis ticks may be abbreviated.
 
-## 手动体验与验收
+## Manual Demo and Acceptance Checks
 
-访问 `http://192.168.31.219:5173/?demo=charts` 查看六种固定示例，无需登录或模型调用。登录页与模型菜单也提供「查看像素图表演示」。地址随本机局域网 IP 改变。
+Visit `http://192.168.31.219:5173/?demo=charts` for six fixed examples, without login or model calls. The login page and model menu also offer "View pixel-chart demo". The address changes with the machine's LAN IP.
 
-真实会话可输入：
+In a real conversation, enter:
 
-> 请用像素图表工具画柱状图和折线图：一月12、二月18、三月15，单位为件。这是演示数据。
+> Please use the pixel-chart tools to draw a bar chart and a line chart: January 12, February 18, March 15, in items. This is demo data.
 
-以下为待人工检查项，不代表已经通过：
+The following checks are pending manual execution and do not indicate that they have passed:
 
-1. 六种示例显示、亮暗主题、窄屏局部滚动、浏览器缩放；文字和轮廓遵循像素网格。
-2. 分类图、散点图、热力图使用方向键或指针查看数值；展开数据表查看完整标签及数值。
-3. 多系列、负数、全零、单点、缺失值；饼图非负限制，散点图不等距坐标，热力图恒值和缺失格。
-4. 真实 Pi 调用成功后图表在回复中出现；错误参数返回工具错误，模型可纠正后重试。
-5. 刷新、切换会话、SSE 重连后图表不丢失或重复；复制回复和导出 Markdown 包含图表数据。
-6. 停止尚未完成的工具不显示伪造结果；已完成工具的图表继续保留。原有 bash/read 等工具仍正常。
+1. Check all six examples, light/dark themes, local scrolling on narrow screens, and browser zoom. Text and outlines must follow the pixel grid.
+2. Use arrow keys or the pointer to inspect values in category, scatter, and heatmap charts. Expand data tables to inspect complete labels and values.
+3. Check multiple series, negatives, all zeros, a single point, and missing values; pie-chart nonnegativity, unequal numeric spacing in scatter charts, and constant/missing heatmap cells.
+4. Successful real Pi calls must display charts in replies. Invalid parameters must return tool errors, allowing the model to correct them and retry.
+5. Charts must not disappear or duplicate after refreshing, switching conversations, or reconnecting SSE. Copied replies and Markdown exports must include chart data.
+6. Stopping an unfinished tool must not show fabricated results. Charts from completed tools remain. Existing tools such as bash/read must still work.
 
-按项目约定，本次未运行测试、构建、类型检查、浏览器自动验收或真实模型调用。
+In accordance with the project agreement, this development did not run tests, builds, type checks, automated browser acceptance checks, or real model calls.

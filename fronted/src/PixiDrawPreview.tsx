@@ -1,3 +1,4 @@
+import { localizeMessage, getLanguage, t } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import type { ArchitecturePreview } from '@pixel/contracts';
 import type * as Pixi from 'pixi.js';
@@ -24,12 +25,17 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
   const [ready, setReady] = useState(false);
   const [visible, setVisible] = useState(false);
   const [status, setStatus] = useState({ step: 1, lines: 0, scale: 1 });
-  const [hover, setHover] = useState('拖动平移；滚轮缩放');
+  const [hover, setHover] = useState(t("拖动平移；滚轮缩放"));
   const [omittedLabels, setOmittedLabels] = useState<string[]>([]);
   const [row, setRow] = useState('0'); const [col, setCol] = useState('0');
   const { scene } = preview; const drawing = scene.draw!;
   const transposed = drawing.grid.rows > drawing.grid.cols;
-  const axes = transposed ? '横向 row · 纵向 col' : '横向 col · 纵向 row';
+  const axesKey = transposed ? '横向 row · 纵向 col' : '横向 col · 纵向 row';
+  const axes = t(axesKey);
+  useEffect(() => {
+    hostRef.current?.querySelector('canvas')?.setAttribute('aria-label',
+      t('{0}，{1} row × {2} col，{3}，可缩放和平移', scene.title, drawing.grid.rows, drawing.grid.cols, axes));
+  }, [axes, scene, drawing]);
   useEffect(() => {
     const host = hostRef.current; if (!host) return;
     const observer = new IntersectionObserver(entries => setVisible(entries.some(entry => entry.isIntersecting)), { rootMargin: '100px' });
@@ -42,18 +48,18 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
     let cleanup: (() => void) | undefined;
     setReady(false); setError(''); setOmittedLabels([]);
     const canvas = document.createElement('canvas');
-    canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', `${scene.title}，${drawing.grid.rows} row × ${drawing.grid.cols} col，${axes}，可缩放和平移`);
+    canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', t("{0}，{1} row × {2} col，{3}，可缩放和平移", scene.title, drawing.grid.rows, drawing.grid.cols, t(axesKey)));
     host.appendChild(canvas);
     void (async () => {
       const PIXI = await import('pixi.js');
       await document.fonts.load('12px "Fusion Pixel"'); await document.fonts.ready;
       if (cancelled) return;
-      if (!preview.draw) throw new Error('缺少 Agent draw 函数');
+      if (!preview.draw) throw new Error(t("缺少 Agent draw 函数"));
       const url = URL.createObjectURL(new Blob([preview.draw.source], { type: 'text/javascript' }));
       let draw: (ctx: DrawContext) => void;
       try {
         const module = await import(/* @vite-ignore */ url);
-        if (typeof module.draw !== 'function') throw new Error('draw.mjs 必须导出 draw(ctx) 函数');
+        if (typeof module.draw !== 'function') throw new Error(t("draw.mjs 必须导出 draw(ctx) 函数"));
         draw = module.draw;
       } finally { URL.revokeObjectURL(url); }
       if (cancelled) return;
@@ -115,7 +121,7 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
           const overlay = new PIXI.Container(); app.stage.addChild(overlay);
           let boundaryLines: Pixi.Graphics | undefined;
           const boundary: DrawContext['boundary'] = (colA, rowA, colB, rowB, kind) => {
-            if (![colA, rowA, colB, rowB].every(Number.isFinite) || (colA !== colB && rowA !== rowB)) throw new Error('边界端点必须是有限的水平或竖直逻辑坐标');
+            if (![colA, rowA, colB, rowB].every(Number.isFinite) || (colA !== colB && rowA !== rowB)) throw new Error(t("边界端点必须是有限的水平或竖直逻辑坐标"));
             if (colA === colB && rowA === rowB) return;
             const a = toScreen(colA, rowA); const b = toScreen(colB, rowB);
             const vertical = colA === colB ? !transposed : transposed;
@@ -148,7 +154,7 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
           const omitted = declutterArchitectureLabels(labels, width, height);
           setOmittedLabels(previous => previous.length === omitted.length && previous.every((value, index) => value === omitted[index]) ? previous : omitted);
           app.render(); setStatus({ step, lines, scale }); setReady(true); setError(''); canvas.style.visibility = 'visible';
-        } catch (err) { canvas.style.visibility = 'hidden'; setOmittedLabels([]); setError(err instanceof Error ? err.message : 'draw 执行失败'); setReady(false); }
+        } catch (err) { canvas.style.visibility = 'hidden'; setOmittedLabels([]); setError(err instanceof Error ? err.message : t("draw 执行失败")); setReady(false); }
       };
       const schedule = () => { if (!frame) frame = requestAnimationFrame(paint); };
       const fit = () => { fitting = true; scale = fitScale(); offsetX = (width - horizontalSize * scale) / 2; offsetY = (height - verticalSize * scale) / 2; schedule(); };
@@ -168,7 +174,7 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
         const p = point(event);
         if (drag && drag.pointerId === event.pointerId) { offsetX += p.x - drag.x; offsetY += p.y - drag.y; drag = { ...p, pointerId: event.pointerId }; fitting = false; schedule(); }
         const logical = toLogical(p.x, p.y); const r = Math.floor(logical.row); const c = Math.floor(logical.col);
-        setHover(r >= 0 && r < rows && c >= 0 && c < cols ? `row ${r} · col ${c}（从 0 开始）` : '拖动平移；滚轮缩放');
+        setHover(r >= 0 && r < rows && c >= 0 && c < cols ? t("row {0} · col {1}（从 0 开始）", r, c) : t("拖动平移；滚轮缩放"));
       };
       const up = () => { drag = undefined; };
       canvas.addEventListener('wheel', wheel, { passive: false }); canvas.addEventListener('pointerdown', down); canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up); canvas.addEventListener('lostpointercapture', up);
@@ -178,46 +184,46 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
         if (fitting) fit(); else schedule();
       }); resize.observe(host);
       const theme = new MutationObserver(() => { app.renderer.resize(width, height, getPixelDensity()); schedule(); }); theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-pixel-ratio'] });
-      const lost = (event: Event) => { event.preventDefault(); setError('图形上下文丢失，请重新打开预览'); setReady(false); };
+      const lost = (event: Event) => { event.preventDefault(); setError(t("图形上下文丢失，请重新打开预览")); setReady(false); };
       canvas.addEventListener('webglcontextlost', lost);
       cleanup = () => {
         controls.current = null; cancelAnimationFrame(frame); resize.disconnect(); theme.disconnect();
         canvas.removeEventListener('wheel', wheel); canvas.removeEventListener('pointerdown', down); canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', up); canvas.removeEventListener('pointercancel', up); canvas.removeEventListener('lostpointercapture', up); canvas.removeEventListener('webglcontextlost', lost); app.destroy(true, { children: true });
       };
       fit();
-    })().catch(err => { if (!cancelled) { setError(err instanceof Error ? err.message : '绘图加载失败'); setReady(false); } });
+    })().catch(err => { if (!cancelled) { setError(err instanceof Error ? err.message : t("绘图加载失败")); setReady(false); } });
     return () => { cancelled = true; cleanup?.(); canvas.remove(); };
-  }, [preview, visible, scene, drawing, transposed, axes]);
+  }, [preview, visible, scene, drawing, transposed, axesKey]);
   return <div className="architecture-preview">
-    <div className="panel-actions"><strong>{drawing.grid.rows} row × {drawing.grid.cols} col</strong><span>{(drawing.grid.rows * drawing.grid.cols).toLocaleString()} 个单元</span><span>{axes}</span></div>
+    <div className="panel-actions"><strong>{drawing.grid.rows} row × {drawing.grid.cols} col</strong><span>{(drawing.grid.rows * drawing.grid.cols).toLocaleString(getLanguage())} {" " + t("个单元")}</span><span>{axes}</span></div>
     <div className="panel-actions draw-controls">
-      <button className="action-button" disabled={!ready} onClick={() => controls.current?.fit()}>全图</button>
-      <button className="action-button" disabled={!ready} aria-label="缩小架构" onClick={() => controls.current?.zoom(0.5)}>缩小</button>
-      <button className="action-button" disabled={!ready} aria-label="放大架构" onClick={() => controls.current?.zoom(2)}>放大</button>
-      <button className="action-button" disabled={!ready} onClick={() => controls.current?.cell()}>单元格</button>
+      <button className="action-button" disabled={!ready} onClick={() => controls.current?.fit()}>{t("全图")}</button>
+      <button className="action-button" disabled={!ready} aria-label={t("缩小架构")} onClick={() => controls.current?.zoom(0.5)}>{t("缩小")}</button>
+      <button className="action-button" disabled={!ready} aria-label={t("放大架构")} onClick={() => controls.current?.zoom(2)}>{t("放大")}</button>
+      <button className="action-button" disabled={!ready} onClick={() => controls.current?.cell()}>{t("单元格")}</button>
       <form onSubmit={event => { event.preventDefault(); controls.current?.go(Number(row), Number(col)); }}>
-        <label>row<input aria-label="定位 row" type="number" required min={0} max={drawing.grid.rows - 1} step={1} value={row} onChange={event => setRow(event.target.value)} /></label>
-        <label>col<input aria-label="定位 col" type="number" required min={0} max={drawing.grid.cols - 1} step={1} value={col} onChange={event => setCol(event.target.value)} /></label>
-        <button className="action-button" disabled={!ready} type="submit">定位</button>
+        <label>row<input aria-label={t("定位 row")} type="number" required min={0} max={drawing.grid.rows - 1} step={1} value={row} onChange={event => setRow(event.target.value)} /></label>
+        <label>col<input aria-label={t("定位 col")} type="number" required min={0} max={drawing.grid.cols - 1} step={1} value={col} onChange={event => setCol(event.target.value)} /></label>
+        <button className="action-button" disabled={!ready} type="submit">{t("定位")}</button>
       </form>
     </div>
     <div ref={hostRef} className="architecture-canvas pixi-draw-canvas" data-render-state={error ? 'error' : ready ? 'ready' : 'loading'} style={{ height: `${scene.canvas.height + 2}rem`, maxWidth: `${scene.canvas.width}rem` }} />
-    {error && <p role="alert" className="error-text">{error}</p>}
-    {!ready && !error && visible && <p role="status">正在绘制…</p>}
-    <p className="task-note">{status.step === 1 ? '逐单元' : `每格 ${status.step} × ${status.step}`} · {hover}</p>
+    {error && <p role="alert" className="error-text">{localizeMessage(error)}</p>}
+    {!ready && !error && visible && <p role="status">{t("正在绘制…")}</p>}
+    <p className="task-note">{status.step === 1 ? t("逐单元") : t("每格 {0} × {1}", status.step, status.step)} · {localizeMessage(hover)}</p>
     {omittedLabels.length > 0 && <details className="draw-label-details">
-      <summary>收起标注（{omittedLabels.length}）</summary>
+      <summary>{t("收起标注（")}{omittedLabels.length}{t("）")}</summary>
       <ul>{omittedLabels.map(value => <li key={value}>{value}</li>)}</ul>
     </details>}
     <p className="task-note">{scene.description}</p>
     {scene.assumptions.length > 0 && <ul>{scene.assumptions.map((item, i) => <li key={i}>{item}</li>)}</ul>}
-    <details className="drawing-record"><summary>绘图记录 · draw 函数 · {drawing.grid.rows} × {drawing.grid.cols}</summary>
-      <p>架构指纹：<code>{scene.fingerprint}</code></p>
-      <p>draw SHA256：<code>{preview.draw?.sha256}</code></p>
-      <div className="drawing-table"><table><thead><tr><th>区域 / 分割线</th><th>尺寸与位置（Agent 记录）</th><th>颜色角色</th></tr></thead><tbody>{drawing.records.map((record, i) => <tr key={i}><td>{record.label}</td><td>{record.geometry}</td><td>{record.color}</td></tr>)}</tbody></table></div>
-      <div className="drawing-table"><table><thead><tr><th>颜色角色</th><th>主题变量</th><th>亮色记录</th><th>暗色记录</th></tr></thead><tbody>{Object.entries(scene.palette).map(([role, token]) => <tr key={role}><td>{role}</td><td>{token}</td><td>{preview.themeSnapshot[token]?.light}</td><td>{preview.themeSnapshot[token]?.dark}</td></tr>)}</tbody></table></div>
-      <details><summary>查看 Agent draw 源码</summary><pre className="draw-source"><code>{preview.draw?.source}</code></pre></details>
-      <div className="panel-actions">{preview.draw && <a className="action-button" href={fileUrl(preview.draw.file)} download>下载 draw.mjs</a>}<a className="action-button" href={fileUrl(preview.file)} download>下载场景 JSON</a><a className="action-button" href={fileUrl(preview.recipe)} download>下载生成脚本</a></div>
+    <details className="drawing-record"><summary>{t("绘图记录 · draw 函数 ·") + " "}{drawing.grid.rows} × {drawing.grid.cols}</summary>
+      <p>{t("架构指纹：")}<code>{scene.fingerprint}</code></p>
+      <p>{t("draw SHA256：")}<code>{preview.draw?.sha256}</code></p>
+      <div className="drawing-table"><table><thead><tr><th>{t("区域 / 分割线")}</th><th>{t("尺寸与位置（Agent 记录）")}</th><th>{t("颜色角色")}</th></tr></thead><tbody>{drawing.records.map((record, i) => <tr key={i}><td>{record.label}</td><td>{record.geometry}</td><td>{record.color}</td></tr>)}</tbody></table></div>
+      <div className="drawing-table"><table><thead><tr><th>{t("颜色角色")}</th><th>{t("主题变量")}</th><th>{t("亮色记录")}</th><th>{t("暗色记录")}</th></tr></thead><tbody>{Object.entries(scene.palette).map(([role, token]) => <tr key={role}><td>{role}</td><td>{token}</td><td>{preview.themeSnapshot[token]?.light}</td><td>{preview.themeSnapshot[token]?.dark}</td></tr>)}</tbody></table></div>
+      <details><summary>{t("查看 Agent draw 源码")}</summary><pre className="draw-source"><code>{preview.draw?.source}</code></pre></details>
+      <div className="panel-actions">{preview.draw && <a className="action-button" href={fileUrl(preview.draw.file)} download>{t("下载 draw.mjs")}</a>}<a className="action-button" href={fileUrl(preview.file)} download>{t("下载场景 JSON")}</a><a className="action-button" href={fileUrl(preview.recipe)} download>{t("下载生成脚本")}</a></div>
     </details>
   </div>;
 }
