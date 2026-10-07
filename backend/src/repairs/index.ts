@@ -36,6 +36,9 @@ class Repairs {
     // Restart never silently re-bills an Agent call or treats partial results as completed.
     db.prepare(`UPDATE repair_jobs SET status='interrupted',finished_at=?,error='服务重启，任务已中断；请重新添加运行' WHERE status IN ${activeStatuses}`).run(Date.now());
     db.prepare("UPDATE repair_programs SET status='failed',error='服务重启，架构生成已中断' WHERE status='coding'").run();
+    // Backfill existing results and record statuses recovered after a restart.
+    const tasks = db.prepare('SELECT DISTINCT b.task_id FROM repair_batches b JOIN tasks t ON t.id=b.task_id WHERE t.deleted_at IS NULL').all() as { task_id: string }[];
+    for (const task of tasks) this.refreshConclusion(task.task_id);
   }
   private program(id: string) { return this.db.prepare('SELECT * FROM repair_programs WHERE id=?').get(id) as ProgramRow; }
   private row(id: string) { const row = this.db.prepare('SELECT * FROM repair_jobs WHERE id=?').get(id) as JobRow | undefined; if (!row) throw missing(); return row; }
@@ -45,7 +48,7 @@ class Repairs {
     const dataset = JSON.parse(row.dataset_json) as RepairDataset;
     return {
       id: row.id, taskId: row.task_id, batchId: row.batch_id, architectureId: architecture.id, architectureName: architecture.name,
-      architectureFingerprint: architecture.fingerprint, waferId: dataset.id, waferName: dataset.name, productName: dataset.productName,
+      architectureFingerprint: architecture.fingerprint, inputHash: row.input_hash, waferId: dataset.id, waferName: dataset.name, productName: dataset.productName,
       synthetic: dataset.synthetic, status: row.status, modelId: row.model_id, conversationId: program.conversation_id, runId: program.run_id,
       createdAt: row.created_at, startedAt: row.started_at, finishedAt: row.finished_at, processedRegions: row.processed_regions,
       totalRegions: dataset.chipCount * dataset.regionCount, error: row.error, summary: row.summary_json ? JSON.parse(row.summary_json) as RepairSummary : null,
@@ -62,7 +65,20 @@ class Repairs {
   panel(taskId: string, userId: string): RepairPanelData {
     taskRow(this.db, taskId, userId);
     const rows = this.db.prepare('SELECT * FROM repair_jobs WHERE task_id=? AND user_id=? ORDER BY created_at DESC,rowid DESC').all(taskId, userId) as JobRow[];
-    return { datasets: this.datasets(taskId, userId), jobs: rows.map(row => this.publicJob(row)) };
+    const conclusion = this.db.prepare('SELECT batch_id,updated_at,jobs_json FROM repair_conclusions WHERE task_id=?').get(taskId) as { batch_id: string; updated_at: number; jobs_json: string } | undefined;
+    return { datasets: this.datasets(taskId, userId), jobs: rows.map(row => this.publicJob(row)), conclusion: conclusion ? {
+      batchId: conclusion.batch_id, updatedAt: conclusion.updated_at, jobs: JSON.parse(conclusion.jobs_json) as RepairJob[],
+    } : null };
+  }
+  private refreshConclusion(taskId: string) {
+    const batch = this.db.prepare('SELECT id,auto_conclusion FROM repair_batches WHERE task_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1').get(taskId) as { id: string; auto_conclusion: number } | undefined;
+    if (!batch?.auto_conclusion) return;
+    const rows = this.db.prepare('SELECT * FROM repair_jobs WHERE task_id=? ORDER BY created_at DESC,rowid DESC').all(taskId) as JobRow[];
+    const jobs = JSON.stringify(rows.map(row => this.publicJob(row)));
+    const previous = this.db.prepare('SELECT batch_id,jobs_json FROM repair_conclusions WHERE task_id=?').get(taskId) as { batch_id: string; jobs_json: string } | undefined;
+    if (previous?.batch_id === batch.id && previous.jobs_json === jobs) return;
+    this.db.prepare(`INSERT INTO repair_conclusions(task_id,batch_id,updated_at,jobs_json) VALUES(?,?,?,?)
+      ON CONFLICT(task_id) DO UPDATE SET batch_id=excluded.batch_id,updated_at=excluded.updated_at,jobs_json=excluded.jobs_json`).run(taskId, batch.id, Date.now(), jobs);
   }
   create(taskId: string, userId: string, input: RepairBatchInput) {
     if (this.closing) throw new HttpError(503, 'SHUTTING_DOWN', '服务正在停止');
@@ -82,9 +98,10 @@ class Repairs {
       .sort((left, right) => left.architectureId.localeCompare(right.architectureId) || left.waferId.localeCompare(right.waferId));
     if (pairs.length > 100) throw new HttpError(400, 'REPAIR_BATCH_LIMIT', '单次最多添加 100 个架构与 wafer 组合');
     // Preserve the legacy request identity so an existing client can safely retry an old batch.
-    const requestHash = explicitPairs
+    const legacyHash = explicitPairs
       ? sha256(JSON.stringify({ taskId, pairs, modelId: input.modelId }))
       : sha256(JSON.stringify({ taskId, architectureIds, waferIds, modelId: input.modelId }));
+    const requestHash = input.autoConclusion === false ? sha256(JSON.stringify({ legacyHash, autoConclusion: false })) : legacyHash;
     const previous = this.db.prepare('SELECT id,request_hash FROM repair_batches WHERE user_id=? AND request_key=?').get(userId, input.idempotencyKey) as { id: string; request_hash: string } | undefined;
     if (previous) {
       if (previous.request_hash !== requestHash) throw new HttpError(409, 'IDEMPOTENCY_CONFLICT', '同一请求标识不能用于不同求解组合');
@@ -119,7 +136,7 @@ class Repairs {
     }
     const batchId = randomUUID(); const now = Date.now();
     this.db.transaction(() => {
-      this.db.prepare('INSERT INTO repair_batches(id,task_id,user_id,request_key,request_hash,created_at) VALUES(?,?,?,?,?,?)').run(batchId, taskId, userId, input.idempotencyKey, requestHash, now);
+      this.db.prepare('INSERT INTO repair_batches(id,task_id,user_id,request_key,request_hash,created_at,auto_conclusion) VALUES(?,?,?,?,?,?,?)').run(batchId, taskId, userId, input.idempotencyKey, requestHash, now, input.autoConclusion === false ? 0 : 1);
       for (const architecture of architectures) {
         const programId = randomUUID();
         this.db.prepare('INSERT INTO repair_programs(id,batch_id,architecture_json) VALUES(?,?,?)').run(programId, batchId, JSON.stringify(architecture));
@@ -130,6 +147,7 @@ class Repairs {
         }
       }
       this.db.prepare('UPDATE tasks SET updated_at=? WHERE id=?').run(now, taskId);
+      this.refreshConclusion(taskId);
     })();
     this.kick();
     return { items: (this.db.prepare('SELECT * FROM repair_jobs WHERE batch_id=? ORDER BY rowid').all(batchId) as JobRow[]).map(row => this.publicJob(row)) };
@@ -173,7 +191,11 @@ class Repairs {
       } catch (error) {
         const status = this.closing ? 'interrupted' : controller.signal.aborted ? 'cancelled' : 'failed';
         this.db.prepare('UPDATE repair_jobs SET status=?,finished_at=?,error=?,summary_json=NULL WHERE id=?').run(status, Date.now(), status === 'cancelled' ? '任务已取消' : this.closing ? '服务关闭，任务已中断' : errorMessage(error), row.id);
-      } finally { this.active = undefined; finishActive(); }
+      } finally {
+        try { this.refreshConclusion(row.task_id); }
+        catch (error) { console.error('Unable to update Solver conclusions:', errorMessage(error)); }
+        this.active = undefined; finishActive();
+      }
     }
   }
   private waitForAgent(id: string, signal: AbortSignal): Promise<void> {
@@ -226,6 +248,7 @@ class Repairs {
     if (row.task_id !== taskId || row.user_id !== userId) throw missing();
     if (this.active?.id === id) { const active = this.active; active.controller.abort(); await active.done; }
     else if (row.status === 'queued') this.db.prepare("UPDATE repair_jobs SET status='cancelled',finished_at=?,error='任务已取消' WHERE id=?").run(Date.now(), id);
+    this.refreshConclusion(taskId);
     return this.publicJob(this.row(id));
   }
   download(taskId: string, userId: string, id: string, name: string) {
@@ -246,11 +269,15 @@ class Repairs {
     this.closing = true; this.active?.controller.abort();
     await this.processing;
     this.db.prepare(`UPDATE repair_jobs SET status='interrupted',finished_at=?,error='服务关闭，任务已中断；请重新添加运行' WHERE status IN ${activeStatuses}`).run(Date.now());
+    const tasks = this.db.prepare('SELECT DISTINCT task_id FROM repair_jobs').all() as { task_id: string }[];
+    for (const task of tasks) this.refreshConclusion(task.task_id);
   }
   async stopUser(userId: string) {
     this.db.prepare("UPDATE repair_jobs SET status='cancelled',finished_at=?,error='账号状态变更，任务已取消' WHERE user_id=? AND status='queued'").run(Date.now(), userId);
     const active = this.active;
     if (active && this.row(active.id).user_id === userId) { active.controller.abort(); await active.done; }
+    const tasks = this.db.prepare('SELECT DISTINCT task_id FROM repair_jobs WHERE user_id=?').all(userId) as { task_id: string }[];
+    for (const task of tasks) this.refreshConclusion(task.task_id);
   }
 }
 

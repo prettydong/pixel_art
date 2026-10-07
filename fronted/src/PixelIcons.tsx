@@ -26,6 +26,7 @@ function icon(path: string) {
   };
 }
 
+export const Alert = icon("M7 2h2v8H7zm0 10h2v2H7z");
 export const ArrowUp = icon("M7 2h2v2h2v2h2v2h-2V6H9v8H7V6H5v2H3V6h2V4h2z");
 export const ArrowRight = icon(
   "M8 2h2v2h2v2h2v4h-2v2h-2v2H8v-2h2v-2H2V6h8V4H8z",

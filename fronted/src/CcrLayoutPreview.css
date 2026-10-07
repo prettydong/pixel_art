@@ -11,3 +11,22 @@
 .ccr-segments button[aria-pressed="true"] { border-color: var(--architecture-accent); background: var(--selected); color: var(--text); }
 .ccr-layout p, .ccr-segments span { overflow-wrap: anywhere; }
 .ccr-preview-toggle > .ccr-layout { margin-top: 6rem; }
+.ccr-row-pool { display: flex; align-items: center; gap: 6rem; }
+.ccr-map { display: grid; gap: 4rem; margin: 0; min-width: 0; overflow-x: auto; overflow-y: hidden; }
+.ccr-map figcaption { color: var(--muted); overflow-wrap: anywhere; }
+.ccr-map svg { display: block; }
+.ccr-map-band { cursor: pointer; }
+.ccr-map-axis { display: flex; justify-content: space-between; gap: 8rem; max-width: 100%; color: var(--muted); }
+.ccr-legend { display: flex; flex-wrap: wrap; gap: 4rem 12rem; color: var(--muted); }
+.ccr-legend > span { display: flex; align-items: center; gap: 4rem; }
+.ccr-swatch { display: inline-block; flex: 0 0 8rem; width: 8rem; height: 8rem; outline: 1rem solid var(--line); }
+.ccr-swatch-pool { flex-basis: 16rem; width: 16rem; background: var(--architecture-accent); box-shadow: inset 0 -4rem 0 var(--architecture-surface); }
+.ccr-swatch-selected { background: var(--architecture-accent); }
+.ccr-swatch-other { background: var(--diagram-cell); box-shadow: inset -4rem 0 0 var(--architecture-surface); }
+.ccr-swatch-column { background: var(--text); }
+.ccr-swatch-empty { background: var(--panel); }
+.ccr-groups { display: flex; flex-wrap: wrap; gap: 0; margin: 0; padding: 0 1rem 0 0; list-style: none; }
+.ccr-groups li { display: grid; justify-items: center; min-width: 32rem; padding: 2rem 4rem; border: 1rem solid var(--line); margin: 0 -1rem 0 0; background: var(--panel); color: var(--muted); }
+.ccr-groups li > span + span { color: var(--text); }
+.ccr-groups li.selected { position: relative; z-index: 1; border-color: var(--architecture-accent); background: var(--architecture-accent); color: var(--on-accent); }
+.ccr-groups li.selected > span + span { color: var(--on-accent); }

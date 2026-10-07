@@ -5,6 +5,7 @@ import { api, apiUrl, errorText, requestId, RequestError } from './api';
 import { ccrDefinition } from './architectureTemplates';
 import { Download, MessageSquare, Plus, Square, X } from './PixelIcons';
 import { RepairResults } from './RepairResults';
+import { getAutoConclusions } from './solverPreferences';
 import { draftItemKey, MAX_REPAIR_ITEMS, readRepairDraft, saveRepairDraft, type RepairDraft } from './repairDraft';
 import './RepairPanel.css';
 
@@ -19,6 +20,8 @@ function layoutIssue(architecture: TaskArchitecture, dataset: RepairDataset): st
     ? null : t("Region {0} × {1} 与 wafer {2} × {3} 不匹配", definition.array.rows, definition.array.cols, dataset.rows, dataset.cols);
 }
 function percent(value: number) { return `${(value * 100).toFixed(2)}%`; }
+const activeStatuses: RepairJob['status'][] = ['queued', 'coding', 'compiling', 'running'];
+const PROGRESS_WIDTH = 120;
 
 export function RepairPanel({ taskId, architectures, models, modelId, onChat }: Props) {
   const [data, setData] = useState<RepairPanelData>({ datasets: [], jobs: [] });
@@ -90,7 +93,7 @@ export function RepairPanel({ taskId, architectures, models, modelId, onChat }: 
   async function submit() {
     if (!canSubmit || submittingRef.current) return;
     submittingRef.current = true;
-    const submission = draft.submission ?? { modelId: engine, idempotencyKey: requestId() };
+    const submission = draft.submission ?? { modelId: engine, idempotencyKey: requestId(), autoConclusion: getAutoConclusions() };
     updateDraft({ ...draft, submission });
     setSubmitting(true); setActionError('');
     try {
@@ -117,10 +120,16 @@ export function RepairPanel({ taskId, architectures, models, modelId, onChat }: 
   }
   const download = (job: RepairJob, name: string) => apiUrl(`/tasks/${encodeURIComponent(taskId)}/repairs/${encodeURIComponent(job.id)}/download/${name}`);
 
+  // Completed results matter most once they exist; running jobs are listed before finished ones.
+  const hasResults = data.jobs.some(job => job.status === 'completed' && job.summary);
+  const jobs = [...data.jobs].sort((a, b) => Number(activeStatuses.includes(b.status)) - Number(activeStatuses.includes(a.status)));
+  const runningCount = jobs.filter(job => activeStatuses.includes(job.status)).length;
+
   return <section className="repair-panel" aria-busy={loading || submitting}>
-    <div className="repair-intro"><h2>{t("选择组合")}</h2></div>
     {loadError && <div className="workspace-error" role="alert">{t("读取任务求解状态失败：")}{localizeMessage(loadError)}</div>}
     {actionError && <div className="workspace-error" role="alert">{localizeMessage(actionError)}</div>}
+    {hasResults && <RepairResults jobs={data.jobs} architectures={architectures} models={models} />}
+    <div className="repair-intro"><h2>{t("选择组合")}</h2></div>
     <div className="repair-picker">
       <fieldset><legend>{t("架构")}</legend><label className="repair-check"><input type="checkbox" checked={allArchitectures} onChange={() => setArchitectureIds(allArchitectures ? new Set() : new Set(architectures.map(item => item.id)))} />{t("全选（")}{architectures.length}{t("）")}</label>
       {architectures.map(architecture => <label className="repair-check" key={architecture.id}><input type="checkbox" checked={architectureIds.has(architecture.id)} onChange={() => toggle(setArchitectureIds, architecture.id)} /><span className="repair-option-name" title={architecture.name}>{architecture.name}</span></label>)}
@@ -144,7 +153,28 @@ export function RepairPanel({ taskId, architectures, models, modelId, onChat }: 
       <div className="repair-submit"><label>{t("编码引擎")}<select value={draft.submission?.modelId ?? engine} onChange={event => setEngine(event.target.value)} disabled={submitting || !!draft.submission}>{!models.length && <option value="">{t("尚未配置模型")}</option>}{draft.submission && !models.some(item => item.id === draft.submission?.modelId) && <option value={draft.submission.modelId}>{draft.submission.modelId}</option>}{models.map(item => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label><button className="action-button primary" disabled={!canSubmit} onClick={() => void submit()}><Square />{submitting ? t("正在提交…") : draft.submission ? t("确认上次提交 / 重试") : t("运行列表（{0}）", draft.items.length)}</button></div>
       {draft.submission && !submitting && <p className="task-note">{t("提交状态未确认，请重试。")}</p>}
     </section>
-    <RepairResults jobs={data.jobs} architectures={architectures} models={models} />
-    <div className="repair-jobs"><h2>{t("求解任务")}</h2>{!loading && !data.jobs.length && <p className="task-empty">{t("暂无任务")}</p>}{data.jobs.map(job => { const current = architectures.find(item => item.id === job.architectureId); const historical = !current || current.fingerprint !== job.architectureFingerprint; const downloads = job.status === 'completed' || ['failed', 'cancelled', 'interrupted'].includes(job.status) ? ['dev.hpp', 'result.jsonl', 'manifest.json', 'compile.log'] : []; return <article className="repair-job" key={job.id}><div className="repair-job-heading"><h3>{job.architectureName} × {job.waferName}</h3><span className={`repair-status repair-status-${job.status}`}>{labels[job.status]}</span></div><p>{job.productName}{job.synthetic ? t(" · 合成 wafer") : ''} · {job.processedRegions.toLocaleString(getLanguage())} / {job.totalRegions.toLocaleString(getLanguage())} region</p><p className="repair-job-meta">{t("架构快照") + " "}{job.architectureFingerprint.slice(0, 8)} · {new Date(job.createdAt).toLocaleString(getLanguage())}</p>{historical && <p className="repair-history-note">{t("历史架构")}</p>}{job.error && <p className="error-text">{localizeMessage(job.error)}</p>}{job.summary && <div className="repair-summary"><span>{t("Chip 良率") + " "}{percent(job.summary.chipYield)}</span><span>{t("Region 良率") + " "}{percent(job.summary.regionYield)}</span><span>{t("完整分母") + " "}{job.summary.totalChips.toLocaleString(getLanguage())} chip / {job.summary.totalRegions.toLocaleString(getLanguage())} region</span><span>{t("原始良品") + " "}{job.summary.initiallyGoodChips.toLocaleString(getLanguage())} chip / {job.summary.initiallyGoodRegions.toLocaleString(getLanguage())} region</span><span>{t("修补后通过") + " "}{job.summary.passedChips.toLocaleString(getLanguage())} chip / {job.summary.passedRegions.toLocaleString(getLanguage())} region</span><span>{t("未修成") + " "}{job.summary.unresolvedChips.toLocaleString(getLanguage())} chip / {job.summary.unresolvedRegions.toLocaleString(getLanguage())} region</span></div>}<div className="panel-actions">{['queued', 'coding', 'compiling', 'running'].includes(job.status) && <button className="action-button" disabled={cancelling.has(job.id)} onClick={() => void cancel(job)}><X />{cancelling.has(job.id) ? t("正在取消…") : t("取消")}</button>}{job.conversationId && <button className="action-button" onClick={() => void onChat(job.conversationId!)}><MessageSquare />{t("查看 Agent 对话")}</button>}{downloads.map(name => <a className="action-button" key={name} href={download(job, name)} download><Download />{name}</a>)}</div></article>; })}</div>
+    <div className="repair-jobs"><div className="repair-job-heading"><h2>{t("求解任务")}{jobs.length ? ` (${jobs.length})` : ''}</h2>{runningCount > 0 && <span className="repair-status repair-status-running">{t("进行中 {0}", runningCount)}</span>}</div>
+      {!loading && !jobs.length && <p className="task-empty">{t("暂无求解任务")}</p>}
+      {jobs.map(job => <RepairJobCard key={job.id} job={job} architectures={architectures} models={models} cancelling={cancelling.has(job.id)} onCancel={() => void cancel(job)} onChat={onChat} download={name => download(job, name)} />)}
+    </div>
   </section>;
+}
+
+function RepairJobCard({ job, architectures, models, cancelling, onCancel, onChat, download }: { job: RepairJob; architectures: TaskArchitecture[]; models: ModelOption[]; cancelling: boolean; onCancel: () => void; onChat: (id: string) => Promise<void>; download: (name: string) => string }) {
+  const language = getLanguage();
+  const current = architectures.find(item => item.id === job.architectureId);
+  const historical = !current || current.fingerprint !== job.architectureFingerprint;
+  const active = activeStatuses.includes(job.status);
+  const downloads = job.status === 'completed' || ['failed', 'cancelled', 'interrupted'].includes(job.status) ? ['dev.hpp', 'result.jsonl', 'manifest.json', 'compile.log'] : [];
+  const filled = job.totalRegions > 0 ? Math.round(Math.min(1, job.processedRegions / job.totalRegions) * PROGRESS_WIDTH) : 0;
+  const progressLabel = `${job.processedRegions.toLocaleString(language)} / ${job.totalRegions.toLocaleString(language)} region`;
+  return <article className={`repair-job ${active ? 'repair-job-active' : ''}`}>
+    <div className="repair-job-heading"><h3>{job.architectureName} × {job.waferName}</h3>{job.synthetic && <span className="data-badge data-badge-warn">{t("合成数据")}</span>}<span className={`repair-status repair-status-${job.status}`}>{labels[job.status]}</span></div>
+    <div className="repair-progress"><span className="repair-progress-bar" role="img" aria-label={progressLabel} style={{ width: `${PROGRESS_WIDTH}rem` }}><i style={{ width: `${filled}rem` }} /></span><span>{progressLabel}</span></div>
+    {job.summary && <p className="repair-job-yield"><span>{t("Chip 良率") + " "}<span className="stat-value">{percent(job.summary.chipYield)}</span></span><span>{t("Region 良率") + " "}<span className="stat-value">{percent(job.summary.regionYield)}</span></span><span>{t("未修成") + " "}{job.summary.unresolvedChips.toLocaleString(language)} chip / {job.summary.unresolvedRegions.toLocaleString(language)} region</span></p>}
+    {job.error && <p className="error-text">{localizeMessage(job.error)}</p>}
+    <p className="repair-job-meta">{job.productName} · {models.find(model => model.id === job.modelId)?.label ?? job.modelId} · {t("架构快照") + " "}{job.architectureFingerprint.slice(0, 8)} · {new Date(job.createdAt).toLocaleString(language)}{historical && <span className="repair-history-note">{" · " + t("历史架构")}</span>}</p>
+    {job.summary && <details className="repair-job-counts"><summary>{t("计数明细")}</summary><div className="repair-summary"><span>{t("完整分母") + " "}{job.summary.totalChips.toLocaleString(language)} chip / {job.summary.totalRegions.toLocaleString(language)} region</span><span>{t("原始良品") + " "}{job.summary.initiallyGoodChips.toLocaleString(language)} chip / {job.summary.initiallyGoodRegions.toLocaleString(language)} region</span><span>{t("修补后通过") + " "}{job.summary.passedChips.toLocaleString(language)} chip / {job.summary.passedRegions.toLocaleString(language)} region</span><span>{t("未修成") + " "}{job.summary.unresolvedChips.toLocaleString(language)} chip / {job.summary.unresolvedRegions.toLocaleString(language)} region</span></div></details>}
+    <div className="panel-actions">{active && <button className="action-button" disabled={cancelling} onClick={onCancel}><X />{cancelling ? t("正在取消…") : t("取消")}</button>}{job.conversationId && <button className="action-button" onClick={() => void onChat(job.conversationId!)}><MessageSquare />{t("查看 Agent 对话")}</button>}{downloads.map(name => <a className="action-button" key={name} href={download(name)} download><Download />{name}</a>)}</div>
+  </article>;
 }

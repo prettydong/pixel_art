@@ -2,6 +2,7 @@ import { getLanguage, t, useLanguage } from './i18n';
 import { useEffect, useMemo, useState } from 'react';
 import type { ModelOption, RepairJob, RepairSummary, TaskArchitecture } from '@pixel/contracts';
 import { BarChart } from './PixelIcons';
+import { RepairComparisonChart } from './RepairComparisonChart';
 
 type CompleteJob = RepairJob & { summary: RepairSummary };
 type Metric = 'chip' | 'region';
@@ -30,7 +31,7 @@ export function RepairResults({ jobs, architectures, models }: { jobs: RepairJob
       if (job.status !== 'completed' || !job.summary) continue;
       const summary = job.summary;
       // Compare matching wafer baselines only, even if historical dataset metadata changed.
-      const key = JSON.stringify([job.waferId, job.synthetic, summary.totalChips, summary.totalRegions, summary.initiallyGoodChips, summary.initiallyGoodRegions]);
+      const key = JSON.stringify([job.waferId, job.inputHash, job.synthetic, summary.totalChips, summary.totalRegions, summary.initiallyGoodChips, summary.initiallyGoodRegions]);
       let group = result.get(key);
       if (!group) {
         group = { key, name: t("{0} · {1}{2} · {3} chip / {4} region · 原始良品 {5} chip / {6} region", job.waferName, job.productName, job.synthetic ? t(" · 合成") : '', summary.totalChips.toLocaleString(getLanguage()), summary.totalRegions.toLocaleString(getLanguage()), summary.initiallyGoodChips.toLocaleString(getLanguage()), summary.initiallyGoodRegions.toLocaleString(getLanguage())), jobs: [] };
@@ -63,7 +64,9 @@ export function RepairResults({ jobs, architectures, models }: { jobs: RepairJob
 
   return <section className="repair-results" aria-label={t("结果分析")}>
     <div className="repair-job-heading"><h2><BarChart />{t("结果分析")}</h2><span className="task-note">{t("完成") + " "}{completed} {" " + t("· 进行中") + " "}{active} {" " + t("· 失败 / 取消 / 中断") + " "}{stopped}</span></div>
+    <RepairComparisonChart jobs={jobs} models={models} />
     {!group || !best ? <p className="task-empty">{t("暂无结果")}</p> : <>
+      <details className="repair-result-details"><summary>{t("Wafer 详情")}</summary>
       <div className="repair-analysis-controls">
         <label className="repair-wafer-filter">{t("对比 wafer")}<select value={group.key} onChange={event => setGroupKey(event.target.value)}>{groups.map(item => <option key={item.key} value={item.key}>{item.name}</option>)}</select></label>
         <label>{t("统计单位")}<select value={metric} onChange={event => setMetric(event.target.value as Metric)}><option value="chip">Chip</option><option value="region">Region</option></select></label>
@@ -81,14 +84,16 @@ export function RepairResults({ jobs, architectures, models }: { jobs: RepairJob
             const current = architectures.find(item => item.id === job.architectureId);
             const historical = !current || current.fingerprint !== job.architectureFingerprint;
             const chartLabel = t("原始良品 {0}，新增修成 {1}，未修成 {2}，共 {3} {4}", value.initial.toLocaleString(getLanguage()), (value.passed - value.initial).toLocaleString(getLanguage()), value.unresolved.toLocaleString(getLanguage()), value.total.toLocaleString(getLanguage()), unit);
-            return <tr key={job.id}>
-              <th scope="row"><span title={job.architectureName}>{job.architectureName}</span><small>{job.architectureFingerprint.slice(0, 8)}{historical ? t(" · 历史架构") : ''}</small><small>{models.find(model => model.id === job.modelId)?.label ?? job.modelId}</small><small>{new Date(job.finishedAt ?? job.createdAt).toLocaleString(getLanguage())}</small></th>
+            const leader = rows.length > 1 && value.passed === best.passed;
+            return <tr key={job.id} className={leader ? 'repair-result-leader' : undefined}>
+              <th scope="row"><span title={job.architectureName}>{job.architectureName}</span>{leader && <small className="repair-leader-badge">{t("最高良率")}</small>}<small>{job.architectureFingerprint.slice(0, 8)}{historical ? t(" · 历史架构") : ''}</small><small>{models.find(model => model.id === job.modelId)?.label ?? job.modelId}</small><small>{new Date(job.finishedAt ?? job.createdAt).toLocaleString(getLanguage())}</small></th>
               <td><div className="repair-result-bar" role="img" aria-label={chartLabel} title={chartLabel}><i className="repair-bar-initial" style={{ width: `${initialWidth}rem` }} /><i className="repair-bar-gain" style={{ width: `${passedWidth - initialWidth}rem` }} /><i className="repair-bar-unresolved" style={{ width: `${160 - passedWidth}rem` }} /></div><small>{t("原始") + " "}{percent(value.initial / value.total)}</small></td>
               <td>{percent(value.passed / value.total)}</td><td>+{((value.passed - value.initial) / value.total * 100).toFixed(2)}</td><td>{(value.passed - value.initial).toLocaleString(getLanguage())}</td><td>{value.unresolved.toLocaleString(getLanguage())} / {value.total.toLocaleString(getLanguage())}</td><td>{elapsed(job)}</td>
             </tr>;
           })}</tbody>
         </table>
       </div>
+      </details>
     </>}
   </section>;
 }

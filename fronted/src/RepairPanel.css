@@ -69,3 +69,15 @@
 .repair-bar-gain { background: var(--chart-1); }
 .repair-bar-unresolved { background: var(--chart-4); }
 @media (max-width: 640px) { .repair-picker { grid-template-columns: 1fr; } }
+.repair-job-active { border-color: var(--busy); }
+.repair-progress { display: flex; align-items: center; flex-wrap: wrap; gap: 4rem 8rem; color: var(--muted); }
+.repair-progress-bar { display: block; flex: 0 0 auto; height: 8rem; outline: 1rem solid var(--line); background: var(--repair-surface); }
+.repair-progress-bar i { display: block; height: 100%; background: var(--repair-accent); }
+.repair-job-active .repair-progress-bar i { background: var(--busy); }
+.repair-panel .repair-job-yield { display: flex; flex-wrap: wrap; gap: 4rem 12rem; margin: 0; color: var(--muted); }
+.repair-job-yield .stat-value { color: var(--repair-accent); }
+.repair-job-counts summary { color: var(--muted); cursor: pointer; }
+.repair-job-counts[open] summary { margin-bottom: 4rem; }
+.repair-result-leader th, .repair-result-leader td { background: var(--selected); }
+.repair-results-table tbody .repair-leader-badge { color: var(--repair-accent); }
+.repair-job > p.error-text { color: var(--danger); }

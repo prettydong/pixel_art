@@ -1,0 +1,16 @@
+.repair-comparison { display: grid; gap: 8rem; min-width: 0; }
+.repair-comparison-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 4rem 8rem; }
+.repair-comparison-types { display: flex; gap: 4rem; }
+.repair-comparison-toolbar select { font: inherit; color: var(--input-text); background: var(--input-surface); padding: 4rem; border: 1rem solid var(--line); border-radius: 0; min-width: 0; max-width: 100%; }
+.repair-comparison-variants { margin-left: auto; min-width: 0; max-width: 100%; }
+.repair-comparison-variants > summary { padding: 4rem; color: var(--text); cursor: pointer; }
+.repair-comparison-options { display: grid; gap: 4rem; padding: 8rem; border: 1rem solid var(--line); max-height: 160rem; overflow: auto; }
+.repair-comparison .pixel-chart { margin: 0; }
+.repair-comparison .pixel-chart-legend { gap: 4rem 16rem; }
+.repair-comparison .pixel-chart-selection { min-height: 24rem; align-items: center; }
+.repair-comparison .repair-result-insight { margin: 0; }
+.repair-result-details { display: grid; gap: 8rem; min-width: 0; }
+.repair-result-details > summary { cursor: pointer; color: var(--accent); padding: 4rem 0; }
+.repair-result-details[open] > summary { margin-bottom: 8rem; }
+.repair-result-details > .task-record { margin-bottom: 8rem; }
+.solver-conclusion-status { display: flex; flex-wrap: wrap; gap: 4rem 12rem; color: var(--muted); }

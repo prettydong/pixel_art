@@ -7,6 +7,7 @@ export function useTasks(enabled: boolean, conversations: Conversation[]) {
   const [tasks, setTasks] = useState<EvaluationTask[]>([]);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const sequence = useRef(0);
   const refresh = useCallback(async () => {
     if (!enabled) return;
@@ -16,6 +17,7 @@ export function useTasks(enabled: boolean, conversations: Conversation[]) {
       if (request !== sequence.current) return;
       setTasks(result.items); setError(''); setRevision(value => value + 1);
     } catch (err) { if (request === sequence.current) setError(errorText(err)); }
+    finally { if (request === sequence.current) setLoaded(true); }
   }, [enabled]);
   const signature = conversations.map(c => `${c.id}:${c.taskId}:${c.updated}:${c.activeRun?.status}:${c.lastRun?.status}`).join('|');
   useEffect(() => { void refresh(); }, [refresh, signature]);
@@ -31,5 +33,5 @@ export function useTasks(enabled: boolean, conversations: Conversation[]) {
     setTasks(previous => previous.filter(task => task.id !== id));
     setRevision(value => value + 1);
   }, []);
-  return { tasks, error, revision, refresh, forget };
+  return { tasks, error, revision, loading: enabled && !loaded, refresh, forget };
 }

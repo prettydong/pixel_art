@@ -6,7 +6,7 @@ export type RepairDraftItem = {
 };
 export type RepairDraft = {
   items: RepairDraftItem[];
-  submission: Pick<RepairBatchInput, 'modelId' | 'idempotencyKey'> | null;
+  submission: (Pick<RepairBatchInput, 'modelId' | 'idempotencyKey'> & { autoConclusion?: boolean }) | null;
 };
 export const MAX_REPAIR_ITEMS = 100;
 export const draftItemKey = (item: { architectureId: string; waferId: string }) => JSON.stringify([item.architectureId, item.waferId]);
@@ -20,7 +20,9 @@ export function readRepairDraft(taskId: string): RepairDraft {
       && ['architectureId', 'architectureName', 'architectureFingerprint', 'waferId', 'waferName'].every(key => typeof (item as Record<string, unknown>)[key] === 'string'));
     // Never replay a partially recovered request with its original idempotency key.
     const submission = items.length === value.items.length && items.length && typeof value.submission?.modelId === 'string'
-      && typeof value.submission?.idempotencyKey === 'string' ? value.submission : null;
+      && typeof value.submission?.idempotencyKey === 'string'
+      && (value.submission.autoConclusion === undefined || typeof value.submission.autoConclusion === 'boolean')
+      ? { modelId: value.submission.modelId, idempotencyKey: value.submission.idempotencyKey, autoConclusion: value.submission.autoConclusion ?? true } : null;
     return { items, submission };
   } catch { return { items: [], submission: null }; }
 }

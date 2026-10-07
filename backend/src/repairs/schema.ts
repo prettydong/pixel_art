@@ -1,8 +1,7 @@
 import type { Db } from '../db/index.js';
 
 export function migrateRepairs(db: Db) {
-  if (db.prepare('SELECT 1 FROM schema_migrations WHERE version=8').get()) return;
-  db.transaction(() => {
+  if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=8').get()) db.transaction(() => {
     db.exec(`
       CREATE TABLE repair_batches(
         id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id), user_id TEXT NOT NULL REFERENCES users(id),
@@ -25,5 +24,15 @@ export function migrateRepairs(db: Db) {
       CREATE INDEX repair_jobs_task ON repair_jobs(task_id,created_at);
     `);
     db.prepare('INSERT INTO schema_migrations(version,applied_at) VALUES(8,?)').run(Date.now());
+  })();
+  if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=9').get()) db.transaction(() => {
+    db.exec(`
+      ALTER TABLE repair_batches ADD COLUMN auto_conclusion INTEGER NOT NULL DEFAULT 1;
+      CREATE TABLE repair_conclusions(
+        task_id TEXT PRIMARY KEY REFERENCES tasks(id), batch_id TEXT NOT NULL REFERENCES repair_batches(id),
+        updated_at INTEGER NOT NULL, jobs_json TEXT NOT NULL
+      );
+    `);
+    db.prepare('INSERT INTO schema_migrations(version,applied_at) VALUES(9,?)').run(Date.now());
   })();
 }

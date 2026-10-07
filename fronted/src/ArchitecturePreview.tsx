@@ -5,16 +5,20 @@ import { validateArchitectureScene } from '@pixel/contracts/architecture-scene';
 import { fileUrl } from './api';
 import { PixiDrawPreview } from './PixiDrawPreview';
 import { getPixelDensity } from './pixelGrid';
+import { DrawingAssumptions } from './DrawingAssumptions';
 
 export function ArchitecturePreview({ previews }: { previews: PreviewRecord[] }) {
   const [selected, setSelected] = useState('');
   const preview = previews.find(item => item.file.id === selected) ?? previews[0];
   if (!preview) return null;
+  // The badge marks the drawing as agent-authored; it shares one line with the version picker and grid facts.
+  const heading = <><span className="data-badge">{t("Agent 绘图")}</span>
+    {previews.length > 1 && <select aria-label={t("预览版本")} value={preview.file.id} onChange={event => setSelected(event.target.value)}>{previews.map((item, index) => <option key={item.file.id} value={item.file.id}>{t("版本") + " "}{previews.length - index} · {new Date(item.createdAt).toLocaleString(getLanguage())}</option>)}</select>}</>;
   return <div className="architecture-preview">
-    <div className="panel-actions"><span>{t("Agent 绘图 · Pixi")}</span>
-      {previews.length > 1 && <select aria-label={t("预览版本")} value={preview.file.id} onChange={event => setSelected(event.target.value)}>{previews.map((item, index) => <option key={item.file.id} value={item.file.id}>{t("版本") + " "}{previews.length - index} · {new Date(item.createdAt).toLocaleString(getLanguage())}</option>)}</select>}
-    </div>
-    {preview.scene.draw ? <PixiDrawPreview key={preview.file.id} preview={preview} /> : <LegacyArchitecturePreview key={preview.file.id} previews={[preview]} />}
+    {preview.scene.draw ? <PixiDrawPreview key={preview.file.id} preview={preview} heading={heading} /> : <>
+      <div className="panel-actions">{heading}</div>
+      <LegacyArchitecturePreview key={preview.file.id} previews={[preview]} />
+    </>}
   </div>;
 }
 
@@ -101,9 +105,9 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
     </div>
     {error && <p role="alert" className="error-text">{localizeMessage(error)}</p>}
     {!ready && !error && visible && <p role="status">{t("正在绘制…")}</p>}
-    <p className="task-note">{scene.description}</p>
-    {scene.assumptions.length > 0 && <ul>{scene.assumptions.map((item, i) => <li key={i}>{item}</li>)}</ul>}
+    {scene.assumptions.length > 0 ? <DrawingAssumptions items={scene.assumptions} /> : <p className="task-note">{scene.description}</p>}
     <details className="drawing-record"><summary>{t("绘图记录 ·") + " "}{scene.canvas.width} × {scene.canvas.height} {" " + t("格 ·") + " "}{scene.nodes.length} {" " + t("个图元")}</summary>
+      {scene.assumptions.length > 0 && <p className="task-note">{scene.description}</p>}
       <p>{t("架构指纹：")}<code>{scene.fingerprint}</code></p>
       <div className="drawing-table"><table><thead><tr><th>{t("颜色角色")}</th><th>{t("主题变量")}</th><th>{t("亮色记录")}</th><th>{t("暗色记录")}</th></tr></thead><tbody>{Object.entries(scene.palette).map(([role, token]) => <tr key={role}><td>{role}</td><td>{token}</td><td>{preview.themeSnapshot[token]?.light}</td><td>{preview.themeSnapshot[token]?.dark}</td></tr>)}</tbody></table></div>
       <div className="drawing-table"><table><thead><tr><th>{t("区域 / 分割线")}</th><th>{t("起点")}</th><th>{t("尺寸 / 网格")}</th><th>{t("颜色角色")}</th></tr></thead><tbody>{scene.nodes.filter(node => node.type !== 'text').map(node => <tr key={node.id}><td>{node.label || node.id}</td><td>{node.x}, {node.y}</td><td>{node.type === 'grid' ? t("{0} × {1}；单元 {2} × {3}；线宽 {4}", node.rows, node.cols, node.cellWidth, node.cellHeight, node.lineWidth) : `${node.width} × ${node.height}`}</td><td>{node.type === 'grid' ? node.lineColor : node.type === 'rect' ? node.fill : node.color}</td></tr>)}</tbody></table></div>

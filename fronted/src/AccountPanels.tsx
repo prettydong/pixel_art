@@ -2,6 +2,7 @@ import { localizeMessage, getLanguage, t } from './i18n';
 import { useEffect, useState } from 'react';
 import type { ListResponse, ModelOption, UsageResponse, User } from '@pixel/contracts';
 import { api, errorText } from './api';
+import { StatTile } from './StatTile';
 
 export function AccountPanel({ user }: { user: User }) {
   const [error, setError] = useState('');
@@ -98,11 +99,15 @@ export function UsagePanel({ user, models }: { user: User; models: ModelOption[]
     </div>
     <button className="action-button" onClick={() => setRevision(value => value + 1)} disabled={loading}>{t("刷新用量")}</button>
     {loading && <p role="status">{t("读取用量…")}</p>}{error && <p role="alert" className="error-text">{localizeMessage(error)}</p>}
-    {result && <><div className="usage-summary">
-      <span>{t("运行") + " "}{count(result.summary.runs)}</span><span>{t("模型输入") + " "}{count(result.summary.inputTokens)}</span><span>{t("模型输出") + " "}{count(result.summary.outputTokens)}</span>
-      <span>{t("缓存读") + " "}{count(result.summary.cacheReadTokens)}</span><span>{t("缓存写") + " "}{count(result.summary.cacheWriteTokens)}</span><span>{t("工具调用") + " "}{count(result.summary.toolCalls)}</span>
-      <span>{t("已知估算费用 $")}{result.summary.estimatedCost.toFixed(6)}</span><span>{t("含未知字段记录") + " "}{count(result.summary.unknownRecords)}</span>
-    </div><p className="muted-text">{t("统计仅累加已知值；费用按管理员确认的单价估算，单位为美元，并非实际扣费。未确认价格或缺少用量时显示未知。")}</p>
+    {result && <><div className="stat-tiles usage-summary">
+      <StatTile label={t("运行")} value={count(result.summary.runs)} />
+      <StatTile label={t("模型输入")} value={count(result.summary.inputTokens)} detail="token" />
+      <StatTile label={t("模型输出")} value={count(result.summary.outputTokens)} detail="token" />
+      <StatTile label={t("估算费用（美元）")} value={`$${result.summary.estimatedCost.toFixed(6)}`} detail={t("仅含已知单价")} />
+      <StatTile label={t("缓存 读 / 写")} value={`${count(result.summary.cacheReadTokens)} / ${count(result.summary.cacheWriteTokens)}`} />
+      <StatTile label={t("工具调用")} value={count(result.summary.toolCalls)} />
+      <StatTile label={t("含未知字段记录")} value={count(result.summary.unknownRecords)} highlight={!!result.summary.unknownRecords} />
+    </div><p className="data-limit">{t("统计仅累加已知值；费用按管理员确认的单价估算，单位为美元，并非实际扣费。未确认价格或缺少用量时显示未知。")}</p>
       <div className="usage-table-wrap"><table className="usage-table"><thead><tr><th>{t("时间 / 用户")}</th><th>{t("模型 / 来源")}</th><th>{t("类型 / 状态")}</th><th>{t("Token 输入 / 输出")}</th><th>{t("缓存 读 / 写")}</th><th>{t("估算费用 / 耗时")}</th></tr></thead><tbody>{result.records.map(record => <tr key={record.id}>
         <td>{time(record.createdAt)}<small>{record.username}</small></td>
         <td>{record.modelId}<small>{t("实际调用：")}{record.actualProvider ?? t("未知提供方")} / {record.actualModel ?? t("未知模型")}</small><details><summary>{t("标识")}</summary><p>{t("来源：")}{record.sourceId}</p><p>{t("会话：")}{record.conversationId}</p><p>{t("运行：")}{record.runId}</p></details></td>

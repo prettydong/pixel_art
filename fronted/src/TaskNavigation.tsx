@@ -2,14 +2,15 @@ import { localizeMessage, t } from './i18n';
 import { useEffect, useState } from 'react';
 import { isActiveRun, type EvaluationTask, type Run } from '@pixel/contracts';
 import type { Conversation } from './chatTypes';
-import { BarChart, ChevronDown, ChevronRight, Chip, Ellipsis, Folder, MessageSquare, Plus, Repair, Trash2 } from './PixelIcons';
+import { BarChart, ChevronDown, ChevronRight, Chip, Ellipsis, Folder, MessageSquare, Plus, Repair } from './PixelIcons';
 import { errorText } from './api';
+import { DeleteChatButton } from './DeleteChatButton';
 
 export type TaskView = 'chat' | 'architecture' | 'data' | 'repair' | 'conclusions';
 export const taskViewLabels = { get chat() { return t("聊天"); }, get architecture() { return t("架构"); }, get data() { return t("数据"); }, get repair() { return t("任务求解"); }, get conclusions() { return t("执行结论"); } };
 type Props = {
   tasks: EvaluationTask[]; conversations: Conversation[]; runs: Record<string, Run>;
-  activeTaskId: string; activeChatId: string; view: TaskView; disabled: boolean;
+  activeTaskId: string; activeChatId: string; view: TaskView; disabled: boolean; loading: boolean;
   onView: (taskId: string, view: TaskView) => void;
   onChat: (id: string) => void; onCreateChat: (taskId: string) => Promise<void>;
   onCreateTask: (name: string) => Promise<void>; onRenameTask: (id: string, name: string) => Promise<void>;
@@ -61,7 +62,7 @@ export function TaskNavigation(props: Props) {
         return <section className={`task-group ${props.activeTaskId === task.id ? 'current-task' : ''}`} key={task.id}>
           <div className="task-heading">
             <button className="task-name" aria-expanded={open} title={task.name} onClick={() => setExpanded(prev => { const next = new Set(prev); if (next.has(task.id)) next.delete(task.id); else next.add(task.id); return next; })}>
-              {open ? <ChevronDown /> : <ChevronRight />}<span>{task.name}</span>
+              {open ? <ChevronDown /> : <ChevronRight />}<span>{task.name}</span>{taskBusy && <RunBadge />}
             </button>
             <button data-task-actions id={`task-actions-toggle-${task.id}`} className="icon-button" aria-label={t("任务操作：{0}", task.name)} title={t("任务操作")} aria-expanded={actionTask === task.id} aria-controls={`task-actions-${task.id}`} disabled={disabled} onClick={() => setActionTask(previous => previous === task.id ? null : task.id)}><Ellipsis /></button>
           </div>
@@ -87,8 +88,8 @@ export function TaskNavigation(props: Props) {
             {([{ view: 'architecture', icon: Chip }, { view: 'data', icon: Folder }, { view: 'repair', icon: Repair }, { view: 'conclusions', icon: BarChart }] as const).map(item => <button
               key={item.view} className={`task-resource ${props.activeTaskId === task.id && props.view === item.view ? 'selected' : ''}`}
               aria-current={props.activeTaskId === task.id && props.view === item.view ? 'page' : undefined}
-              disabled={props.disabled || (item.view === 'conclusions' && !task.artifactCount)}
-              title={item.view === 'conclusions' && !task.artifactCount ? t("暂无执行产物") : taskViewLabels[item.view]}
+              disabled={props.disabled}
+              title={taskViewLabels[item.view]}
               onClick={() => props.onView(task.id, item.view)}><item.icon /><span>{taskViewLabels[item.view]}</span>
             </button>)}
             <div className="task-chat-heading"><span>{t("聊天")}</span><button className="icon-button" disabled={disabled} aria-label={t("在 {0} 中新建聊天", task.name)} onClick={async () => {
@@ -96,16 +97,20 @@ export function TaskNavigation(props: Props) {
             }}><Plus /></button></div>
             {chats.map(chat => <div className={`history-item ${props.view === 'chat' && props.activeChatId === chat.id ? 'selected' : ''}`} key={chat.id}>
               <button disabled={props.disabled} title={chat.title} aria-current={props.view === 'chat' && props.activeChatId === chat.id ? 'page' : undefined} onClick={() => props.onChat(chat.id)}>
-                <MessageSquare /><span>{chat.title}{(chat.activeRun || (props.runs[chat.id] && isActiveRun(props.runs[chat.id].status))) ? t(" · 运行中") : ''}</span>
+                <MessageSquare /><span>{chat.title}</span>{isActiveRun((props.runs[chat.id] ?? chat.activeRun)?.status ?? 'completed') && <RunBadge />}
               </button>
-              <button className="delete-chat" disabled={disabled} aria-label={t("删除对话：{0}", chat.title)} onClick={() => props.onDeleteChat(chat.id)}><Trash2 /></button>
+              <DeleteChatButton title={chat.title} disabled={disabled} onDelete={() => void props.onDeleteChat(chat.id)} />
             </div>)}
             {!chats.length && <p className="history-empty">{t("暂无聊天")}</p>}
           </div>}
         </section>;
       })}
-      {!props.tasks.length && <p className="history-empty">{t("暂无任务")}</p>}
+      {!props.tasks.length && <p className="history-empty" role={props.loading ? 'status' : undefined}>{props.loading ? t("正在读取任务…") : t("暂无任务")}</p>}
       {error && editing === null && deletingTask === null && <p role="alert" className="error-text">{localizeMessage(error)}</p>}
     </nav>
   </>;
+}
+
+export function RunBadge() {
+  return <span className="run-badge" role="img" aria-label={t("运行中")} title={t("运行中")} />;
 }

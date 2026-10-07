@@ -1,10 +1,11 @@
 import { localizeMessage, getLanguage, t } from './i18n';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ArchitecturePreview } from '@pixel/contracts';
 import type * as Pixi from 'pixi.js';
 import { fileUrl } from './api';
 import { getPixelDensity, getPixelUnit } from './pixelGrid';
 import { declutterArchitectureLabels } from './architectureLabels';
+import { DrawingAssumptions } from './DrawingAssumptions';
 
 // Logical coordinates: x = column, y = row. One world unit is one real cell.
 export type DrawView = { x: number; y: number; width: number; height: number; scale: number; gridStep: number; viewportWidth: number; viewportHeight: number };
@@ -18,7 +19,7 @@ export type DrawContext = {
 };
 type Controls = { zoom: (factor: number) => void; fit: () => void; cell: () => void; go: (row: number, col: number) => void };
 
-export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
+export function PixiDrawPreview({ preview, heading }: { preview: ArchitecturePreview; heading?: ReactNode }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const controls = useRef<Controls | null>(null);
   const [error, setError] = useState('');
@@ -195,7 +196,7 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
     return () => { cancelled = true; cleanup?.(); canvas.remove(); };
   }, [preview, visible, scene, drawing, transposed, axesKey]);
   return <div className="architecture-preview">
-    <div className="panel-actions"><strong>{drawing.grid.rows} row × {drawing.grid.cols} col</strong><span>{(drawing.grid.rows * drawing.grid.cols).toLocaleString(getLanguage())} {" " + t("个单元")}</span><span>{axes}</span></div>
+    <div className="panel-actions">{heading}<span><span className="stat-value">{drawing.grid.rows} row × {drawing.grid.cols} col</span> · {(drawing.grid.rows * drawing.grid.cols).toLocaleString(getLanguage())} {t("个单元")} · <span className="muted-text">{axes}</span></span></div>
     <div className="panel-actions draw-controls">
       <button className="action-button" disabled={!ready} onClick={() => controls.current?.fit()}>{t("全图")}</button>
       <button className="action-button" disabled={!ready} aria-label={t("缩小架构")} onClick={() => controls.current?.zoom(0.5)}>{t("缩小")}</button>
@@ -215,9 +216,10 @@ export function PixiDrawPreview({ preview }: { preview: ArchitecturePreview }) {
       <summary>{t("收起标注（")}{omittedLabels.length}{t("）")}</summary>
       <ul>{omittedLabels.map(value => <li key={value}>{value}</li>)}</ul>
     </details>}
-    <p className="task-note">{scene.description}</p>
-    {scene.assumptions.length > 0 && <ul>{scene.assumptions.map((item, i) => <li key={i}>{item}</li>)}</ul>}
-    <details className="drawing-record"><summary>{t("绘图记录 · draw 函数 ·") + " "}{drawing.grid.rows} × {drawing.grid.cols}</summary>
+    {/* The agent's narrative repeats its assumptions; keep it with the technical details when assumptions exist. */}
+    {scene.assumptions.length > 0 ? <DrawingAssumptions items={scene.assumptions} /> : <p className="task-note">{scene.description}</p>}
+    <details className="drawing-record"><summary>{t("绘图细节（说明、指纹、配色、源码）")}</summary>
+      {scene.assumptions.length > 0 && <p className="task-note">{scene.description}</p>}
       <p>{t("架构指纹：")}<code>{scene.fingerprint}</code></p>
       <p>{t("draw SHA256：")}<code>{preview.draw?.sha256}</code></p>
       <div className="drawing-table"><table><thead><tr><th>{t("区域 / 分割线")}</th><th>{t("尺寸与位置（Agent 记录）")}</th><th>{t("颜色角色")}</th></tr></thead><tbody>{drawing.records.map((record, i) => <tr key={i}><td>{record.label}</td><td>{record.geometry}</td><td>{record.color}</td></tr>)}</tbody></table></div>

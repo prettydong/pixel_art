@@ -54,3 +54,13 @@
 .wafer-generation-record { color: var(--muted); }
 .wafer-generation-record p { margin-top: 4rem; }
 @media (max-width: 640px) { .wafer-product-form label, .wafer-product-form label:first-child input, .wafer-product-form input, .wafer-selector label, .wafer-selector select { width: 100%; max-width: none; } }
+.wafer-region-heading { display: flex; flex-wrap: wrap; gap: 4rem 8rem; margin: 0; color: var(--data-accent); }
+.wafer-region-heading > span { color: var(--muted); }
+.wafer-overview figcaption { display: flex; flex-wrap: wrap; gap: 4rem 12rem; }
+.wafer-overview-legend, .wafer-overview-legend > span { display: flex; align-items: center; gap: 4rem; }
+.wafer-overview-legend { gap: 4rem 12rem; flex-wrap: wrap; }
+.wafer-overview-legend i { display: inline-block; width: 8rem; height: 8rem; outline: 1rem solid var(--line); }
+.wafer-key-fail { background: var(--data-accent); }
+.wafer-key-empty { background: var(--data-surface); }
+.wafer-positions summary { cursor: pointer; color: var(--muted); }
+.wafer-positions:not([open]) { min-height: 0; padding: 4rem 8rem; }

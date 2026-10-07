@@ -3,26 +3,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DecodedWafer } from '@pixel/contracts/wafer-data';
 import { createWaferMap, MAX_MAP_CHIPS } from '@pixel/contracts/wafer-spatial';
 import { getPixelUnit } from './pixelGrid';
+import type { ChipFailStats } from './waferStats';
 
-type Props = { decoded: DecodedWafer; selected: number; onSelect: (chip: number) => void };
+type Props = { decoded: DecodedWafer; stats: ChipFailStats; selected: number; onSelect: (chip: number) => void };
 type Band = { low: number; high: number; color: number };
-export function WaferHeatmap({ decoded, selected, onSelect }: Props) {
+export function WaferHeatmap({ decoded, stats: statistics, selected, onSelect }: Props) {
   const [scale, setScale] = useState<'linear' | 'log'>('log');
   const [hovered, setHovered] = useState<number | null>(null);
   const [available, setAvailable] = useState(280);
   const container = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
-  const counts = useMemo(() => {
-    const values = new Uint32Array(decoded.layout.chipCount);
-    for (const group of decoded.groups) values[Math.floor(group.regionIndex / decoded.layout.regionCount)] += group.positions.length;
-    return values;
-  }, [decoded]);
+  const counts = statistics.counts;
   const geometry = useMemo(() => decoded.layout.chipCount <= MAX_MAP_CHIPS ? createWaferMap(decoded.layout.chipCount) : null, [decoded.layout.chipCount]);
-  const statistics = useMemo(() => {
-    let total = 0; let zero = 0; let maximum = 0;
-    for (const value of counts) { total += value; zero += Number(value === 0); maximum = Math.max(maximum, value); }
-    return { total, zero, maximum };
-  }, [counts]);
   const bands = useMemo(() => {
     const result: Band[] = []; let previous = 0;
     for (let index = 1; index <= 5; index++) {
@@ -63,7 +55,6 @@ export function WaferHeatmap({ decoded, selected, onSelect }: Props) {
   }
   return <section className="wafer-heatmap" aria-label={t("整片 wafer 热力图")}>
     <div className="wafer-heatmap-heading"><h3>{t("Wafer 热力图（示意）")}</h3><label>{t("色阶")}<select value={scale} onChange={event => setScale(event.target.value as 'linear' | 'log')}><option value="log">{t("对数")}</option><option value="linear">{t("线性")}</option></select></label><span>fail / chip</span></div>
-    <div className="wafer-summary"><span>{t("总 fail") + " "}{statistics.total.toLocaleString(getLanguage())}</span><span>{t("零 fail chip") + " "}{statistics.zero.toLocaleString(getLanguage())} / {counts.length.toLocaleString(getLanguage())}</span><span>{t("最大") + " "}{statistics.maximum.toLocaleString(getLanguage())} fail / chip</span></div>
     <div className="wafer-map-layout">
       <div ref={container} className="wafer-disk-scroll">{geometry ? <svg ref={svg} width={`${geometry.width * pitch}rem`} height={`${geometry.height * pitch}rem`} viewBox={`0 0 ${geometry.width * pitch} ${geometry.height * pitch}`} role="group" aria-label={t("圆盘内 chip 网格，点击或用方向键选择 chip")} shapeRendering="crispEdges">
         {geometry.cells.map(item => {

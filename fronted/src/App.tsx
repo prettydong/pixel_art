@@ -14,18 +14,21 @@ import { groupReplyMessages, type ReplyMessage } from "./replyMessages";
 import { api, errorText, fileUrl, RequestError, requestId } from "./api";
 import { AuthGate } from "./AuthGate";
 import { AccountPanel, UsersPanel, UsagePanel } from "./AccountPanels";
-import { TaskNavigation, taskViewLabels, type TaskView } from "./TaskNavigation";
+import { RunBadge, TaskNavigation, taskViewLabels, type TaskView } from "./TaskNavigation";
+import { DeleteChatButton } from "./DeleteChatButton";
 import { TaskPanel } from "./TaskPanel";
 import { findArchitectureDrawing } from "./ArchitectureDrawingProgress";
 import { useTasks } from "./useTasks";
 import { useWorkspace } from "./useWorkspace";
 import { useTheme } from "./theme";
+import { useAutoConclusions } from './solverPreferences';
 import { EvaluationDiagram } from "./EvaluationDiagram";
 import { PixelTransition } from "./PixelTransition";
 import { getPixelUnit } from "./pixelGrid";
 import { SidebarResizeHandle } from './SidebarResizeHandle';
 import type { ShatterRequest } from "./pixelShatter";
 import {
+  Alert,
   ArrowRight,
   ArrowUp,
   BarChart,
@@ -45,7 +48,6 @@ import {
   Search,
   Settings2,
   Square,
-  Trash2,
   X,
 } from "./PixelIcons";
 
@@ -92,6 +94,7 @@ export default function App() {
 function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean }) {
 
   const [theme, setTheme] = useTheme();
+  const [autoConclusions, setAutoConclusions] = useAutoConclusions();
   const server = useWorkspace(!demoMode);
   const demo = useDemoWorkspace(demoMode);
   const { models, loading, error, setError, runs, connections, refresh, attach, forget, upsert } = server;
@@ -115,7 +118,10 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   const [modeOpen, setModeOpen] = useState(false);
   const [modePending, setModePending] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
-  const [model, setModel] = useState("");
+  const [model, setModelState] = useState(() => {
+    try { return localStorage.getItem("pixel-chat-model") ?? ""; }
+    catch { return ""; }
+  });
   const [dialog, setDialog] = useState<"search" | "settings" | null>(null);
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -133,7 +139,9 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   const cardViewportRef = useRef<HTMLDivElement>(null);
   const cardGridRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [toast, setToast] = useState("");
+  const [toast, setToastState] = useState<{ text: string; error: boolean } | null>(null);
+  const setToast = (text: string) => setToastState(text ? { text, error: false } : null);
+  const showError = (text: string) => setToastState(text ? { text, error: true } : null);
   const [copied, setCopied] = useState("");
   const [motion, setMotion] = useState(
     () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
@@ -158,7 +166,11 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     visibleMessages.push({ id: `${currentRun.id}:reply`, runId: currentRun.id, role: 'assistant', text: '', files: [], createdAt: currentRun.createdAt });
   }
   const submitting = pending.has(active.id);
-  const showCards = !active.messages.length && enteredId !== active.id;
+  // Without a conversation (still loading, or no task exists) there is nothing to type into.
+  const noConversation = !demoMode && !active.id;
+  const showCards = !noConversation && !active.messages.length && enteredId !== active.id;
+  // An entered, empty conversation gives the remaining height to the draft.
+  const fillComposer = !showCards && !visibleMessages.length;
   useLayoutEffect(() => {
     const grid = cardGridRef.current;
     if (!grid) return;
@@ -220,8 +232,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     return () => window.clearTimeout(deadline);
   }, [transition, motion, active.id]);
   useEffect(() => { if (!demoMode && visibleRun && isActiveRun(visibleRun.status)) attach(visibleRun); }, [taskView, activeTaskId, visibleRun?.id, visibleRun?.status, attach, demoMode]);
-  useEffect(() => { if (!model && models.length) setModel(models[0].id); }, [models, model]);
-  useEffect(() => { if (error) setToast(error); }, [error]);
+  // A remembered model that the administrator removed falls back to the first available one.
+  useEffect(() => { if (!loading && !models.some(item => item.id === model)) setModelState(models[0]?.id ?? ""); }, [models, model, loading]);
   useEffect(() => {
     if (dialog !== 'search') return;
     if (demoMode) {
@@ -230,7 +242,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     }
     let alive = true; setSearching(true);
     const timer = setTimeout(() => {
-      api<ListResponse<Conversation>>(`/conversations?q=${encodeURIComponent(query)}`).then(result => { if (alive) setSearchResults(result.items); }).catch(err => { if (alive) setToast(errorText(err)); }).finally(() => { if (alive) setSearching(false); });
+      api<ListResponse<Conversation>>(`/conversations?q=${encodeURIComponent(query)}`).then(result => { if (alive) setSearchResults(result.items); }).catch(err => { if (alive) showError(errorText(err)); }).finally(() => { if (alive) setSearching(false); });
     }, 200);
     return () => { alive = false; clearTimeout(timer); };
   }, [query, dialog, demoMode, demo.conversations]);
@@ -240,11 +252,11 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     if (element && followMessages.current) element.scrollTop = element.scrollHeight;
   }, [active.id, active.messages, busy, taskView]);
   useEffect(() => {
-    if (demoMode && demo.storageError) setToast(demo.storageError);
+    if (demoMode && demo.storageError) showError(demo.storageError);
   }, [demoMode, demo.storageError]);
   useEffect(() => {
     if (!toast) return;
-    const id = setTimeout(() => setToast(""), 3500);
+    const id = setTimeout(() => setToastState(null), toast.error ? 7000 : 3500);
     return () => clearTimeout(id);
   }, [toast]);
   useEffect(() => {
@@ -276,6 +288,10 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     return () => window.removeEventListener("keydown", keydown);
   }, [compact]);
 
+  function chooseModel(id: string) {
+    setModelState(id); setModelOpen(false);
+    try { localStorage.setItem("pixel-chat-model", id); } catch { /* The selection still applies to this session. */ }
+  }
   function toggleSidebar() {
     if (compact) setMobileOpen((open) => !open);
     else setSidebarCollapsed((collapsed) => !collapsed);
@@ -297,7 +313,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       upsert(next); setActiveId(next.id); setEnteredId(null);
       const saved = drafts.current.get(next.id); setDraft(saved?.text || ''); setFiles(saved?.files || []);
       setMobileOpen(false); inputRef.current?.focus();
-    } catch (err) { setToast(errorText(err)); }
+    } catch (err) { showError(errorText(err)); }
   }
   async function createEvaluationTask(name: string) {
     const task = await api<EvaluationTask>('/tasks', { method: 'POST', body: JSON.stringify({ name }) });
@@ -352,7 +368,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     if (demoMode) { demo.update(active.id, { mode }); return; }
     setModePending(true);
     try { upsert(await api<Conversation>(`/conversations/${active.id}`, { method: 'PATCH', body: JSON.stringify({ mode }) })); }
-    catch (err) { setToast(errorText(err)); } finally { setModePending(false); }
+    catch (err) { showError(errorText(err)); } finally { setModePending(false); }
   }
   function selectChat(id: string) {
     if (uploading) { setToast(t("请等待附件上传完成")); return; }
@@ -362,13 +378,13 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     const saved = drafts.current.get(id); setDraft(saved?.text || ''); setFiles(saved?.files || []);
     setDialog(null); setMobileOpen(false); setRenaming(false);
     // A server search may return a conversation created in another tab.
-    if (!demoMode) void refresh(id).then(c => { if (c.activeRun || c.lastRun) attach((c.activeRun || c.lastRun)!); }).catch(err => setToast(errorText(err)));
+    if (!demoMode) void refresh(id).then(c => { if (c.activeRun || c.lastRun) attach((c.activeRun || c.lastRun)!); }).catch(err => showError(errorText(err)));
   }
   async function stopReply() {
     if (demoMode) { demo.stop(active.id); return; }
     if (!currentRun || currentRun.status === 'cancelling') return;
     try { await api<Run>(`/runs/${currentRun.id}/cancel`, { method: 'POST', body: '{}' }); }
-    catch (err) { setToast(errorText(err)); }
+    catch (err) { showError(errorText(err)); }
   }
   async function deleteChat(id: string) {
     if (demoMode) {
@@ -386,7 +402,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       }
       await taskState.refresh();
       setToast(t("对话已删除"));
-    } catch (err) { setToast(errorText(err)); }
+    } catch (err) { showError(errorText(err)); }
   }
   async function send() {
     const text = draft.trim();
@@ -408,20 +424,20 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     try {
       const run = await api<Run>(`/conversations/${id}/runs`, { method: 'POST', body: JSON.stringify(request) });
       // Keep the authoritative user message and a complete snapshot before replay.
-      await refresh(id).catch(err => setToast(errorText(err)));
+      await refresh(id).catch(err => showError(errorText(err)));
       attach(run);
       pendingRequests.current.delete(id); drafts.current.delete(id);
       if (activeIdRef.current === id) { setDraft(''); setFiles([]); setEnteredId(id); }
     } catch (err) {
       if (err instanceof RequestError && err.status < 500) pendingRequests.current.delete(id);
       if (err instanceof RequestError && err.status === 409) void refresh(id).then(c => { if (c.activeRun || c.lastRun) attach((c.activeRun || c.lastRun)!); }).catch(() => {});
-      setToast(errorText(err));
+      showError(errorText(err));
       // Retain an uncertain submission's key so retry cannot execute it twice.
     } finally { setPending(prev => { const next = new Set(prev); next.delete(id); return next; }); }
   }
   async function upload(selected: File[]) {
     if (!active.id || uploading) return;
-    if (files.length + selected.length > 20) { setToast(t("每次提交最多附带 20 个文件")); return; }
+    if (files.length + selected.length > 20) { showError(t("每次提交最多附带 20 个文件")); return; }
     if (demoMode) {
       setFiles(prev => [...prev, ...selected.map(file => ({ id: requestId(), conversationId: active.id, name: file.name, size: file.size, kind: 'upload' as const, createdAt: Date.now() }))]);
       setToast(t("演示附件仅记录名称，未上传或解析内容")); return;
@@ -433,7 +449,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
         const uploaded = await api<FileRecord>(`/conversations/${active.id}/files`, { method: 'POST', body: form });
         setFiles(prev => [...prev, uploaded]);
       }
-    } catch (err) { setToast(errorText(err)); } finally { setUploading(false); void taskState.refresh(); }
+    } catch (err) { showError(errorText(err)); } finally { setUploading(false); void taskState.refresh(); }
   }
   function prompt(mode: Mode, value: string) {
     updateMode(mode);
@@ -465,7 +481,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       setCopied(message.id);
       setTimeout(() => setCopied(""), 1800);
     } catch {
-      setToast(t("无法访问剪贴板，请手动选择文字复制"));
+      showError(t("无法访问剪贴板，请手动选择文字复制"));
     }
   }
   function exportChat() {
@@ -497,21 +513,14 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
         {!compact && !sidebarCollapsed && <SidebarResizeHandle disabled={!!transition} />}
         <div className="sidebar-content" inert={!!transition}>
         <div className="sidebar-header">
-          <a
-            className="brand"
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              createChat();
-            }}
-          >
+          <div className="brand">
             <span className="brand-icon">
               <MessageSquare />
             </span>
             <span>
               PIXEL<span className="brand-light">CHAT</span>
             </span>
-          </a>
+          </div>
           <button className="icon-button" aria-label={t("收起侧边栏")} title={t("收起侧边栏（Ctrl / Cmd + B）")} onClick={() => {
             toggleSidebar();
             sidebarToggleRef.current?.focus();
@@ -522,7 +531,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
         {!demoMode ? <>
           <button className="search-trigger" onClick={() => setDialog('search')}><Search /><span>{t("搜索任务和聊天")}</span></button>
           <TaskNavigation tasks={taskState.tasks} conversations={conversations} runs={runs} activeTaskId={activeTaskId} activeChatId={active.id} view={taskView}
-            disabled={loading || uploading || pending.size > 0 || !!transition}
+            loading={loading || taskState.loading} disabled={loading || uploading || pending.size > 0 || !!transition}
             onView={openTask} onChat={selectChat} onCreateChat={createChat} onCreateTask={createEvaluationTask} onRenameTask={renameEvaluationTask} onDeleteTask={deleteEvaluationTask} onDeleteChat={deleteChat} />
           {taskState.error && <div className="workspace-error" role="alert">{localizeMessage(taskState.error)}<button onClick={() => void taskState.refresh()}>{t("重试")}</button></div>}
         </> : <>
@@ -553,16 +562,14 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               >
                 <button onClick={() => selectChat(c.id)}>
                   <MessageSquare />
-<span>{c.title}{(c.activeRun || (runs[c.id] && isActiveRun(runs[c.id].status))) ? t(" · 运行中") : ""}</span>
+                  <span>{c.title}</span>
+                  {demo.busyIds.has(c.id) && <RunBadge />}
                 </button>
-                <button
-                  className="delete-chat"
+                <DeleteChatButton
+                  title={c.title}
                   disabled={pending.has(c.id) || (uploading && c.id === active.id)}
-                  aria-label={t("删除对话：{0}", c.title)}
-                  onClick={() => deleteChat(c.id)}
-                >
-                  <Trash2 />
-                </button>
+                  onDelete={() => void deleteChat(c.id)}
+                />
               </div>
             ))
           ) : (
@@ -595,10 +602,10 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               {sidebarVisible ? <PanelLeftClose /> : <Menu />}
             </button>
             {!demoMode && <span className="task-breadcrumb" title={activeTask?.name}>{activeTask?.name}</span>}
-            {taskView === 'chat' ? <button className="current-title" title={t("重命名或移动聊天")} onClick={() => { setRenameTitle(active.title); setMoveTaskId(active.taskId || ''); setRenaming(true); }}>{active.messages.length ? active.title : showCards ? t("内存冗余架构评估") : t(active.mode)}</button> : <span>{taskViewLabels[taskView]}</span>}
+            {taskView === 'chat' ? (noConversation ? <span>{t("内存冗余架构评估")}</span> : <button className="current-title" title={t("重命名或移动聊天")} onClick={() => { setRenameTitle(active.title); setMoveTaskId(active.taskId || ''); setRenaming(true); }}>{active.title}</button>) : <span>{taskViewLabels[taskView]}</span>}
           </div>
           <div className="topbar-right">
-            {taskView === 'chat' && !showCards && !active.messages.length && (
+            {taskView === 'chat' && !noConversation && !showCards && !active.messages.length && (
               <button className="return-directions" disabled={!!transition} onClick={() => setEnteredId(null)}>{t("选择方向")}</button>
             )}
             <button
@@ -627,12 +634,12 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             {taskView === 'chat' && renaming && <form className="rename-form account-form" onSubmit={async e => {
               e.preventDefault();
               if (demoMode) { demo.update(active.id, { title: renameTitle.trim() }); setRenaming(false); return; }
-              try { upsert(await api<Conversation>(`/conversations/${active.id}`, { method: 'PATCH', body: JSON.stringify({ title: renameTitle.trim(), taskId: moveTaskId || undefined }) })); if (moveTaskId) setSelectedTaskId(moveTaskId); setRenaming(false); void taskState.refresh(); } catch (err) { setToast(errorText(err)); }
+              try { upsert(await api<Conversation>(`/conversations/${active.id}`, { method: 'PATCH', body: JSON.stringify({ title: renameTitle.trim(), taskId: moveTaskId || undefined }) })); if (moveTaskId) setSelectedTaskId(moveTaskId); setRenaming(false); void taskState.refresh(); } catch (err) { showError(errorText(err)); }
             }}><input aria-label={t("对话标题")} value={renameTitle} onChange={e => setRenameTitle(e.target.value)} autoFocus required maxLength={120} />{!demoMode && <select aria-label={t("所属任务")} value={moveTaskId} disabled={busy || submitting} onChange={event => setMoveTaskId(event.target.value)}>{taskState.tasks.map(task => <option key={task.id} value={task.id}>{task.name}</option>)}</select>}<button className="action-button" disabled={!renameTitle.trim() || submitting}>{t("保存")}</button><button type="button" className="action-button" onClick={() => setRenaming(false)}>{t("取消")}</button></form>}
             {error && <div className="workspace-error" role="alert">{localizeMessage(error)}<button onClick={() => window.location.reload()}>{t("重新连接")}</button><button onClick={() => setError('')}>{t("关闭")}</button></div>}
             {loading && <p role="status">{t("正在读取会话…")}</p>}
 
-            {!demoMode && taskView !== 'chat' ? (activeTaskId ? <TaskPanel key={activeTaskId} taskId={activeTaskId} view={taskView} revision={taskState.revision} conversations={conversations} connections={connections} models={models} modelId={model} onRefresh={taskState.refresh} onChat={selectChat} onRepairChat={async id => { try { await refresh(id); selectChat(id); } catch (err) { setToast(errorText(err)); } }} onCreateChat={createChat} onGeneratePreview={generateArchitecturePreview} previewAvailable={!!model && !loading && !uploading} /> : <p>{t("请先新建任务。")}</p>) : <>
+            {!demoMode && taskView !== 'chat' ? (activeTaskId ? <TaskPanel key={activeTaskId} taskId={activeTaskId} view={taskView} revision={taskState.revision} conversations={conversations} connections={connections} models={models} modelId={model} onRefresh={taskState.refresh} onChat={selectChat} onRepairChat={async id => { try { await refresh(id); selectChat(id); } catch (err) { showError(errorText(err)); } }} onCreateChat={createChat} onGeneratePreview={generateArchitecturePreview} previewAvailable={!!model && !loading && !uploading} /> : <p>{t("请先新建任务。")}</p>) : noConversation ? (!loading && <p className="task-empty">{t("请先新建任务。")}</p>) : <>
             {showCards ? (
               <div ref={cardViewportRef} className="card-stage">
                 <section className="welcome" aria-label={t("内存冗余架构评估工作台")}>
@@ -682,7 +689,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                   />
                 )}
               </div>
-            ) : (
+            ) : !fillComposer && (
               <section
                 className="messages"
                 ref={messagesRef}
@@ -748,7 +755,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               {(currentRun || submitting || uploading) && <div className="run-status" role="status">{uploading ? t("附件上传中") : submitting ? t("正在提交…") : `${statusLabel[currentRun!.status]}${busy && connections[active.id] ? ` · ${localizeMessage(connections[active.id])}` : ''}`}{currentRun?.error && <span className="error-text">{localizeMessage(currentRun.error)}</span>}</div>}
 
             </div>
-            <div className="composer-area">
+            <div className={`composer-area ${fillComposer ? "fill" : ""}`}>
               <div className="composer">
                 <textarea
                   ref={inputRef}
@@ -840,26 +847,24 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                           setModeOpen(false);
                         }}
                       >
-                        {demoMode ? t("本地工具演示") : models.find(item => item.id === model)?.label || t("尚未配置模型")}
+                        {demoMode ? t("本地工具演示") : models.find(item => item.id === model)?.label || (loading ? t("正在读取模型…") : t("尚未配置模型"))}
                         <ChevronDown />
                       </button>
                       {modelOpen && (
                         <div className="dropdown model-dropdown">
                           <small>{t("可用模型")}</small>
-                          {demoMode ? <a className="demo-mode-link" href={window.location.pathname}>{t("返回服务端工作台")}</a> : <a className="demo-mode-link" href="?demo=tools" target="_blank" rel="noopener noreferrer">{t("打开本地工具演示")}</a>}
-                          <a className="demo-mode-link" href="?demo=charts" target="_blank" rel="noopener noreferrer">{t("查看像素图表演示")}</a>
                           {models.map((m) => (
                             <button
                               key={m.id}
-                              onClick={() => {
-                                setModel(m.id);
-                                setModelOpen(false);
-                              }}
+                              onClick={() => chooseModel(m.id)}
                             >
                               {m.label}
                               {model === m.id && <Check />}
                             </button>
                           ))}
+                          <div className="dropdown-separator" />
+                          {demoMode ? <a className="demo-mode-link" href={window.location.pathname}>{t("返回服务端工作台")}</a> : <a className="demo-mode-link" href="?demo=tools" target="_blank" rel="noopener noreferrer">{t("打开本地工具演示")}</a>}
+                          <a className="demo-mode-link" href="?demo=charts" target="_blank" rel="noopener noreferrer">{t("查看像素图表演示")}</a>
                         </div>
                       )}
                     </div>
@@ -914,6 +919,9 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                   aria-label={t("搜索对话")}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing && !searching && searchResults[0]) selectChat(searchResults[0].id);
+                  }}
                 />
               </div>
               <div className="search-results">{searching && <p role="status">{t("搜索中…")}</p>}
@@ -943,13 +951,18 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
           ) : (
             <>
               <div className="panel-actions account-tabs" role="group" aria-label={t("设置页面")}>
-                {([['settings', t("外观")], ...(!demoMode ? [['account', t("账号")], ['usage', t("用量")]] : []), ...(user.role === 'admin' ? [['users', t("用户管理")]] : [])] as [typeof accountTab, string][]).map(([tab, label]) => <button key={tab} className="action-button" aria-pressed={accountTab === tab} onClick={() => setAccountTab(tab)}>{label}</button>)}
+                {([['settings', t("常规")], ...(!demoMode ? [['account', t("账号")], ['usage', t("用量")]] : []), ...(user.role === 'admin' ? [['users', t("用户管理")]] : [])] as [typeof accountTab, string][]).map(([tab, label]) => <button key={tab} className="action-button" aria-pressed={accountTab === tab} onClick={() => setAccountTab(tab)}>{label}</button>)}
               </div>
               {accountTab === 'account' && <AccountPanel user={user} />}
               {accountTab === 'users' && user.role === 'admin' && <UsersPanel user={user} />}
               {accountTab === 'usage' && <UsagePanel user={user} models={models} />}
               {accountTab === 'settings' && <>
               <div className="setting-row"><LanguageSelect /></div>
+              <div className="setting-row">
+                <div>{t("自动生成结论")}<small className="task-note"> · {t("用于之后启动的 Solver")}</small></div>
+                <button role="switch" aria-checked={autoConclusions} aria-label={t("自动生成结论")}
+                  className={`toggle ${autoConclusions ? 'on' : ''}`} onClick={() => setAutoConclusions(!autoConclusions)}><span /></button>
+              </div>
               <div className="setting-row theme-row">
                 <span>{t("外观")}</span>
                 <div className="theme-options" role="group" aria-label={t("外观模式")}>
@@ -991,9 +1004,12 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
         </div>
       </dialog>
       {toast && (
-        <div className="toast" role="status">
-          <Check />
-          {localizeMessage(toast)}
+        <div className={`toast ${toast.error ? "toast-error" : ""}`} role={toast.error ? "alert" : "status"}>
+          {toast.error ? <Alert /> : <Check />}
+          <span>{localizeMessage(toast.text)}</span>
+          <button className="icon-button" aria-label={t("关闭通知")} onClick={() => setToastState(null)}>
+            <X />
+          </button>
         </div>
       )}
     </div>

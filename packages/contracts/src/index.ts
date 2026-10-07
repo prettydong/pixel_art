@@ -60,7 +60,7 @@ export type ArchitecturePreview = { draw?: { source: string; file: FileRecord; s
 export type TaskArchitecture = { fingerprint: string; previews?: ArchitecturePreview[]; previewIssues?: string[]; id: string; name: string; description: string; sourceConversationId?: string; sourceFile?: FileRecord };
 export type TaskDetail = EvaluationTask & { architectures: TaskArchitecture[]; reports: { fileId: string; text: string }[]; files: FileRecord[] };
 
-const repairBatchCommon = { modelId: z.string().min(1).max(256), idempotencyKey: idSchema };
+const repairBatchCommon = { modelId: z.string().min(1).max(256), idempotencyKey: idSchema, autoConclusion: z.boolean().default(true) };
 export const repairBatchSchema = z.union([
   z.object({ pairs: z.array(z.object({ architectureId: idSchema, waferId: idSchema }).strict()).min(1).max(100), ...repairBatchCommon }).strict(),
   z.object({ architectureIds: z.array(idSchema).min(1).max(100), waferIds: z.array(idSchema).min(1).max(100), ...repairBatchCommon }).strict(),
@@ -79,9 +79,10 @@ export type RepairDataset = {
 };
 export type RepairJob = {
   id: string; taskId: string; batchId: string; architectureId: string; architectureName: string;
-  architectureFingerprint: string; waferId: string; waferName: string; productName: string; synthetic: boolean;
+  architectureFingerprint: string; inputHash?: string; waferId: string; waferName: string; productName: string; synthetic: boolean;
   status: RepairJobStatus; modelId: string; conversationId: string | null; runId: string | null;
   createdAt: number; startedAt: number | null; finishedAt: number | null;
   processedRegions: number; totalRegions: number; error: string | null; summary: RepairSummary | null;
 };
-export type RepairPanelData = { datasets: RepairDataset[]; jobs: RepairJob[] };
+export type RepairConclusion = { batchId: string; updatedAt: number; jobs: RepairJob[] };
+export type RepairPanelData = { datasets: RepairDataset[]; jobs: RepairJob[]; conclusion?: RepairConclusion | null };
