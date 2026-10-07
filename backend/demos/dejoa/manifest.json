@@ -1,0 +1,63 @@
+{
+  "id": "dejoa-v1",
+  "product": {
+    "name": "DEJOA",
+    "chipCount": 200,
+    "regionCount": 16,
+    "rows": 32768,
+    "cols": 2048
+  },
+  "wafers": [
+    {
+      "name": "DEJOA-001",
+      "file": "DEJOA-001.pwafer",
+      "sha256": "0c89045965d557f86a9bf733f5e8e0e52b0bdc4fd49eacf38eaa3409c89b3370",
+      "bytes": 926388,
+      "failCount": 335688,
+      "occupiedRegionCount": 1380,
+      "generation": {
+        "pattern": "mixed",
+        "seed": 20260926,
+        "meanFails": 1600,
+        "strength": 12,
+        "dispersion": 4,
+        "model": "spatial-gamma-poisson-v2",
+        "geometry": "disk-grid-v1"
+      }
+    },
+    {
+      "name": "DEJOA-002",
+      "file": "DEJOA-002.pwafer",
+      "sha256": "dbb82f6607b524394d2534272d5725968e57520bc685d56c99ccf9c9b3212a4a",
+      "bytes": 731324,
+      "failCount": 295724,
+      "occupiedRegionCount": 716,
+      "generation": {
+        "pattern": "mixed",
+        "seed": 20260927,
+        "meanFails": 1600,
+        "strength": 12,
+        "dispersion": 4,
+        "model": "spatial-gamma-poisson-v2",
+        "geometry": "disk-grid-v1"
+      }
+    },
+    {
+      "name": "DEJOA-003",
+      "file": "DEJOA-003.pwafer",
+      "sha256": "6cca3f1b9c882299a875d8a3f7ce2f6fc4b78fa145ac6b33f2ba0843c97fa274",
+      "bytes": 834724,
+      "failCount": 299615,
+      "occupiedRegionCount": 1383,
+      "generation": {
+        "pattern": "mixed",
+        "seed": 20260928,
+        "meanFails": 1600,
+        "strength": 12,
+        "dispersion": 4,
+        "model": "spatial-gamma-poisson-v2",
+        "geometry": "disk-grid-v1"
+      }
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 // Application copy only. User content and protocol identifiers stay unchanged.
 export const english: Record<string, string> = {
+  "加载 DEJOA demo": "Load DEJOA demo",
+  "正在加载 DEJOA demo…": "Loading DEJOA demo…",
+  "DEJOA 演示已加载，9 个组合待手动运行。": "DEJOA demo loaded. 9 combinations ready for a manual run.",
+  "此演示任务已删除，请重新加载演示。": "This demo task was deleted. Load the demo again.",
   "图表分析": "Chart analysis",
   "柱状图": "Bar chart",
   "折线图": "Line chart",

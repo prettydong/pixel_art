@@ -25,8 +25,8 @@ const PROGRESS_WIDTH = 120;
 
 export function RepairPanel({ taskId, architectures, models, modelId, onChat }: Props) {
   const [data, setData] = useState<RepairPanelData>({ datasets: [], jobs: [] });
-  const [architectureIds, setArchitectureIds] = useState<Set<string>>(new Set());
-  const [waferIds, setWaferIds] = useState<Set<string>>(new Set());
+  const [architectureIds, setArchitectureIds] = useState<Set<string>>(() => new Set(readRepairDraft(taskId).items.map(item => item.architectureId)));
+  const [waferIds, setWaferIds] = useState<Set<string>>(() => new Set(readRepairDraft(taskId).items.map(item => item.waferId)));
   const [engine, setEngine] = useState(modelId);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);

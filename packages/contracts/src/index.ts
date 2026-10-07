@@ -59,6 +59,7 @@ export type EvaluationTask = { id: string; name: string; updated: number; artifa
 export type ArchitecturePreview = { draw?: { source: string; file: FileRecord; sha256: string }; scene: ArchitectureScene; file: FileRecord; recipe: FileRecord; createdAt: number; sceneHash: string; themeSnapshot: Record<string, { light: string; dark: string }> };
 export type TaskArchitecture = { fingerprint: string; previews?: ArchitecturePreview[]; previewIssues?: string[]; id: string; name: string; description: string; sourceConversationId?: string; sourceFile?: FileRecord };
 export type TaskDetail = EvaluationTask & { architectures: TaskArchitecture[]; reports: { fileId: string; text: string }[]; files: FileRecord[] };
+export type DemoTask = { task: EvaluationTask; architectures: TaskArchitecture[]; wafers: { id: string; name: string }[] };
 
 const repairBatchCommon = { modelId: z.string().min(1).max(256), idempotencyKey: idSchema, autoConclusion: z.boolean().default(true) };
 export const repairBatchSchema = z.union([

@@ -1,7 +1,8 @@
 import { localizeMessage, t, useLanguage } from './i18n';
 import { LanguageSelect } from './LanguageSelect';
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { modes, isActiveRun, type Mode, type User, type FileRecord, type Run, type CreateRunInput, type ListResponse, type EvaluationTask, type TaskArchitecture } from "@pixel/contracts";
+import { modes, isActiveRun, type Mode, type User, type FileRecord, type Run, type CreateRunInput, type ListResponse, type EvaluationTask, type TaskArchitecture, type DemoTask } from "@pixel/contracts";
+import { saveRepairDraft } from './repairDraft';
 import type { Message, Conversation } from "./chatTypes";
 import { messageMarkdown } from "./chatTools";
 import { useDemoWorkspace } from "./useDemoWorkspace";
@@ -109,6 +110,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   const [uploading, setUploading] = useState(false);
   const [pending, setPending] = useState<Set<string>>(() => new Set());
   const pendingRequests = useRef(new Map<string, CreateRunInput>());
+  const demoRequestKey = useRef<string | null>(null);
   const [accountTab, setAccountTab] = useState<"settings" | "account" | "usage" | "users">("settings");
   const [searchResults, setSearchResults] = useState<Conversation[]>([]);
   const [searching, setSearching] = useState(false);
@@ -321,6 +323,24 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     await taskState.refresh();
     await createChat(task.id);
   }
+  async function loadDejoaDemo() {
+    const key = demoRequestKey.current ?? requestId();
+    demoRequestKey.current = key;
+    try {
+      const demo = await api<DemoTask>('/demos/dejoa', { method: 'POST', body: JSON.stringify({ idempotencyKey: key }) });
+      saveRepairDraft(demo.task.id, { items: demo.architectures.flatMap(architecture => demo.wafers.map(wafer => ({
+        architectureId: architecture.id, architectureName: architecture.name, architectureFingerprint: architecture.fingerprint,
+        waferId: wafer.id, waferName: wafer.name,
+      }))), submission: null });
+      demoRequestKey.current = null;
+      rememberDraft(); setSelectedTaskId(demo.task.id); setTaskView('repair'); setMobileOpen(false);
+      await taskState.refresh();
+      setToast(t('DEJOA 演示已加载，9 个组合待手动运行。'));
+    } catch (error) {
+      if (error instanceof RequestError && error.status >= 400 && error.status < 500 && ![408, 429].includes(error.status)) demoRequestKey.current = null;
+      throw error;
+    }
+  }
   async function generateArchitecturePreview(architecture: TaskArchitecture) {
     if (!model || uploading || loading) return;
     const chat = await api<Conversation>('/conversations', { method: 'POST', body: JSON.stringify({ taskId: activeTaskId, title: t("架构预览 · {0}", architecture.name).slice(0, 120), mode: '产品架构设置' }) });
@@ -532,7 +552,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
           <button className="search-trigger" onClick={() => setDialog('search')}><Search /><span>{t("搜索任务和聊天")}</span></button>
           <TaskNavigation tasks={taskState.tasks} conversations={conversations} runs={runs} activeTaskId={activeTaskId} activeChatId={active.id} view={taskView}
             loading={loading || taskState.loading} disabled={loading || uploading || pending.size > 0 || !!transition}
-            onView={openTask} onChat={selectChat} onCreateChat={createChat} onCreateTask={createEvaluationTask} onRenameTask={renameEvaluationTask} onDeleteTask={deleteEvaluationTask} onDeleteChat={deleteChat} />
+            onView={openTask} onChat={selectChat} onCreateChat={createChat} onCreateTask={createEvaluationTask} onLoadDemo={loadDejoaDemo} onRenameTask={renameEvaluationTask} onDeleteTask={deleteEvaluationTask} onDeleteChat={deleteChat} />
           {taskState.error && <div className="workspace-error" role="alert">{localizeMessage(taskState.error)}<button onClick={() => void taskState.refresh()}>{t("重试")}</button></div>}
         </> : <>
         <button className="new-chat" onClick={() => createChat()}>

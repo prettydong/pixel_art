@@ -1,0 +1,100 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyperFirstAtBeginDocument{\AtBeginDocument}
+\HyperFirstAtBeginDocument{\ifx\hyper@anchor\@undefined
+\global\let\oldcontentsline\contentsline
+\gdef\contentsline#1#2#3#4{\oldcontentsline{#1}{#2}{#3}}
+\global\let\oldnewlabel\newlabel
+\gdef\newlabel#1#2{\newlabelxx{#1}#2}
+\gdef\newlabelxx#1#2#3#4#5#6{\oldnewlabel{#1}{{#2}{#3}}}
+\AtEndDocument{\ifx\hyper@anchor\@undefined
+\let\contentsline\oldcontentsline
+\let\newlabel\oldnewlabel
+\fi}
+\fi}
+\global\let\hyper@last\relax 
+\gdef\HyperFirstAtBeginDocument#1{#1}
+\providecommand*\HyPL@Entry[1]{}
+\citation{kuo1987}
+\citation{yao2023}
+\citation{jimenez2024}
+\citation{sse}
+\HyPL@Entry{0<</S/D>>}
+\@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {II}Task Model}{1}{section.2}\protected@file@percent }
+\newlabel{sec:problem}{{II}{1}{Task Model}{section.2}{}}
+\citation{stapper1986,bae2007}
+\citation{wu2015}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Harness components. A Solver job uses the run harness for code generation, then its own supervisor for compilation and solving.}}{2}{figure.1}\protected@file@percent }
+\newlabel{fig:arch}{{1}{2}{Harness components. A Solver job uses the run harness for code generation, then its own supervisor for compilation and solving}{figure.1}{}}
+\newlabel{eq:model}{{1}{2}{Task Model}{equation.2.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {III}Harness Overview}{2}{section.3}\protected@file@percent }
+\newlabel{sec:overview}{{III}{2}{Harness Overview}{section.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Process tree of one agent run. Standard I/O passes through the supervisor to the agent engine; the IPC channel carries task-tool traffic and signals backend death.}}{2}{figure.2}\protected@file@percent }
+\newlabel{fig:proc}{{2}{2}{Process tree of one agent run. Standard I/O passes through the supervisor to the agent engine; the IPC channel carries task-tool traffic and signals backend death}{figure.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Agent Run Harness}{2}{section.4}\protected@file@percent }
+\newlabel{sec:runs}{{IV}{2}{Agent Run Harness}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Process tree and channels}{2}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Scoped capabilities and context}{3}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Task tools across a process boundary}{3}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-D}}Run lifecycle, event log and recovery}{3}{subsection.4.4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces State machines of an agent run (top) and a Solver job (bottom). Shaded states are terminal. Dashed edges are taken on shutdown or restart, which interrupts any active state; a user can cancel any active job. A job whose program is already generated passes through \emph  {coding} at once.}}{3}{figure.3}\protected@file@percent }
+\newlabel{fig:states}{{3}{3}{State machines of an agent run (top) and a Solver job (bottom). Shaded states are terminal. Dashed edges are taken on shutdown or restart, which interrupts any active state; a user can cancel any active job. A job whose program is already generated passes through \emph {coding} at once}{figure.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {V}Automatic Solver Pipeline}{3}{section.5}\protected@file@percent }
+\newlabel{sec:pipeline}{{V}{3}{Automatic Solver Pipeline}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Batch admission}{3}{subsection.5.1}\protected@file@percent }
+\citation{pixi}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Durable single-worker queue}{4}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}The code-generation contract}{4}{subsection.5.3}\protected@file@percent }
+\newlabel{sec:contract}{{\mbox  {V-C}}{4}{The code-generation contract}{subsection.5.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-D}}Execution and acceptance}{4}{subsection.5.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Failure modes and harness responses}}{4}{table.1}\protected@file@percent }
+\newlabel{tab:failures}{{I}{4}{Failure modes and harness responses}{table.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-E}}Two further harnesses}{4}{subsection.5.5}\protected@file@percent }
+\citation{johnson1974}
+\citation{huangfu2018}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Sequence of one Solver job whose architecture has not been generated yet. Later jobs of the same architecture skip the coding part and start at \emph  {execute}. Solid arrows are calls, dashed arrows are responses or streamed events.}}{5}{figure.4}\protected@file@percent }
+\newlabel{fig:seq}{{4}{5}{Sequence of one Solver job whose architecture has not been generated yet. Later jobs of the same architecture skip the coding part and start at \emph {execute}. Solid arrows are calls, dashed arrows are responses or streamed events}{figure.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-F}}Automatic conclusions}{5}{subsection.5.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Solver Core}{5}{section.6}\protected@file@percent }
+\newlabel{sec:solver}{{VI}{5}{Solver Core}{section.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VII}The System in Operation}{5}{section.7}\protected@file@percent }
+\newlabel{sec:operation}{{VII}{5}{The System in Operation}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-A}}Setup}{5}{subsection.7.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces The DEJOA task in the running system (English UI, 1440$\times $900 viewport). The user defines architectures (a) and attaches wafers (b), then submits one batch. The harness generates, compiles, runs and verifies each job (c) and saves conclusions as jobs finish (d). Every job card links to its coding chat and to \texttt  {\relax \fontsize  {9}{10pt}\selectfont  dev.hpp}, \texttt  {\relax \fontsize  {9}{10pt}\selectfont  result.jsonl}, \texttt  {\relax \fontsize  {9}{10pt}\selectfont  manifest.json} and \texttt  {\relax \fontsize  {9}{10pt}\selectfont  compile.log}.}}{6}{figure.5}\protected@file@percent }
+\newlabel{fig:ui}{{5}{6}{The DEJOA task in the running system (English UI, 1440$\times $900 viewport). The user defines architectures (a) and attaches wafers (b), then submits one batch. The harness generates, compiles, runs and verifies each job (c) and saves conclusions as jobs finish (d). Every job card links to its coding chat and to \code {dev.hpp}, \code {result.jsonl}, \code {manifest.json} and \code {compile.log}}{figure.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Timeline of the nine-job batch, from job and run timestamps in the database and job manifests. The single worker processes one architecture at a time; after one coding run, its three wafers are compiled and solved in 1.2--5.0\,s each.}}{6}{figure.6}\protected@file@percent }
+\newlabel{fig:timeline}{{6}{6}{Timeline of the nine-job batch, from job and run timestamps in the database and job manifests. The single worker processes one architecture at a time; after one coding run, its three wafers are compiled and solved in 1.2--5.0\,s each}{figure.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-B}}Timeline}{6}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-C}}What the agent did}{6}{subsection.7.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Code-generation runs recorded by the harness}}{7}{table.2}\protected@file@percent }
+\newlabel{tab:codegen}{{II}{7}{Code-generation runs recorded by the harness}{table.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces A code-generation chat created by the harness. The top shows the generated instruction (written in Chinese by the harness) with the workspace path, the edit-only rule and the segment formula; below, the agent's tool calls (\texttt  {\relax \fontsize  {9}{10pt}\selectfont  bash}, \texttt  {\relax \fontsize  {9}{10pt}\selectfont  read}) are listed as they were streamed and persisted.}}{7}{figure.7}\protected@file@percent }
+\newlabel{fig:trace}{{7}{7}{A code-generation chat created by the harness. The top shows the generated instruction (written in Chinese by the harness) with the workspace path, the edit-only rule and the segment formula; below, the agent's tool calls (\code {bash}, \code {read}) are listed as they were streamed and persisted}{figure.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-D}}Engineering effort and development capacity}{7}{subsection.7.4}\protected@file@percent }
+\newlabel{sec:effort}{{\mbox  {VII-D}}{7}{Engineering effort and development capacity}{subsection.7.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Estimated engineer-hours under the stated planning assumptions}}{7}{table.3}\protected@file@percent }
+\newlabel{tab:effort}{{III}{7}{Estimated engineer-hours under the stated planning assumptions}{table.3}{}}
+\newlabel{eq:effort}{{2}{7}{Engineering effort and development capacity}{equation.7.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-E}}Results and audit}{7}{subsection.7.5}\protected@file@percent }
+\citation{fusionpixel}
+\bibstyle{IEEEtran}
+\bibdata{refs}
+\bibcite{kuo1987}{1}
+\bibcite{yao2023}{2}
+\bibcite{jimenez2024}{3}
+\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Region / chip yield (\%): greedy engine vs.\ column-first witnesses (both lower bounds)}}{8}{table.4}\protected@file@percent }
+\newlabel{tab:results}{{IV}{8}{Region / chip yield (\%): greedy engine vs.\ column-first witnesses (both lower bounds)}{table.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VIII}Lessons and Limitations}{8}{section.8}\protected@file@percent }
+\newlabel{sec:lessons}{{VIII}{8}{Lessons and Limitations}{section.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {IX}Conclusion}{8}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{References}{8}{section*.2}\protected@file@percent }
+\bibcite{sse}{4}
+\bibcite{stapper1986}{5}
+\bibcite{bae2007}{6}
+\bibcite{wu2015}{7}
+\bibcite{pixi}{8}
+\bibcite{johnson1974}{9}
+\bibcite{huangfu2018}{10}
+\bibcite{fusionpixel}{11}
+\gdef \@abspage@last{9}

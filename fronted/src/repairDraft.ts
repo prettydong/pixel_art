@@ -11,8 +11,11 @@ export type RepairDraft = {
 export const MAX_REPAIR_ITEMS = 100;
 export const draftItemKey = (item: { architectureId: string; waferId: string }) => JSON.stringify([item.architectureId, item.waferId]);
 const storageKey = (taskId: string) => `pixel:repair-draft:${taskId}`;
+const sessionDrafts = new Map<string, RepairDraft>();
 
 export function readRepairDraft(taskId: string): RepairDraft {
+  const session = sessionDrafts.get(taskId);
+  if (session) return session;
   try {
     const value = JSON.parse(localStorage.getItem(storageKey(taskId)) ?? 'null');
     if (!value || !Array.isArray(value.items) || value.items.length > MAX_REPAIR_ITEMS) return { items: [], submission: null };
@@ -28,6 +31,7 @@ export function readRepairDraft(taskId: string): RepairDraft {
 }
 
 export function saveRepairDraft(taskId: string, draft: RepairDraft): boolean {
+  sessionDrafts.set(taskId, draft);
   try {
     localStorage.setItem(storageKey(taskId), JSON.stringify(draft));
     return true;

@@ -14,6 +14,7 @@ type Props = {
   onView: (taskId: string, view: TaskView) => void;
   onChat: (id: string) => void; onCreateChat: (taskId: string) => Promise<void>;
   onCreateTask: (name: string) => Promise<void>; onRenameTask: (id: string, name: string) => Promise<void>;
+  onLoadDemo: () => Promise<void>;
   onDeleteTask: (id: string) => Promise<void>;
   onDeleteChat: (id: string) => Promise<void>;
 };
@@ -24,6 +25,7 @@ export function TaskNavigation(props: Props) {
   const [deletingTask, setDeletingTask] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [pending, setPending] = useState(false);
+  const [demoPending, setDemoPending] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => { if (props.activeTaskId) setExpanded(prev => new Set(prev).add(props.activeTaskId)); }, [props.activeTaskId]);
   useEffect(() => {
@@ -53,6 +55,13 @@ export function TaskNavigation(props: Props) {
   </form>;
   return <>
     <button className="new-chat" disabled={disabled} onClick={() => edit('new', '')}><Plus /><span>{t("新建任务")}</span></button>
+    <button className="search-trigger" disabled={disabled} onClick={async () => {
+      if (disabled) return;
+      setPending(true); setDemoPending(true); setError('');
+      try { await props.onLoadDemo(); }
+      catch (err) { setError(errorText(err)); }
+      finally { setPending(false); setDemoPending(false); }
+    }}><Chip /><span>{demoPending ? t('正在加载 DEJOA demo…') : t('加载 DEJOA demo')}</span></button>
     {form('new')}
     <nav className="task-list" aria-label={t("评估任务")}>
       {props.tasks.map(task => {

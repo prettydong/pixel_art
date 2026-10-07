@@ -19,6 +19,7 @@ import { queryUsage } from "./usage/index.js";
 import { registerUserRoutes } from "./users/index.js";
 import { createTask, registerTaskRoutes, taskRow } from "./tasks/index.js";
 import { registerDataRoutes } from "./data/index.js";
+import { registerDemoRoutes } from './demos/index.js';
 import { registerRepairRoutes } from "./repairs/index.js";
 import type { Runs } from "./runs/index.js";
 
@@ -75,6 +76,7 @@ export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
   registerUserRoutes(app, db, runs, userId => repairs.stopUser(userId));
   registerTaskRoutes(app, db);
   registerDataRoutes(app, db);
+  registerDemoRoutes(app, db);
   app.get("/api/models", async request => { currentUser(db, request); return { items: models.models.map(({ id, label, provider, model }) => ({ id, label, provider, model })) }; });
   app.get("/api/conversations", async request => {
     const user = currentUser(db, request); const q = String((request.query as Record<string, unknown>).q ?? "").slice(0, 200);
