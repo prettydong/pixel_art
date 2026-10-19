@@ -37,6 +37,8 @@
 .repair-draft-list li:last-child { border-bottom: 0; }
 .repair-draft-list li > div { min-width: 0; flex: 1; }
 .repair-draft-list button { flex-shrink: 0; }
+.repair-draft-list .action-button { border-color: transparent; background: transparent; color: var(--muted); font-weight: 400; }
+.repair-draft-list .action-button:hover:not(:disabled) { border-color: transparent; background: var(--danger-soft); color: var(--danger); }
 .repair-draft-name { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .repair-draft-list p { margin: 2px 0 0; font-size: var(--text-sm); }
 .repair-panel .action-button, .repair-submit label { white-space: nowrap; }

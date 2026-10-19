@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateActio
 import type { ModelOption, RepairDataset, RepairJob, RepairPanelData, TaskArchitecture } from '@pixel/contracts';
 import { api, apiUrl, errorText, requestId, RequestError } from './api';
 import { ccrDefinition } from './architectureTemplates';
-import { Download, MessageSquare, Plus, Square, X } from './Icons';
+import { Download, MessageSquare, Play, Plus, X } from './Icons';
 import { RepairResults } from './RepairResults';
 import { getAutoConclusions } from './solverPreferences';
 import { draftItemKey, MAX_REPAIR_ITEMS, readRepairDraft, saveRepairDraft, type RepairDraft } from './repairDraft';
@@ -150,7 +150,7 @@ export function RepairPanel({ taskId, architectures, models, modelId, onChat }: 
         <div><span className="repair-draft-name" title={`${item.architectureName} × ${item.waferName}`}>{item.architectureName} × {item.waferName}</span>{!loading && !loadError && issue && <p className="error-text">{localizeMessage(issue)}</p>}</div>
         <button className="action-button" aria-label={t("移除 {0} × {1}", item.architectureName, item.waferName)} disabled={submitting || !!draft.submission} onClick={() => { updateDraft({ items: draft.items.filter(existing => draftItemKey(existing) !== draftItemKey(item)), submission: null }); }}><X />{t("移除")}</button>
       </li>)}</ol>}
-      <div className="repair-submit"><label>{t("编码引擎")}<select value={draft.submission?.modelId ?? engine} onChange={event => setEngine(event.target.value)} disabled={submitting || !!draft.submission}>{!models.length && <option value="">{t("尚未配置模型")}</option>}{draft.submission && !models.some(item => item.id === draft.submission?.modelId) && <option value={draft.submission.modelId}>{draft.submission.modelId}</option>}{models.map(item => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label><button className="action-button primary" disabled={!canSubmit} onClick={() => void submit()}><Square />{submitting ? t("正在提交…") : draft.submission ? t("确认上次提交 / 重试") : t("运行列表（{0}）", draft.items.length)}</button></div>
+      <div className="repair-submit"><label>{t("编码引擎")}<select value={draft.submission?.modelId ?? engine} onChange={event => setEngine(event.target.value)} disabled={submitting || !!draft.submission}>{!models.length && <option value="">{t("尚未配置模型")}</option>}{draft.submission && !models.some(item => item.id === draft.submission?.modelId) && <option value={draft.submission.modelId}>{draft.submission.modelId}</option>}{models.map(item => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label><button className="action-button primary" disabled={!canSubmit} onClick={() => void submit()}><Play />{submitting ? t("正在提交…") : draft.submission ? t("确认上次提交 / 重试") : t("运行列表（{0}）", draft.items.length)}</button></div>
       {draft.submission && !submitting && <p className="task-note">{t("提交状态未确认，请重试。")}</p>}
     </section>
     <div className="repair-jobs"><div className="repair-job-heading"><h2>{t("求解任务")}{jobs.length ? ` (${jobs.length})` : ''}</h2>{runningCount > 0 && <span className="repair-status repair-status-running">{t("进行中 {0}", runningCount)}</span>}</div>

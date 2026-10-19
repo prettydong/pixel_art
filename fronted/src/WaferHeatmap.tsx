@@ -32,7 +32,7 @@ export function WaferHeatmap({ decoded, stats: statistics, selected, onSelect }:
     return () => { observer.disconnect(); window.removeEventListener('resize', update); };
   }, []);
   useEffect(() => { setHovered(null); }, [decoded]);
-  const pitch = geometry ? Math.max(2, Math.min(8, Math.floor(Math.min(320, available) / Math.max(geometry.width, geometry.height)))) : 2;
+  const pitch = geometry ? Math.max(2, Math.min(12, Math.floor(Math.min(440, available) / Math.max(geometry.width, geometry.height)))) : 2;
   const active = hovered ?? selected;
   const cell = geometry?.cells[active];
   const color = (value: number) => value === 0 ? 0 : bands.find(band => value <= band.high)?.color ?? 5;

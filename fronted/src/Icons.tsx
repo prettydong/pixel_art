@@ -40,6 +40,7 @@ export const Menu = icon(<path d="M4 6h16M4 12h16M4 18h16" />);
 export const MessageSquare = icon(<path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z" />);
 export const PanelLeftClose = icon(<><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 3v18M16 15l-3-3 3-3" /></>);
 export const Paperclip = icon(<path d="m20.5 11.5-8.4 8.4a5 5 0 0 1-7.1-7.1l8.4-8.4a3.3 3.3 0 0 1 4.7 4.7l-8.4 8.4a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />);
+export const Play = icon(<path d="M7 4.5v15a1 1 0 0 0 1.5.9l12-7.5a1 1 0 0 0 0-1.8l-12-7.5A1 1 0 0 0 7 4.5z" />);
 export const Plus = icon(<path d="M12 5v14M5 12h14" />);
 export const Search = icon(<><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></>);
 export const Settings2 = icon(<><path d="M20 7h-9M14 17H4" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" /></>);

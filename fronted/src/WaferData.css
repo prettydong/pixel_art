@@ -42,7 +42,7 @@
 .wafer-heatmap-heading { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .wafer-heatmap-heading h3 { margin-right: auto; }
 .wafer-heatmap-heading label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--text-sm); }
-.wafer-heatmap select { width: 80px; min-width: 0; }
+.wafer-heatmap select { width: auto; min-width: 0; }
 .wafer-map-layout { display: flex; align-items: start; gap: 16px; flex-wrap: wrap; min-width: 0; }
 .wafer-disk-scroll { flex: 1 1 240px; min-width: 0; overflow: auto; }
 .wafer-disk-scroll svg { display: block; background: var(--bg); border-radius: var(--radius); }
