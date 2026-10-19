@@ -1,6 +1,6 @@
 import { t } from './i18n';
 import { useEffect, useState } from 'react';
-import { Trash2 } from './PixelIcons';
+import { Trash2 } from './Icons';
 
 // The first press arms the button; deletion needs a second press within 3 s.
 export function DeleteChatButton({ title, disabled, onDelete }: { title: string; disabled: boolean; onDelete: () => void }) {

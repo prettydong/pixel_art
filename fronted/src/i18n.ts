@@ -18,7 +18,7 @@ export function applyLanguage() {
   document.documentElement.lang = language;
   document.title = 'Pixel Chat';
   document.querySelector('meta[name="description"]')?.setAttribute('content',
-    language === 'en' ? 'Pixel Chat — a pixel workspace for memory repair analysis.' : 'Pixel Chat — 内存修补分析工作台。');
+    language === 'en' ? 'Pixel Chat — a workspace for memory repair analysis.' : 'Pixel Chat — 内存修补分析工作台。');
 }
 
 export function setLanguage(next: Language) {

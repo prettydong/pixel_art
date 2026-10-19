@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ArchitecturePreview } from '@pixel/contracts';
 import type * as Pixi from 'pixi.js';
 import { fileUrl } from './api';
-import { getPixelDensity, getPixelUnit } from './pixelGrid';
+import { canvasFontFamily, getRenderResolution } from './viewport';
 import { declutterArchitectureLabels } from './architectureLabels';
 import { DrawingAssumptions } from './DrawingAssumptions';
 
@@ -53,7 +53,7 @@ export function PixiDrawPreview({ preview, heading }: { preview: ArchitecturePre
     host.appendChild(canvas);
     void (async () => {
       const PIXI = await import('pixi.js');
-      await document.fonts.load('12px "Fusion Pixel"'); await document.fonts.ready;
+      await document.fonts.ready;
       if (cancelled) return;
       if (!preview.draw) throw new Error(t("缺少 Agent draw 函数"));
       const url = URL.createObjectURL(new Blob([preview.draw.source], { type: 'text/javascript' }));
@@ -66,10 +66,10 @@ export function PixiDrawPreview({ preview, heading }: { preview: ArchitecturePre
       if (cancelled) return;
       const app = new PIXI.Application();
       let width = 640; const height = scene.canvas.height;
-      const measure = () => Math.max(80, Math.floor(host.clientWidth / getPixelUnit()));
+      const measure = () => Math.max(80, Math.floor(host.clientWidth));
       width = measure();
-      canvas.style.width = `${width}rem`; canvas.style.height = `${height}rem`;
-      try { await app.init({ canvas, width, height, resolution: getPixelDensity(), preference: 'webgl', antialias: false, roundPixels: true, autoDensity: false, autoStart: false, sharedTicker: false }); }
+      canvas.style.width = `${width}px`; canvas.style.height = `${height}px`;
+      try { await app.init({ canvas, width, height, resolution: getRenderResolution(), preference: 'webgl', antialias: true, roundPixels: true, autoDensity: false, autoStart: false, sharedTicker: false }); }
       catch (err) { app.stage.destroy({ children: true }); app.renderer?.destroy(); throw err; }
       if (cancelled) { app.destroy(); return; }
       const { rows, cols } = drawing.grid;
@@ -138,7 +138,7 @@ export function PixiDrawPreview({ preview, heading }: { preview: ArchitecturePre
             boundaryLines.rect(left, top, right - left, bottom - top).fill(style.getPropertyValue(token).trim());
           };
           const text: DrawContext['text'] = (value, px, py, color = colors.ink || style.getPropertyValue('--text').trim()) => {
-            const label = new PIXI.Text({ text: value, resolution: getPixelDensity(), style: { fontFamily: 'Fusion Pixel', fontSize: 12, fontWeight: '400', fill: color } });
+            const label = new PIXI.Text({ text: value, resolution: getRenderResolution(), style: { fontFamily: canvasFontFamily, fontSize: 12, fontWeight: '400', fill: color } });
             label.roundPixels = true; label.position.set(Math.round(px), Math.round(py)); overlay.addChild(label); return label;
           };
           draw({ PIXI, world, overlay, grid: { rows, cols }, colors, orientation,
@@ -181,10 +181,10 @@ export function PixiDrawPreview({ preview, heading }: { preview: ArchitecturePre
       canvas.addEventListener('wheel', wheel, { passive: false }); canvas.addEventListener('pointerdown', down); canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up); canvas.addEventListener('lostpointercapture', up);
       const resize = new ResizeObserver(() => {
         const next = measure(); if (next === width) return;
-        offsetX += (next - width) / 2; width = next; canvas.style.width = `${width}rem`; app.renderer.resize(width, height, getPixelDensity());
+        offsetX += (next - width) / 2; width = next; canvas.style.width = `${width}px`; app.renderer.resize(width, height, getRenderResolution());
         if (fitting) fit(); else schedule();
       }); resize.observe(host);
-      const theme = new MutationObserver(() => { app.renderer.resize(width, height, getPixelDensity()); schedule(); }); theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-pixel-ratio'] });
+      const theme = new MutationObserver(() => { app.renderer.resize(width, height, getRenderResolution()); schedule(); }); theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
       const lost = (event: Event) => { event.preventDefault(); setError(t("图形上下文丢失，请重新打开预览")); setReady(false); };
       canvas.addEventListener('webglcontextlost', lost);
       cleanup = () => {
@@ -208,7 +208,7 @@ export function PixiDrawPreview({ preview, heading }: { preview: ArchitecturePre
         <button className="action-button" disabled={!ready} type="submit">{t("定位")}</button>
       </form>
     </div>
-    <div ref={hostRef} className="architecture-canvas pixi-draw-canvas" data-render-state={error ? 'error' : ready ? 'ready' : 'loading'} style={{ height: `${scene.canvas.height + 2}rem`, maxWidth: `${scene.canvas.width}rem` }} />
+    <div ref={hostRef} className="architecture-canvas pixi-draw-canvas" data-render-state={error ? 'error' : ready ? 'ready' : 'loading'} style={{ height: `${scene.canvas.height + 2}px`, maxWidth: `${scene.canvas.width}px` }} />
     {error && <p role="alert" className="error-text">{localizeMessage(error)}</p>}
     {!ready && !error && visible && <p role="status">{t("正在绘制…")}</p>}
     <p className="task-note">{status.step === 1 ? t("逐单元") : t("每格 {0} × {1}", status.step, status.step)} · {localizeMessage(hover)}</p>

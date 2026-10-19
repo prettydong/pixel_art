@@ -28,8 +28,8 @@ function createMessages() {
 export function ChartDemo() {
   const messages = createMessages();
   const [theme, setTheme] = useTheme();
-  return <main className="pixel-chart-demo">
-    <header><h1>{t("像素图表工具演示")}</h1><a href={window.location.pathname}>{t("返回工作台")}</a></header>
+  return <main className="chart-demo">
+    <header><h1>{t("图表工具演示")}</h1><a href={window.location.pathname}>{t("返回工作台")}</a></header>
     <LanguageSelect />
     <p>{t("以下均为固定演示数据，不调用模型或后端接口。真实会话中由 Pi 工具返回图表。")}</p>
     <label>{t("主题") + " "}<select value={theme} onChange={event => setTheme(event.target.value as ThemePreference)}><option value="system">{t("跟随系统")}</option><option value="light">{t("亮色")}</option><option value="dark">{t("暗色")}</option></select></label>

@@ -1,21 +1,19 @@
 export const colors = Array.from({ length: 12 }, (_, index) => `var(--chart-${index + 1})`);
 
-/** Rasterize straight segments into horizontal integer runs, with no diagonal SVG strokes. */
-export function pixelLine(x0: number, y0: number, x1: number, y1: number) {
-  const runs: { x: number; y: number; width: number }[] = [];
-  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
-  const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
-  let error = dx + dy;
-  for (;;) {
-    const last = runs[runs.length - 1];
-    if (last && last.y === y0 && last.x + last.width === x0) last.width++;
-    else runs.push({ x: x0, y: y0, width: 1 });
-    if (x0 === x1 && y0 === y1) break;
-    const twice = 2 * error;
-    if (twice >= dy) { error += dy; x0 += sx; }
-    if (twice <= dx) { error += dx; y0 += sy; }
+/** Polyline paths for a series; a missing value breaks the line instead of bridging it. */
+export function linePaths(values: readonly (number | null)[], x: (index: number) => number, y: (value: number) => number) {
+  const paths: { d: string; start: number; end: number }[] = [];
+  let d = '', start = 0, end = 0, points = 0;
+  const close = () => { if (points > 1) paths.push({ d, start, end }); d = ''; points = 0; };
+  for (let index = 0; index < values.length; index++) {
+    const value = values[index];
+    if (value === null) { close(); continue; }
+    const px = x(index), py = y(value);
+    if (!points) { d = `M${px} ${py}`; start = px; } else d += `L${px} ${py}`;
+    end = px; points++;
   }
-  return runs;
+  close();
+  return paths;
 }
 
 export function axisNumber(value: number) {

@@ -1,7 +1,7 @@
 import { getLanguage, t, useLanguage } from './i18n';
 import { useEffect, useMemo, useState } from 'react';
 import type { ModelOption, RepairJob, RepairSummary, TaskArchitecture } from '@pixel/contracts';
-import { BarChart } from './PixelIcons';
+import { BarChart } from './Icons';
 import { RepairComparisonChart } from './RepairComparisonChart';
 
 type CompleteJob = RepairJob & { summary: RepairSummary };
@@ -87,7 +87,7 @@ export function RepairResults({ jobs, architectures, models }: { jobs: RepairJob
             const leader = rows.length > 1 && value.passed === best.passed;
             return <tr key={job.id} className={leader ? 'repair-result-leader' : undefined}>
               <th scope="row"><span title={job.architectureName}>{job.architectureName}</span>{leader && <small className="repair-leader-badge">{t("最高良率")}</small>}<small>{job.architectureFingerprint.slice(0, 8)}{historical ? t(" · 历史架构") : ''}</small><small>{models.find(model => model.id === job.modelId)?.label ?? job.modelId}</small><small>{new Date(job.finishedAt ?? job.createdAt).toLocaleString(getLanguage())}</small></th>
-              <td><div className="repair-result-bar" role="img" aria-label={chartLabel} title={chartLabel}><i className="repair-bar-initial" style={{ width: `${initialWidth}rem` }} /><i className="repair-bar-gain" style={{ width: `${passedWidth - initialWidth}rem` }} /><i className="repair-bar-unresolved" style={{ width: `${160 - passedWidth}rem` }} /></div><small>{t("原始") + " "}{percent(value.initial / value.total)}</small></td>
+              <td><div className="repair-result-bar" role="img" aria-label={chartLabel} title={chartLabel}><i className="repair-bar-initial" style={{ width: `${initialWidth}px` }} /><i className="repair-bar-gain" style={{ width: `${passedWidth - initialWidth}px` }} /><i className="repair-bar-unresolved" style={{ width: `${160 - passedWidth}px` }} /></div><small>{t("原始") + " "}{percent(value.initial / value.total)}</small></td>
               <td>{percent(value.passed / value.total)}</td><td>+{((value.passed - value.initial) / value.total * 100).toFixed(2)}</td><td>{(value.passed - value.initial).toLocaleString(getLanguage())}</td><td>{value.unresolved.toLocaleString(getLanguage())} / {value.total.toLocaleString(getLanguage())}</td><td>{elapsed(job)}</td>
             </tr>;
           })}</tbody>

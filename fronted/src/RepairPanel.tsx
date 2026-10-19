@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateActio
 import type { ModelOption, RepairDataset, RepairJob, RepairPanelData, TaskArchitecture } from '@pixel/contracts';
 import { api, apiUrl, errorText, requestId, RequestError } from './api';
 import { ccrDefinition } from './architectureTemplates';
-import { Download, MessageSquare, Plus, Square, X } from './PixelIcons';
+import { Download, MessageSquare, Plus, Square, X } from './Icons';
 import { RepairResults } from './RepairResults';
 import { getAutoConclusions } from './solverPreferences';
 import { draftItemKey, MAX_REPAIR_ITEMS, readRepairDraft, saveRepairDraft, type RepairDraft } from './repairDraft';
@@ -170,7 +170,7 @@ function RepairJobCard({ job, architectures, models, cancelling, onCancel, onCha
   const progressLabel = `${job.processedRegions.toLocaleString(language)} / ${job.totalRegions.toLocaleString(language)} region`;
   return <article className={`repair-job ${active ? 'repair-job-active' : ''}`}>
     <div className="repair-job-heading"><h3>{job.architectureName} × {job.waferName}</h3>{job.synthetic && <span className="data-badge data-badge-warn">{t("合成数据")}</span>}<span className={`repair-status repair-status-${job.status}`}>{labels[job.status]}</span></div>
-    <div className="repair-progress"><span className="repair-progress-bar" role="img" aria-label={progressLabel} style={{ width: `${PROGRESS_WIDTH}rem` }}><i style={{ width: `${filled}rem` }} /></span><span>{progressLabel}</span></div>
+    <div className="repair-progress"><span className="repair-progress-bar" role="img" aria-label={progressLabel} style={{ width: `${PROGRESS_WIDTH}px` }}><i style={{ width: `${filled}px` }} /></span><span>{progressLabel}</span></div>
     {job.summary && <p className="repair-job-yield"><span>{t("Chip 良率") + " "}<span className="stat-value">{percent(job.summary.chipYield)}</span></span><span>{t("Region 良率") + " "}<span className="stat-value">{percent(job.summary.regionYield)}</span></span><span>{t("未修成") + " "}{job.summary.unresolvedChips.toLocaleString(language)} chip / {job.summary.unresolvedRegions.toLocaleString(language)} region</span></p>}
     {job.error && <p className="error-text">{localizeMessage(job.error)}</p>}
     <p className="repair-job-meta">{job.productName} · {models.find(model => model.id === job.modelId)?.label ?? job.modelId} · {t("架构快照") + " "}{job.architectureFingerprint.slice(0, 8)} · {new Date(job.createdAt).toLocaleString(language)}{historical && <span className="repair-history-note">{" · " + t("历史架构")}</span>}</p>

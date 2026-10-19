@@ -4,12 +4,12 @@ import { z } from "zod";
 // separate extension build or a dependency on generated contracts/dist files.
 export const chartProtocol = "pixel-chart/v1";
 export const chartTools = Object.freeze({
-  pixel_bar_chart: { kind: "bar", label: "像素柱状图" },
-  pixel_line_chart: { kind: "line", label: "像素折线图" },
-  pixel_area_chart: { kind: "area", label: "像素面积图" },
-  pixel_pie_chart: { kind: "pie", label: "像素饼图" },
-  pixel_scatter_chart: { kind: "scatter", label: "像素散点图" },
-  pixel_heatmap_chart: { kind: "heatmap", label: "像素热力图" },
+  pixel_bar_chart: { kind: "bar", label: "柱状图" },
+  pixel_line_chart: { kind: "line", label: "折线图" },
+  pixel_area_chart: { kind: "area", label: "面积图" },
+  pixel_pie_chart: { kind: "pie", label: "饼图" },
+  pixel_scatter_chart: { kind: "scatter", label: "散点图" },
+  pixel_heatmap_chart: { kind: "heatmap", label: "热力图" },
 });
 const label = (max) => z.string().trim().min(1).max(max).regex(/^[^\x00-\x1f\x7f]*$/, "标签不能包含换行或控制字符");
 const number = z.number().min(-1e15).max(1e15);

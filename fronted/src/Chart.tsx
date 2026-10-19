@@ -1,25 +1,25 @@
 import { t, useLanguage } from './i18n';
 import { memo, useId, useState, type CSSProperties } from 'react';
 import { chartTable, chartTools, type PixelChart as ChartData, type CategoryChart } from '@pixel/contracts/charts';
-import { colors, pixelLine, axisNumber, shortLabel } from './chartGeometry';
+import { colors, linePaths, axisNumber, shortLabel } from './chartGeometry';
 import { PiePlot, ScatterPlot, HeatmapPlot } from './ChartPlots';
 import { revealChartCell, useChartViewport } from './useChartViewport';
-import './pixelCharts.css';
+import './charts.css';
 
-export const PixelChart = memo(function PixelChart({ chart, yRange, colorIndices, compact = false }: { chart: ChartData; yRange?: readonly [number, number]; colorIndices?: readonly number[]; compact?: boolean }) {
+export const Chart = memo(function Chart({ chart, yRange, colorIndices, compact = false }: { chart: ChartData; yRange?: readonly [number, number]; colorIndices?: readonly number[]; compact?: boolean }) {
   useLanguage();
   const id = useId();
   const table = chartTable(chart);
   const label = t(Object.values(chartTools).find(tool => tool.kind === chart.kind)!.label);
   if (chart.kind === 'scatter') { table.headers[0] = t('系列'); table.headers[1] = t('标签'); }
   else if (chart.kind !== 'heatmap' && !chart.xLabel) table.headers[0] = t('分类');
-  return <figure className="pixel-chart" aria-labelledby={`${id}-title`}>
-    <figcaption id={`${id}-title`} className="pixel-chart-title"><span>{chart.title}</span><span className="pixel-chart-kind">{label}</span></figcaption>
+  return <figure className="chart" aria-labelledby={`${id}-title`}>
+    <figcaption id={`${id}-title`} className="chart-title"><span>{chart.title}</span><span className="chart-kind">{label}</span></figcaption>
     {chart.description && <p>{chart.description}</p>}
     {chart.kind === 'pie' ? <PiePlot chart={chart} /> : chart.kind === 'scatter' ? <ScatterPlot chart={chart} /> : chart.kind === 'heatmap' ? <HeatmapPlot chart={chart} /> : <CategoryPlot chart={chart} yRange={yRange} colorIndices={colorIndices} compact={compact} />}
-    <details className="pixel-chart-data">
+    <details className="chart-data">
       <summary>{t("查看数据表（")}{table.rows.length} {" " + t("项）")}</summary>
-      <div className="pixel-chart-table-scroll" tabIndex={0} role="region" aria-label={t("{0}原始数据", chart.title)}>
+      <div className="chart-table-scroll" tabIndex={0} role="region" aria-label={t("{0}原始数据", chart.title)}>
         <table>
           <caption>{chart.title}{chart.unit ? t("（{0}）", chart.unit) : ''}</caption>
           <thead><tr>{table.headers.map((header, index) => <th key={index} scope="col">{header}</th>)}</tr></thead>
@@ -27,7 +27,7 @@ export const PixelChart = memo(function PixelChart({ chart, yRange, colorIndices
         </table>
       </div>
     </details>
-    {chart.source && <p className="pixel-chart-caption">{t("来源：")}{chart.source}</p>}
+    {chart.source && <p className="chart-caption">{t("来源：")}{chart.source}</p>}
   </figure>;
 });
 
@@ -70,46 +70,40 @@ function CategoryPlot({ chart, yRange, colorIndices, compact }: { chart: Categor
   }
 
   return <>
-    <div className="pixel-chart-legend">{chart.series.map((series, index) => <span key={series.name} style={seriesStyle(index)}><i aria-hidden="true" />{index + 1}. {series.name}</span>)}</div>
-    {(chart.yLabel || chart.unit) && <p className="pixel-chart-caption">{[chart.yLabel, chart.unit].filter(Boolean).join(' · ')}</p>}
-    <div ref={viewport} className="pixel-chart-viewport" tabIndex={0} role="group" aria-label={t("图表绘图区，左右方向键选择分类，Home 和 End 跳到首尾")} aria-describedby={`${id}-selection`} onKeyDown={selectKey}>
-      <div className="pixel-chart-plot" style={{ width: `${width}rem`, height: `${height}rem` }} onPointerMove={event => {
+    <div className="chart-legend">{chart.series.map((series, index) => <span key={series.name} style={seriesStyle(index)}><i aria-hidden="true" />{index + 1}. {series.name}</span>)}</div>
+    {(chart.yLabel || chart.unit) && <p className="chart-caption">{[chart.yLabel, chart.unit].filter(Boolean).join(' · ')}</p>}
+    <div ref={viewport} className="chart-viewport" tabIndex={0} role="group" aria-label={t("图表绘图区，左右方向键选择分类，Home 和 End 跳到首尾")} aria-describedby={`${id}-selection`} onKeyDown={selectKey}>
+      <div className="chart-plot" style={{ width: `${width}px`, height: `${height}px` }} onPointerMove={event => {
         const rect = event.currentTarget.getBoundingClientRect();
         const gridX = (event.clientX - rect.left) * width / rect.width;
         setSelected(Math.max(0, Math.min(chart.labels.length - 1, Math.floor((gridX - left) / slot))));
       }}>
-        <svg width={`${width}rem`} height={`${height}rem`} viewBox={`0 0 ${width} ${height}`} shapeRendering="crispEdges" aria-hidden="true">
-          <defs>{chart.series.map((series, index) => <pattern key={series.name} id={`${id}-area-${index}`} width={4} height={4} patternUnits="userSpaceOnUse"><rect x={(index % 2) * 2} y={Math.floor(index / 2) * 2} width={1} height={1} fill={color(index)} /></pattern>)}</defs>
+        <svg width={`${width}px`} height={`${height}px`} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
           {ticks.map((tick, index) => <rect key={index} x={left} y={yNormalized(tick)} width={width - left - right} height={1} fill="var(--chart-grid)" />)}
-          <rect x={left} y={top} width={1} height={plotHeight + 1} fill="var(--muted)" />
-          <rect x={left} y={zero} width={width - left - right} height={1} fill="var(--muted)" />
-          {chart.kind === 'area' && chart.series.map((series, seriesIndex) => <g key={series.name} fill={`url(#${id}-area-${seriesIndex})`}>{series.values.flatMap((value, index) => {
-            const previous = series.values[index - 1];
-            if (value === null || previous == null) return [];
-            return pixelLine(x(index - 1), y(previous), x(index), y(value)).map((run, segment) => <rect key={`${index}:${segment}`} x={run.x} y={Math.min(run.y, zero)} width={run.width} height={Math.max(1, Math.abs(run.y - zero))} />);
-          })}</g>)}
+          <rect x={left} y={zero} width={width - left - right} height={1} fill="var(--line-strong)" />
+          <rect x={x(selectedIndex)} y={top} width={1} height={plotHeight} fill="var(--line-strong)" opacity={0.6} />
+          {chart.kind === 'area' && chart.series.map((series, seriesIndex) => linePaths(series.values, x, y).map((path, part) =>
+            <path key={`${series.name}:${part}`} d={`${path.d}L${path.end} ${zero}L${path.start} ${zero}Z`} fill={color(seriesIndex)} fillOpacity={0.14} />))}
           {chart.series.map((series, seriesIndex) => <g key={series.name} fill={color(seriesIndex)}>
-            {(chart.kind === 'line' || chart.kind === 'area') && series.values.flatMap((value, index) => {
-              const previous = series.values[index - 1];
-              if (value === null || previous == null) return [];
-              return pixelLine(x(index - 1), y(previous), x(index), y(value)).map((run, segment) => <rect key={`${index}:${segment}`} {...run} height={1} />);
-            })}
+            {(chart.kind === 'line' || chart.kind === 'area') && linePaths(series.values, x, y).map((path, part) =>
+              <path key={part} d={path.d} fill="none" stroke={color(seriesIndex)} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />)}
             {series.values.map((value, index) => {
               if (value === null) return null;
-              if (chart.kind === 'line' || chart.kind === 'area') return <rect key={index} x={x(index) - 1} y={y(value) - 1} width={3} height={3} />;
-              const barWidth = Math.max(3, Math.floor((slot - 12) / chart.series.length) - 2);
+              if (chart.kind === 'line' || chart.kind === 'area') return <circle key={index} cx={x(index)} cy={y(value)} r={index === selectedIndex ? 4.5 : 3} stroke="var(--panel)" strokeWidth={1.5} />;
+              const barWidth = Math.max(3, Math.min(28, Math.floor((slot - 12) / chart.series.length) - 2));
               const groupWidth = chart.series.length * (barWidth + 2) - 2;
               const barX = x(index) - Math.floor(groupWidth / 2) + seriesIndex * (barWidth + 2);
-              return <rect key={index} x={barX} y={Math.min(zero, y(value))} width={barWidth} height={Math.max(1, Math.abs(y(value) - zero))} />;
+              const barHeight = Math.max(1, Math.abs(y(value) - zero));
+              return <rect key={index} x={barX} y={Math.min(zero, y(value))} width={barWidth} height={barHeight} rx={Math.min(3, barWidth / 2, barHeight / 2)} opacity={index === selectedIndex ? 1 : 0.85} />;
             })}
           </g>)}
         </svg>
-        {ticks.map((tick, index) => <span key={index} className="pixel-chart-y-tick" style={{ left: '0rem', top: `${yNormalized(tick) - 8}rem`, width: `${left - 8}rem` }}>{axisNumber(tick * magnitude)}</span>)}
-        {chart.labels.map((label, index) => <span key={label} className="pixel-chart-x-tick" title={label} style={{ left: `${left + index * slot}rem`, top: `${bottom + 8}rem`, width: `${slot}rem` }}>{shortLabel(label, slot - 4)}</span>)}
+        {ticks.map((tick, index) => <span key={index} className="chart-y-tick" style={{ left: '0px', top: `${yNormalized(tick) - 8}px`, width: `${left - 8}px` }}>{axisNumber(tick * magnitude)}</span>)}
+        {chart.labels.map((label, index) => <span key={label} className="chart-x-tick" title={label} style={{ left: `${left + index * slot}px`, top: `${bottom + 8}px`, width: `${slot}px` }}>{shortLabel(label, slot - 4)}</span>)}
       </div>
     </div>
-    {!compact && <p className="pixel-chart-caption">{chart.xLabel || t("分类")}{chart.kind !== 'bar' ? t(" · 等距分类轴") : ''}{chart.kind === 'area' ? t(" · 非堆叠") : ''} {" " + t("· 方向键或指针查看数值")}</p>}
-    <div id={`${id}-selection`} className="pixel-chart-selection">
+    {!compact && <p className="chart-caption">{chart.xLabel || t("分类")}{chart.kind !== 'bar' ? t(" · 等距分类轴") : ''}{chart.kind === 'area' ? t(" · 非堆叠") : ''} {" " + t("· 方向键或指针查看数值")}</p>}
+    <div id={`${id}-selection`} className="chart-selection">
       <span>{chart.labels[selectedIndex]}</span>
       {chart.series.map((series, index) => <span key={series.name} style={seriesStyle(index)}><i aria-hidden="true" />{series.name}{t("：")}{series.values[selectedIndex] === null ? t("缺失") : `${series.values[selectedIndex]}${chart.unit ? ` ${chart.unit}` : ''}`}</span>)}
     </div>

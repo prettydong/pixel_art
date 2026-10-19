@@ -65,7 +65,7 @@ export function SolverConclusions({ taskId, revision, models }: { taskId: string
           <table className="repair-results-table"><thead><tr><th scope="col">{t("架构 / 编码引擎")}</th><th scope="col">{t("Chip 通过率")}</th><th scope="col">{t("Region 通过率")}</th><th scope="col">{t("未修成 / 总数")} Chip</th></tr></thead>
             <tbody>{rows.map(job => <tr key={job.id} className={leaders.includes(job) ? 'repair-result-leader' : undefined}>
               <th scope="row"><span>{job.architectureName}</span><small>{job.architectureFingerprint.slice(0, 8)} · {models.find(model => model.id === job.modelId)?.label ?? job.modelId}</small></th>
-              <td><div className="repair-result-bar" role="img" aria-label={t("Chip 通过率 {0}", percent(job.summary.chipYield))}><i className="repair-bar-gain" style={{ width: `${Math.round(job.summary.chipYield * 160)}rem` }} /></div>{percent(job.summary.chipYield)}</td>
+              <td><div className="repair-result-bar" role="img" aria-label={t("Chip 通过率 {0}", percent(job.summary.chipYield))}><i className="repair-bar-gain" style={{ width: `${Math.round(job.summary.chipYield * 160)}px` }} /></div>{percent(job.summary.chipYield)}</td>
               <td>{percent(job.summary.regionYield)}</td><td>{job.summary.unresolvedChips} / {job.summary.totalChips}</td>
             </tr>)}</tbody>
           </table>

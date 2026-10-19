@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ModelOption, RepairJob } from '@pixel/contracts';
 import type { CategoryChart } from '@pixel/contracts/charts';
-import { PixelChart } from './PixelChart';
+import { Chart } from './Chart';
 import { completedRepairGroups, repairSeriesKey, type CompletedRepair } from './repairComparisons';
 import { t, useLanguage } from './i18n';
 import './RepairComparisonChart.css';
@@ -92,6 +92,6 @@ export function RepairComparisonChart({ jobs, models }: { jobs: RepairJob[]; mod
     </div>
     {shared.length > 0 && <p className="repair-result-insight">{t('{0} · 最高 {1}{2} · {3} · {4} 片共同 wafer', metricLabel, ranked[0].value.toFixed(2), unit, winners.map(item => configLabel(item.job)).join(' / '), shared.length)}</p>}
     {!shared.length && chosen.length > 1 && <p className="task-note">{t('所选变体暂无共同 wafer，暂不汇总排名。')}</p>}
-    {chosen.length ? <PixelChart key={product.key} chart={chart} yRange={[0, 100]} colorIndices={chosen.map(([key]) => configs.findIndex(([id]) => key === id))} compact /> : <p className="task-empty">{t('选择至少一个变体')}</p>}
+    {chosen.length ? <Chart key={product.key} chart={chart} yRange={[0, 100]} colorIndices={chosen.map(([key]) => configs.findIndex(([id]) => key === id))} compact /> : <p className="task-empty">{t('选择至少一个变体')}</p>}
   </section>;
 }

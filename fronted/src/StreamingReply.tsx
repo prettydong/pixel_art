@@ -3,9 +3,9 @@ import { useMemo, useState, type ReactNode } from 'react';
 import type { ToolCall } from '@pixel/contracts';
 import type { ReplyMessage } from './replyMessages';
 import { MarkdownMessage } from './MarkdownMessage';
-import { Chip, ChevronDown, ChevronRight } from './PixelIcons';
+import { ChevronDown, ChevronRight } from './Icons';
 import { chartTools, readChartTool } from '@pixel/contracts/charts';
-import { PixelChart } from './PixelChart';
+import { Chart } from './Chart';
 
 function ProcessDetails({ label, children, className = '', keepMounted = false }: { label: ReactNode; children: ReactNode; className?: string; keepMounted?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -19,8 +19,9 @@ function ProcessDetails({ label, children, className = '', keepMounted = false }
 }
 
 function ToolDetails({ tool, pending }: { tool: ToolCall; pending: boolean }) {
+  const dotState = tool.status === 'running' ? (pending ? 'is-running' : 'is-interrupted') : tool.status === 'completed' ? '' : tool.status === 'failed' ? 'is-failed' : 'is-interrupted';
   const status = tool.status === 'running' ? (pending ? t("执行中") : t("已中断")) : tool.status === 'completed' ? t("完成") : tool.status === 'failed' ? t("失败") : t("已中断");
-  return <ProcessDetails className="inline-tool" label={<><Chip /><span className="tool-name">{tool.name}</span><span className={tool.status === 'failed' ? 'error-text' : ''}>{status}</span>{tool.durationMs !== undefined && <span>{(tool.durationMs / 1000).toFixed(1)} s</span>}</>}>
+  return <ProcessDetails className="inline-tool" label={<><span className={`tool-dot ${dotState}`} aria-hidden="true" /><span className="tool-name">{tool.name}</span><span className={tool.status === 'failed' ? 'error-text' : ''}>{status}</span>{tool.durationMs !== undefined && <span>{(tool.durationMs / 1000).toFixed(1)} s</span>}</>}>
     {tool.input !== undefined && <div><div className="detail-label">{t("调用参数")}</div><pre>{tool.input}</pre></div>}
     {tool.text !== undefined && <div><div className="detail-label">{tool.status === 'running' && pending ? t("实时输出") : t("执行结果")}</div><pre>{tool.text || t("工具未返回文本输出。")}</pre></div>}
     {tool.text === undefined && <p className="detail-label">{tool.status === 'running' && pending ? t("等待工具输出…") : t("没有可用的执行输出记录。")}</p>}
@@ -107,5 +108,5 @@ export function StreamingReply({ message, pending }: { message: ReplyMessage; pe
 
 function ChartResult({ tool }: { tool: ToolCall }) {
   const chart = useMemo(() => readChartTool(tool), [tool.name, tool.status, tool.text]);
-  return chart ? <PixelChart chart={chart} /> : <p className="pixel-chart-unavailable">{t("图表数据无效或不完整，请查看工具详情或让 agent 重新生成。")}</p>;
+  return chart ? <Chart chart={chart} /> : <p className="chart-unavailable">{t("图表数据无效或不完整，请查看工具详情或让 agent 重新生成。")}</p>;
 }

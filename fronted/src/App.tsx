@@ -23,11 +23,7 @@ import { useTasks } from "./useTasks";
 import { useWorkspace } from "./useWorkspace";
 import { useTheme } from "./theme";
 import { useAutoConclusions } from './solverPreferences';
-import { EvaluationDiagram } from "./EvaluationDiagram";
-import { PixelTransition } from "./PixelTransition";
-import { getPixelUnit } from "./pixelGrid";
 import { SidebarResizeHandle } from './SidebarResizeHandle';
-import type { ShatterRequest } from "./pixelShatter";
 import {
   Alert,
   ArrowRight,
@@ -48,9 +44,10 @@ import {
   Plus,
   Search,
   Settings2,
+  Spark,
   Square,
   X,
-} from "./PixelIcons";
+} from "./Icons";
 
 const evaluationPanels = [
   {
@@ -133,14 +130,6 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     catch { return false; }
   });
   const [enteredId, setEnteredId] = useState<string | null>(null);
-  const [transition, setTransition] = useState<(ShatterRequest & {
-    panel: (typeof evaluationPanels)[number];
-    conversationId: string;
-  }) | null>(null);
-  const transitioning = useRef(false);
-  const cardViewportRef = useRef<HTMLDivElement>(null);
-  const cardGridRef = useRef<HTMLDivElement>(null);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [toast, setToastState] = useState<{ text: string; error: boolean } | null>(null);
   const setToast = (text: string) => setToastState(text ? { text, error: false } : null);
   const showError = (text: string) => setToastState(text ? { text, error: true } : null);
@@ -173,32 +162,6 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   const showCards = !noConversation && !active.messages.length && enteredId !== active.id;
   // An entered, empty conversation gives the remaining height to the draft.
   const fillComposer = !showCards && !visibleMessages.length;
-  useLayoutEffect(() => {
-    const grid = cardGridRef.current;
-    if (!grid) return;
-    const layout = () => {
-      const unit = getPixelUnit();
-      const available = Math.floor(grid.clientWidth / unit);
-      if (!Number.isFinite(available) || available <= 0) return;
-      // A card needs 144 grid units for its drawing and 24 for padding/borders.
-      // Choose columns from that actual minimum, including the gaps.
-      const columns = available >= 536 ? 3 : available >= 352 ? 2 : 1;
-      const height = Math.floor((cardViewportRef.current?.clientHeight ?? 0) / unit) - 36;
-      const heightLimitedWidth = Math.max(168, Math.floor(height / 1.25));
-      const width = Math.min(240, heightLimitedWidth, Math.floor((available - (columns - 1) * 16) / columns));
-      grid.style.setProperty('--card-columns', String(columns));
-      grid.style.setProperty('--card-width', `${width}rem`);
-      grid.style.setProperty('--card-min-height', `${Math.max(224, Math.ceil(width * 1.25))}rem`);
-      grid.style.setProperty('--card-diagram-left', `${Math.max(0, Math.floor((width - 24 - 144) / 2))}rem`);
-    };
-    layout();
-    const resize = new ResizeObserver(layout);
-    resize.observe(grid);
-    if (cardViewportRef.current) resize.observe(cardViewportRef.current);
-    const density = new MutationObserver(layout);
-    density.observe(document.documentElement, { attributes: true, attributeFilter: ['data-pixel-ratio', 'data-dpr'] });
-    return () => { resize.disconnect(); density.disconnect(); };
-  }, [showCards, active.id, taskView]);
   const sidebarVisible = compact ? mobileOpen : !sidebarCollapsed;
   const activeIdRef = useRef(active.id);
   activeIdRef.current = active.id;
@@ -221,18 +184,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
-    if (!transition && enteredId === active.id) inputRef.current?.focus({ preventScroll: true });
-  }, [transition, enteredId, active.id]);
-  useEffect(() => {
-    if (!transition) return;
-    // The parent owns unlocking the UI even if the animation unmounts or fails.
-    if (!motion || transition.conversationId !== active.id) {
-      completePanelTransition();
-      return;
-    }
-    const deadline = window.setTimeout(completePanelTransition, 1500);
-    return () => window.clearTimeout(deadline);
-  }, [transition, motion, active.id]);
+    if (enteredId === active.id) inputRef.current?.focus({ preventScroll: true });
+  }, [enteredId, active.id]);
   useEffect(() => { if (!demoMode && visibleRun && isActiveRun(visibleRun.status)) attach(visibleRun); }, [taskView, activeTaskId, visibleRun?.id, visibleRun?.status, attach, demoMode]);
   // A remembered model that the administrator removed falls back to the first available one.
   useEffect(() => { if (!loading && !models.some(item => item.id === model)) setModelState(models[0]?.id ?? ""); }, [models, model, loading]);
@@ -270,7 +223,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   }, [motion]);
   useEffect(() => {
     const keydown = (e: KeyboardEvent) => {
-      if (transitioning.current || e.isComposing) return;
+      if (e.isComposing) return;
       if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "b") {
         e.preventDefault();
         if (!e.repeat) toggleSidebar();
@@ -478,23 +431,6 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     else setDraft(value);
     setEnteredId(active.id);
   }
-  function confirmPanel(panel: (typeof evaluationPanels)[number], selectedIndex: number, origin: ShatterRequest["origin"]) {
-    if (transitioning.current || !active.id) return;
-    setModeOpen(false);
-    setModelOpen(false);
-    if (!motion || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      prompt(panel.mode, panel.prompt);
-      return;
-    }
-    transitioning.current = true;
-    setTransition({ panel, selectedIndex, origin, conversationId: active.id });
-  }
-  function completePanelTransition() {
-    if (!transition || !transitioning.current) return;
-    transitioning.current = false;
-    setTransition(null);
-    if (transition.conversationId === active.id) prompt(transition.panel.mode, transition.panel.prompt);
-  }
   async function copy(message: Message) {
     try {
       await navigator.clipboard.writeText(messageMarkdown(message));
@@ -530,16 +466,14 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
         />
       )}
       <aside id="chat-sidebar" className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}>
-        {!compact && !sidebarCollapsed && <SidebarResizeHandle disabled={!!transition} />}
-        <div className="sidebar-content" inert={!!transition}>
+        {!compact && !sidebarCollapsed && <SidebarResizeHandle disabled={false} />}
+        <div className="sidebar-content">
         <div className="sidebar-header">
           <div className="brand">
             <span className="brand-icon">
-              <MessageSquare />
+              <Spark />
             </span>
-            <span>
-              PIXEL<span className="brand-light">CHAT</span>
-            </span>
+            <span>Pixel Chat</span>
           </div>
           <button className="icon-button" aria-label={t("收起侧边栏")} title={t("收起侧边栏（Ctrl / Cmd + B）")} onClick={() => {
             toggleSidebar();
@@ -551,7 +485,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
         {!demoMode ? <>
           <button className="search-trigger" onClick={() => setDialog('search')}><Search /><span>{t("搜索任务和聊天")}</span></button>
           <TaskNavigation tasks={taskState.tasks} conversations={conversations} runs={runs} activeTaskId={activeTaskId} activeChatId={active.id} view={taskView}
-            loading={loading || taskState.loading} disabled={loading || uploading || pending.size > 0 || !!transition}
+            loading={loading || taskState.loading} disabled={loading || uploading || pending.size > 0}
             onView={openTask} onChat={selectChat} onCreateChat={createChat} onCreateTask={createEvaluationTask} onLoadDemo={loadDejoaDemo} onRenameTask={renameEvaluationTask} onDeleteTask={deleteEvaluationTask} onDeleteChat={deleteChat} />
           {taskState.error && <div className="workspace-error" role="alert">{localizeMessage(taskState.error)}<button onClick={() => void taskState.refresh()}>{t("重试")}</button></div>}
         </> : <>
@@ -608,7 +542,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
 
       <main className="main-shell">
         <header className="topbar">
-          <div className="breadcrumbs" inert={!!transition}>
+          <div className="breadcrumbs">
             <button
               ref={sidebarToggleRef}
               className="icon-button"
@@ -626,11 +560,11 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
           </div>
           <div className="topbar-right">
             {taskView === 'chat' && !noConversation && !showCards && !active.messages.length && (
-              <button className="return-directions" disabled={!!transition} onClick={() => setEnteredId(null)}>{t("选择方向")}</button>
+              <button className="return-directions" onClick={() => setEnteredId(null)}>{t("选择方向")}</button>
             )}
             <button
               className="icon-button"
-              disabled={!!transition || taskView !== 'chat' || !active.id}
+              disabled={taskView !== 'chat' || !active.id}
               aria-label={t("导出当前对话")}
               title={t("导出当前对话")}
               onClick={exportChat}
@@ -646,11 +580,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             </button>
           </div>
         </header>
-        <div
-          className={`workspace ${active.messages.length ? "has-messages" : ""}`}
-          aria-busy={!!transition}
-        >
-          <div className="workspace-content" inert={!!transition}>
+        <div className={`workspace ${active.messages.length ? "has-messages" : ""}`}>
+          <div className="workspace-content">
             {taskView === 'chat' && renaming && <form className="rename-form account-form" onSubmit={async e => {
               e.preventDefault();
               if (demoMode) { demo.update(active.id, { title: renameTitle.trim() }); setRenaming(false); return; }
@@ -661,16 +592,16 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
 
             {!demoMode && taskView !== 'chat' ? (activeTaskId ? <TaskPanel key={activeTaskId} taskId={activeTaskId} view={taskView} revision={taskState.revision} conversations={conversations} connections={connections} models={models} modelId={model} onRefresh={taskState.refresh} onChat={selectChat} onRepairChat={async id => { try { await refresh(id); selectChat(id); } catch (err) { showError(errorText(err)); } }} onCreateChat={createChat} onGeneratePreview={generateArchitecturePreview} previewAvailable={!!model && !loading && !uploading} /> : <p>{t("请先新建任务。")}</p>) : noConversation ? (!loading && <p className="task-empty">{t("请先新建任务。")}</p>) : <>
             {showCards ? (
-              <div ref={cardViewportRef} className="card-stage">
+              <div className="card-stage">
                 <section className="welcome" aria-label={t("内存冗余架构评估工作台")}>
-                  <div ref={cardGridRef} className="evaluation-panels">
+                  <div className="evaluation-panels">
                     {evaluationPanels.map((panel, index) => (
                       <section
                         key={panel.mode}
                         className={`evaluation-slot evaluation-${panel.kind}`}
                         aria-labelledby={`panel-${index}`}
                       >
-                        <div className="evaluation-card-motion" ref={(node) => { cardRefs.current[index] = node; }}>
+                        <div className="evaluation-card-motion">
                           <div className={`evaluation-panel ${active.mode === panel.mode ? "selected" : ""}`}>
                             <div className="evaluation-card-top">
                               <panel.icon />
@@ -679,9 +610,6 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                                 {active.mode === panel.mode ? <Check /> : <ArrowRight />}
                               </span>
                             </div>
-                            <figure className="evaluation-figure">
-                              <EvaluationDiagram kind={panel.kind} />
-                            </figure>
                             <dl className="evaluation-details">
                               <div><dt>{t("输入")}</dt><dd>{panel.input}</dd></div>
                               <div><dt>{t("目标")}</dt><dd>{panel.outcome}</dd></div>
@@ -692,22 +620,16 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                           className="evaluation-hit-area"
                           aria-label={panel.action}
                           aria-pressed={active.mode === panel.mode}
-                          onClick={(event) => confirmPanel(panel, index,
-                            event.detail === 0 ? null : { x: event.clientX, y: event.clientY })}
+                          onClick={() => {
+                            setModeOpen(false);
+                            setModelOpen(false);
+                            if (active.id) prompt(panel.mode, panel.prompt);
+                          }}
                         />
                       </section>
                     ))}
                   </div>
                 </section>
-                {motion && (
-                  <PixelTransition
-                    key={active.id}
-                    cards={cardRefs}
-                    viewport={cardViewportRef}
-                    request={transition}
-                    onComplete={completePanelTransition}
-                  />
-                )}
               </div>
             ) : !fillComposer && (
               <section
@@ -715,8 +637,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                 ref={messagesRef}
                 onScroll={event => {
                   const element = event.currentTarget;
-                  const grid = getPixelUnit();
-                  followMessages.current = element.scrollHeight - element.scrollTop - element.clientHeight <= 16 * grid;
+                  followMessages.current = element.scrollHeight - element.scrollTop - element.clientHeight <= 24;
                 }}
                 aria-label={t("对话消息")}
                 aria-busy={busy}
@@ -884,7 +805,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                           ))}
                           <div className="dropdown-separator" />
                           {demoMode ? <a className="demo-mode-link" href={window.location.pathname}>{t("返回服务端工作台")}</a> : <a className="demo-mode-link" href="?demo=tools" target="_blank" rel="noopener noreferrer">{t("打开本地工具演示")}</a>}
-                          <a className="demo-mode-link" href="?demo=charts" target="_blank" rel="noopener noreferrer">{t("查看像素图表演示")}</a>
+                          <a className="demo-mode-link" href="?demo=charts" target="_blank" rel="noopener noreferrer">{t("查看图表演示")}</a>
                         </div>
                       )}
                     </div>

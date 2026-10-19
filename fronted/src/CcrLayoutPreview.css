@@ -1,32 +1,32 @@
-.ccr-layout { display: flex; flex-direction: column; gap: 6rem; padding: 8rem; border: 1rem solid var(--line); background: var(--panel); min-width: 0; }
-.ccr-layout-heading { color: var(--architecture-accent); }
-.ccr-row-pool, .ccr-column-pool { padding: 6rem; border: 1rem solid var(--line); background: var(--architecture-surface); }
-.ccr-layout-controls { display: flex; flex-wrap: wrap; gap: 8rem; }
-.ccr-layout-controls label { display: flex; flex: 1 1 200rem; flex-direction: column; gap: 4rem; min-width: 0; }
+.ccr-layout { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); min-width: 0; }
+.ccr-layout-heading { font-weight: 600; }
+.ccr-row-pool, .ccr-column-pool { padding: 10px 12px; border-radius: var(--radius); background: var(--architecture-surface); }
+.ccr-layout-controls { display: flex; flex-wrap: wrap; gap: 10px; }
+.ccr-layout-controls label { display: flex; flex: 1 1 220px; flex-direction: column; gap: 4px; min-width: 0; color: var(--text-secondary); font-size: var(--text-sm); }
 .ccr-control-label { display: block; white-space: nowrap; overflow-x: auto; }
-.ccr-layout-controls input { width: 100%; min-width: 0; padding: 4rem; border: 1rem solid var(--line); color: var(--input-text); background: var(--input-surface); font: inherit; }
-.ccr-segments { display: flex; flex-wrap: wrap; gap: 4rem; }
-.ccr-segments button { display: flex; flex: 1 1 128rem; flex-direction: column; gap: 2rem; padding: 6rem; text-align: left; border: 1rem solid var(--line); background: var(--panel); color: var(--muted); }
+.ccr-layout-controls input { width: 100%; min-width: 0; }
+.ccr-segments { display: flex; flex-wrap: wrap; gap: 6px; }
+.ccr-segments button { display: flex; flex: 1 1 140px; flex-direction: column; gap: 2px; padding: 8px 10px; text-align: left; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); color: var(--muted); font-size: var(--text-sm); }
 .ccr-segments button:hover { background: var(--hover); }
-.ccr-segments button[aria-pressed="true"] { border-color: var(--architecture-accent); background: var(--selected); color: var(--text); }
+.ccr-segments button[aria-pressed="true"] { border-color: var(--architecture-accent); background: var(--architecture-surface); color: var(--text); }
 .ccr-layout p, .ccr-segments span { overflow-wrap: anywhere; }
-.ccr-preview-toggle > .ccr-layout { margin-top: 6rem; }
-.ccr-row-pool { display: flex; align-items: center; gap: 6rem; }
-.ccr-map { display: grid; gap: 4rem; margin: 0; min-width: 0; overflow-x: auto; overflow-y: hidden; }
-.ccr-map figcaption { color: var(--muted); overflow-wrap: anywhere; }
+.ccr-preview-toggle > .ccr-layout { margin-top: 8px; }
+.ccr-row-pool { display: flex; align-items: center; gap: 8px; }
+.ccr-map { display: grid; gap: 6px; margin: 0; min-width: 0; overflow-x: auto; overflow-y: hidden; }
+.ccr-map figcaption { color: var(--muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
 .ccr-map svg { display: block; }
 .ccr-map-band { cursor: pointer; }
-.ccr-map-axis { display: flex; justify-content: space-between; gap: 8rem; max-width: 100%; color: var(--muted); }
-.ccr-legend { display: flex; flex-wrap: wrap; gap: 4rem 12rem; color: var(--muted); }
-.ccr-legend > span { display: flex; align-items: center; gap: 4rem; }
-.ccr-swatch { display: inline-block; flex: 0 0 8rem; width: 8rem; height: 8rem; outline: 1rem solid var(--line); }
-.ccr-swatch-pool { flex-basis: 16rem; width: 16rem; background: var(--architecture-accent); box-shadow: inset 0 -4rem 0 var(--architecture-surface); }
+.ccr-map-axis { display: flex; justify-content: space-between; gap: 8px; max-width: 100%; color: var(--muted); font-size: var(--text-xs); }
+.ccr-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: var(--text-sm); }
+.ccr-legend > span { display: flex; align-items: center; gap: 6px; }
+.ccr-swatch { display: inline-block; flex: 0 0 10px; width: 10px; height: 10px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--line-strong); }
+.ccr-swatch-pool { flex-basis: 18px; width: 18px; background: var(--architecture-accent); box-shadow: inset 0 -4px 0 var(--architecture-surface); }
 .ccr-swatch-selected { background: var(--architecture-accent); }
-.ccr-swatch-other { background: var(--diagram-cell); box-shadow: inset -4rem 0 0 var(--architecture-surface); }
+.ccr-swatch-other { background: var(--diagram-cell); box-shadow: inset -4px 0 0 var(--architecture-surface); }
 .ccr-swatch-column { background: var(--text); }
 .ccr-swatch-empty { background: var(--panel); }
-.ccr-groups { display: flex; flex-wrap: wrap; gap: 0; margin: 0; padding: 0 1rem 0 0; list-style: none; }
-.ccr-groups li { display: grid; justify-items: center; min-width: 32rem; padding: 2rem 4rem; border: 1rem solid var(--line); margin: 0 -1rem 0 0; background: var(--panel); color: var(--muted); }
+.ccr-groups { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.ccr-groups li { display: grid; justify-items: center; min-width: 40px; padding: 3px 6px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel); color: var(--muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
 .ccr-groups li > span + span { color: var(--text); }
-.ccr-groups li.selected { position: relative; z-index: 1; border-color: var(--architecture-accent); background: var(--architecture-accent); color: var(--on-accent); }
+.ccr-groups li.selected { border-color: var(--architecture-accent); background: var(--architecture-accent); color: var(--on-accent); }
 .ccr-groups li.selected > span + span { color: var(--on-accent); }

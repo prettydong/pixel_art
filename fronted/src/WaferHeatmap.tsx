@@ -2,7 +2,6 @@ import { getLanguage, t } from './i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DecodedWafer } from '@pixel/contracts/wafer-data';
 import { createWaferMap, MAX_MAP_CHIPS } from '@pixel/contracts/wafer-spatial';
-import { getPixelUnit } from './pixelGrid';
 import type { ChipFailStats } from './waferStats';
 
 type Props = { decoded: DecodedWafer; stats: ChipFailStats; selected: number; onSelect: (chip: number) => void };
@@ -27,7 +26,7 @@ export function WaferHeatmap({ decoded, stats: statistics, selected, onSelect }:
   useEffect(() => {
     const node = container.current;
     if (!node) return;
-    const update = () => setAvailable(Math.max(1, Math.floor(node.clientWidth / getPixelUnit())));
+    const update = () => setAvailable(Math.max(1, Math.floor(node.clientWidth)));
     const observer = new ResizeObserver(update); observer.observe(node);
     window.addEventListener('resize', update); update();
     return () => { observer.disconnect(); window.removeEventListener('resize', update); };
@@ -56,7 +55,7 @@ export function WaferHeatmap({ decoded, stats: statistics, selected, onSelect }:
   return <section className="wafer-heatmap" aria-label={t("整片 wafer 热力图")}>
     <div className="wafer-heatmap-heading"><h3>{t("Wafer 热力图（示意）")}</h3><label>{t("色阶")}<select value={scale} onChange={event => setScale(event.target.value as 'linear' | 'log')}><option value="log">{t("对数")}</option><option value="linear">{t("线性")}</option></select></label><span>fail / chip</span></div>
     <div className="wafer-map-layout">
-      <div ref={container} className="wafer-disk-scroll">{geometry ? <svg ref={svg} width={`${geometry.width * pitch}rem`} height={`${geometry.height * pitch}rem`} viewBox={`0 0 ${geometry.width * pitch} ${geometry.height * pitch}`} role="group" aria-label={t("圆盘内 chip 网格，点击或用方向键选择 chip")} shapeRendering="crispEdges">
+      <div ref={container} className="wafer-disk-scroll">{geometry ? <svg ref={svg} width={`${geometry.width * pitch}px`} height={`${geometry.height * pitch}px`} viewBox={`0 0 ${geometry.width * pitch} ${geometry.height * pitch}`} role="group" aria-label={t("圆盘内 chip 网格，点击或用方向键选择 chip")} shapeRendering="crispEdges">
         {geometry.cells.map(item => {
           const x = item.x * pitch; const y = item.y * pitch; const size = pitch - 1;
           return <g key={item.chip}>

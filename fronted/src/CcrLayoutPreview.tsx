@@ -72,7 +72,7 @@ function RowMap({ ranges, rows, base, selected, onSelect }: { ranges: [number, n
   const x = (row: number) => Math.round(row / rows * MAP_WIDTH);
   return <figure className="ccr-map">
     <figcaption>{t("Segment row 分布")}</figcaption>
-    <svg width={`${MAP_WIDTH + 2}rem`} height="18rem" viewBox={`0 0 ${MAP_WIDTH + 2} 18`} shapeRendering="crispEdges" role="img"
+    <svg width={`${MAP_WIDTH + 2}px`} height="18px" viewBox={`0 0 ${MAP_WIDTH + 2} 18`} shapeRendering="crispEdges" role="img"
       aria-label={t("Region 内 {0} 个 segment 的 row 分布，Segment {1} 高亮", ranges.length, selected ?? '—')}>
       <rect x="0" y="0" width={MAP_WIDTH + 2} height="18" fill="var(--line)" />
       {ranges.map(([start, end], id) => {
@@ -84,7 +84,7 @@ function RowMap({ ranges, rows, base, selected, onSelect }: { ranges: [number, n
         </rect>;
       })}
     </svg>
-    <div className="ccr-map-axis" style={{ width: `${MAP_WIDTH + 2}rem` }}><span>row {base}</span><span>row {rows - 1 + base}</span></div>
+    <div className="ccr-map-axis" style={{ width: `${MAP_WIDTH + 2}px` }}><span>row {base}</span><span>row {rows - 1 + base}</span></div>
     <div className="ccr-legend">
       <span><i className="ccr-swatch ccr-swatch-selected" aria-hidden="true" />{t("所选 segment")}</span>
       <span><i className="ccr-swatch ccr-swatch-other" aria-hidden="true" />{t("其他 segment（交替着色）")}</span>
@@ -97,7 +97,7 @@ function GroupStrip({ capacities, selected }: { capacities: number[]; selected: 
     const cell = Math.max(1, Math.floor(MAP_WIDTH / capacities.length));
     return <figure className="ccr-map">
       <figcaption>{t("CCR 子组与备用 col 容量")}</figcaption>
-      <svg width={`${cell * capacities.length}rem`} height="12rem" viewBox={`0 0 ${cell * capacities.length} 12`} shapeRendering="crispEdges" role="img"
+      <svg width={`${cell * capacities.length}px`} height="12px" viewBox={`0 0 ${cell * capacities.length} 12`} shapeRendering="crispEdges" role="img"
         aria-label={t("{0} 个 CCR 子组，子组 {1} 高亮", capacities.length, selected)}>
         {capacities.map((capacity, index) => <rect key={index} x={index * cell} y="0" width={cell} height="12"
           fill={index === selected ? 'var(--architecture-accent)' : index % 2 ? 'var(--architecture-surface)' : 'var(--diagram-cell)'}>
@@ -126,7 +126,7 @@ function ColumnStrip({ cols, base, groups, column, group }: { cols: number; base
   const cell = 4;
   return <figure className="ccr-map">
     <figcaption>{t("col {0}～{1}：高亮列与 col {2} 同属子组 {3}", start + base, start + size - 1 + base, column, group)}</figcaption>
-    <svg width={`${size * cell + 2}rem`} height="14rem" viewBox={`0 0 ${size * cell + 2} 14`} shapeRendering="crispEdges" role="img"
+    <svg width={`${size * cell + 2}px`} height="14px" viewBox={`0 0 ${size * cell + 2} 14`} shapeRendering="crispEdges" role="img"
       aria-label={t("col {0}～{1}：高亮列与 col {2} 同属子组 {3}", start + base, start + size - 1 + base, column, group)}>
       <rect x="0" y="0" width={size * cell + 2} height="14" fill="var(--line)" />
       {Array.from({ length: size }, (_, index) => {

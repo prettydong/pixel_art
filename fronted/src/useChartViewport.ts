@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { getPixelUnit } from './pixelGrid';
 
 export function useChartViewport() {
   const viewport = useRef<HTMLDivElement>(null);
@@ -7,23 +6,17 @@ export function useChartViewport() {
   useEffect(() => {
     const element = viewport.current;
     if (!element) return;
-    const measure = () => {
-      const unit = getPixelUnit();
-      setAvailable(Math.max(1, Math.floor(element.clientWidth / unit)));
-    };
+    const measure = () => setAvailable(Math.max(1, Math.floor(element.clientWidth)));
     const observer = new ResizeObserver(measure);
-    const grid = new MutationObserver(measure);
     observer.observe(element);
-    grid.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
     measure();
-    return () => { observer.disconnect(); grid.disconnect(); };
+    return () => observer.disconnect();
   }, []);
   return { viewport, available };
 }
 
 export function revealChartCell(element: HTMLDivElement, x: number, y: number, width: number, height: number) {
-  const unit = getPixelUnit();
-  const left = x * unit, top = y * unit, right = (x + width) * unit, bottom = (y + height) * unit;
+  const left = x, top = y, right = x + width, bottom = y + height;
   if (left < element.scrollLeft) element.scrollLeft = left;
   else if (right > element.scrollLeft + element.clientWidth) element.scrollLeft = right - element.clientWidth;
   if (top < element.scrollTop) element.scrollTop = top;

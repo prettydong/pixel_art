@@ -4,7 +4,7 @@ import type { ArchitecturePreview as PreviewRecord } from '@pixel/contracts';
 import { validateArchitectureScene } from '@pixel/contracts/architecture-scene';
 import { fileUrl } from './api';
 import { PixiDrawPreview } from './PixiDrawPreview';
-import { getPixelDensity } from './pixelGrid';
+import { canvasFontFamily, getRenderResolution } from './viewport';
 import { DrawingAssumptions } from './DrawingAssumptions';
 
 export function ArchitecturePreview({ previews }: { previews: PreviewRecord[] }) {
@@ -42,16 +42,16 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
     setReady(false); setError('');
     const canvas = document.createElement('canvas');
     canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', scene.description);
-    canvas.style.width = `${scene.canvas.width}rem`; canvas.style.height = `${scene.canvas.height}rem`;
+    canvas.style.width = `${scene.canvas.width}px`; canvas.style.height = `${scene.canvas.height}px`;
     host.appendChild(canvas);
     void (async () => {
       const { Application, Graphics, Text } = await import('pixi.js');
-      await document.fonts.load('12px "Fusion Pixel"'); await document.fonts.ready;
+      await document.fonts.ready;
       if (cancelled) return;
       const app = new Application();
       try {
-        await app.init({ canvas, width: scene.canvas.width, height: scene.canvas.height, resolution: getPixelDensity(),
-          preference: 'webgl', antialias: false, roundPixels: true, autoDensity: false, autoStart: false, sharedTicker: false });
+        await app.init({ canvas, width: scene.canvas.width, height: scene.canvas.height, resolution: getRenderResolution(),
+          preference: 'webgl', antialias: true, roundPixels: true, autoDensity: false, autoStart: false, sharedTicker: false });
       } catch (err) { app.stage.destroy({ children: true }); app.renderer?.destroy(); throw err; }
       if (cancelled) { app.destroy(); return; }
       const paint = () => {
@@ -71,7 +71,7 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
         for (const node of scene.nodes) {
           if (node.type === 'text') {
             graphics = undefined;
-            const label = new Text({ text: node.text, resolution: getPixelDensity(), style: { fontFamily: 'Fusion Pixel', fontSize: 12, fontWeight: '400', fill: color(node.color) } });
+            const label = new Text({ text: node.text, resolution: getRenderResolution(), style: { fontFamily: canvasFontFamily, fontSize: 12, fontWeight: '400', fill: color(node.color) } });
             label.roundPixels = true; label.position.set(node.x, node.y);
             if (Math.ceil(label.width) > node.width || Math.ceil(label.height) > node.height) {
               label.destroy(); throw new Error(t("文字超出预留尺寸：{0}，请让Agent调整布局", node.id));
@@ -88,8 +88,8 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
         app.render(); canvas.style.visibility = 'visible'; setReady(true); setError('');
       };
       const redraw = () => { try { paint(); } catch (err) { canvas.style.visibility = 'hidden'; setReady(false); setError(err instanceof Error ? err.message : t("预览绘制失败")); } };
-      const observer = new MutationObserver(() => { app.renderer.resize(scene.canvas.width, scene.canvas.height, getPixelDensity()); redraw(); });
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-pixel-ratio'] });
+      const observer = new MutationObserver(() => { app.renderer.resize(scene.canvas.width, scene.canvas.height, getRenderResolution()); redraw(); });
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
       const lost = (event: Event) => { event.preventDefault(); setError(t("图形上下文丢失，请重新打开预览")); setReady(false); };
       canvas.addEventListener('webglcontextlost', lost);
       cleanup = () => { observer.disconnect(); canvas.removeEventListener('webglcontextlost', lost); app.destroy(); };
@@ -101,7 +101,7 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
   const { scene } = preview;
   return <div className="architecture-preview">
     <div className="architecture-canvas-scroll" tabIndex={0} role="region" aria-label={t("{0}预览，可横向滚动", scene.title)}>
-      <div ref={hostRef} className="architecture-canvas" data-render-state={error ? 'error' : ready ? 'ready' : 'loading'} style={{ width: `${scene.canvas.width}rem`, height: `${scene.canvas.height}rem` }} />
+      <div ref={hostRef} className="architecture-canvas" data-render-state={error ? 'error' : ready ? 'ready' : 'loading'} style={{ width: `${scene.canvas.width}px`, height: `${scene.canvas.height}px` }} />
     </div>
     {error && <p role="alert" className="error-text">{localizeMessage(error)}</p>}
     {!ready && !error && visible && <p role="status">{t("正在绘制…")}</p>}

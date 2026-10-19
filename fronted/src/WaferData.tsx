@@ -8,7 +8,7 @@ import { WaferGenerator } from './WaferGenerator';
 import { chipFailStats } from './waferStats';
 import { StatTile } from './StatTile';
 import { api, errorText, fileUrl } from './api';
-import { Download, Plus } from './PixelIcons';
+import { Download, Plus } from './Icons';
 import './WaferData.css';
 
 type Props = { taskId: string; files: FileRecord[]; onChanged: () => Promise<void> };
@@ -202,6 +202,6 @@ function RegionOverview({ rows, cols, positions }: { rows: number; cols: number;
   const binned = width < horizontal || height < vertical;
   const ratio = (cells: number, bins: number) => Number.isInteger(cells / bins) ? String(cells / bins) : `≈${(cells / bins).toFixed(1)}`;
   const horizontalName = transposed ? 'row' : 'col'; const verticalName = transposed ? 'col' : 'row';
-  return <figure className="wafer-overview"><div className="wafer-map-scroll"><svg width={`${width * unit}rem`} height={`${height * unit}rem`} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("当前 region 的 {0} row {1} col fail 分布，横轴 {2}，纵轴 {3}", rows, cols, transposed ? 'row' : 'col', transposed ? 'col' : 'row')} shapeRendering="crispEdges">{occupied.map(index => <rect className="wafer-bin-occupied" key={index} x={index % width} y={Math.floor(index / width)} width="1" height="1" />)}</svg></div><figcaption><span>{t("横轴") + " "}{horizontalName} {" " + t("· 纵轴") + " "}{verticalName} · {binned ? t("每格 = {0} {1} × {2} {3}", ratio(horizontal, width), horizontalName, ratio(vertical, height), verticalName) : t("逐单元")}</span>
+  return <figure className="wafer-overview"><div className="wafer-map-scroll"><svg width={`${width * unit}px`} height={`${height * unit}px`} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t("当前 region 的 {0} row {1} col fail 分布，横轴 {2}，纵轴 {3}", rows, cols, transposed ? 'row' : 'col', transposed ? 'col' : 'row')} shapeRendering="crispEdges">{occupied.map(index => <rect className="wafer-bin-occupied" key={index} x={index % width} y={Math.floor(index / width)} width="1" height="1" />)}</svg></div><figcaption><span>{t("横轴") + " "}{horizontalName} {" " + t("· 纵轴") + " "}{verticalName} · {binned ? t("每格 = {0} {1} × {2} {3}", ratio(horizontal, width), horizontalName, ratio(vertical, height), verticalName) : t("逐单元")}</span>
     <span className="wafer-overview-legend"><span><i className="wafer-key-fail" aria-hidden="true" />{binned ? t("格内有 fail") : 'fail'}</span><span><i className="wafer-key-empty" aria-hidden="true" />{t("无 fail")}</span></span></figcaption></figure>;
 }

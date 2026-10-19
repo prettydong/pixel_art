@@ -1,6 +1,6 @@
 import { t } from './i18n';
 import { useEffect, useRef, useState } from 'react';
-import { getPixelUnit, getSidebarSizing, setSidebarWidth } from './pixelGrid';
+import { getSidebarSizing, setSidebarWidth } from './viewport';
 
 export function SidebarResizeHandle({ disabled }: { disabled: boolean }) {
   const [sizing, setSizing] = useState(getSidebarSizing);
@@ -8,9 +8,9 @@ export function SidebarResizeHandle({ disabled }: { disabled: boolean }) {
   const handle = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const update = () => setSizing(getSidebarSizing());
-    window.addEventListener('pixel:sidebar-width', update);
+    window.addEventListener('app:sidebar-width', update);
     return () => {
-      window.removeEventListener('pixel:sidebar-width', update);
+      window.removeEventListener('app:sidebar-width', update);
       if (drag.current?.moved) setSidebarWidth(getSidebarSizing().width);
       drag.current = null;
       delete document.documentElement.dataset.sidebarResizing;
@@ -36,7 +36,7 @@ export function SidebarResizeHandle({ disabled }: { disabled: boolean }) {
     }}
     onPointerMove={event => {
       if (drag.current?.id !== event.pointerId) return;
-      const width = Math.round((event.clientX - drag.current.left) / getPixelUnit());
+      const width = Math.round(event.clientX - drag.current.left);
       const current = getSidebarSizing();
       const next = Math.max(current.minimum, Math.min(current.maximum, width));
       if (next !== current.width) { drag.current.moved = true; setSidebarWidth(next, false); }

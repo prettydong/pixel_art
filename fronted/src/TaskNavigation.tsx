@@ -2,7 +2,7 @@ import { localizeMessage, t } from './i18n';
 import { useEffect, useState } from 'react';
 import { isActiveRun, type EvaluationTask, type Run } from '@pixel/contracts';
 import type { Conversation } from './chatTypes';
-import { BarChart, ChevronDown, ChevronRight, Chip, Ellipsis, Folder, MessageSquare, Plus, Repair } from './PixelIcons';
+import { BarChart, ChevronDown, ChevronRight, Chip, Ellipsis, Folder, MessageSquare, Plus, Repair } from './Icons';
 import { errorText } from './api';
 import { DeleteChatButton } from './DeleteChatButton';
 

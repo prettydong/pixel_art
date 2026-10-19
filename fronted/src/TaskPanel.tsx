@@ -15,7 +15,7 @@ import { api, errorText, fileUrl } from './api';
 import { MarkdownMessage } from './MarkdownMessage';
 import { StatTile } from './StatTile';
 import { groupReplyMessages } from './replyMessages';
-import { ChevronDown, ChevronRight, Download, Plus } from './PixelIcons';
+import { ChevronDown, ChevronRight, Download, Plus } from './Icons';
 import { taskViewLabels, type TaskView } from './TaskNavigation';
 import './ArchitectureCollapse.css';
 
