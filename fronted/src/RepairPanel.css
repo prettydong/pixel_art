@@ -1,5 +1,5 @@
 .repair-panel { display: grid; gap: 14px; min-width: 0; }
-.repair-intro h2, .repair-jobs h2, .repair-draft h2, .repair-results h2 { margin: 0; font-family: var(--font-serif); font-size: var(--text-lg); font-weight: 500; }
+.repair-intro h2, .repair-jobs h2, .repair-draft h2, .repair-results h2 { margin: 0; font-family: var(--font-display); font-size: var(--text-lg); font-weight: 650; letter-spacing: -.015em; }
 .repair-check small, .repair-job > p { color: var(--muted); margin: 4px 0 0; font-size: var(--text-sm); }
 .repair-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .repair-picker fieldset, .repair-job, .repair-issues { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); padding: 12px 14px; min-width: 0; }

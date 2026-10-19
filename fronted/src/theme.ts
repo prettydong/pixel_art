@@ -20,7 +20,7 @@ export function applyTheme(preference: ThemePreference) {
     : preference;
   document.documentElement.dataset.theme = theme;
   document.querySelector('meta[name="theme-color"]')?.setAttribute(
-    "content", theme === "light" ? "#faf9f5" : "#262624",
+    "content", theme === "light" ? "#f4f5f8" : "#0d0f15",
   );
 }
 

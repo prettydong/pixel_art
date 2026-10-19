@@ -1,6 +1,6 @@
 import { localizeMessage, t, useLanguage } from './i18n';
 import { LanguageSelect } from './LanguageSelect';
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { modes, isActiveRun, type Mode, type User, type FileRecord, type Run, type CreateRunInput, type ListResponse, type EvaluationTask, type TaskArchitecture, type DemoTask } from "@pixel/contracts";
 import { saveRepairDraft } from './repairDraft';
 import type { Message, Conversation } from "./chatTypes";
@@ -15,7 +15,8 @@ import { groupReplyMessages, type ReplyMessage } from "./replyMessages";
 import { api, errorText, fileUrl, RequestError, requestId } from "./api";
 import { AuthGate } from "./AuthGate";
 import { AccountPanel, UsersPanel, UsagePanel } from "./AccountPanels";
-import { RunBadge, TaskNavigation, taskViewLabels, type TaskView } from "./TaskNavigation";
+import { flowSteps, RunBadge, TaskNavigation, taskViewLabels, type TaskView } from "./TaskNavigation";
+import { CommandPalette, modKey, type PaletteAction } from "./CommandPalette";
 import { DeleteChatButton } from "./DeleteChatButton";
 import { TaskPanel } from "./TaskPanel";
 import { findArchitectureDrawing } from "./ArchitectureDrawingProgress";
@@ -25,10 +26,9 @@ import { useTheme } from "./theme";
 import { useAutoConclusions } from './solverPreferences';
 import { SidebarResizeHandle } from './SidebarResizeHandle';
 import { Thinking } from "./Thinking";
-import { sparkBurst, sparkBurstFrom } from "./fun";
+import { dieShower, sparkBurst, sparkBurstFrom } from "./fun";
 import {
   Alert,
-  ArrowRight,
   ArrowUp,
   BarChart,
   Chip,
@@ -38,17 +38,22 @@ import {
   Copy,
   Download,
   Ellipsis,
-  Folder,
+  Globe,
   Menu,
   MessageSquare,
+  Monitor,
+  Moon,
   Paperclip,
   PanelLeftClose,
+  Play,
   Plus,
   Search,
   Settings2,
-  Spark,
   Square,
+  Sun,
+  WaferMark,
   X,
+  Zap,
 } from "./Icons";
 
 const evaluationPanels = [
@@ -80,6 +85,18 @@ const evaluationPanels = [
     get prompt() { return t("请协助我设计 CCR 内存修补规则。\n适用的产品架构：\nRegion 全局备用 row 容量（默认 128）与 Segment 内 CCR 备用 col 容量：\n修补优先级与分配策略：\n资源冲突与不可修补条件：\nrow 修复使用 Region 共享的全局备用 row，替换一条原始 row 并覆盖其所有 col；col 修复仅覆盖本 Segment 内对应的原始 col 地址。row 资源不跨 Region 共享，CCR col 资源不跨 Segment、Region 或子组共享。"); },
   },
 ];
+const modeKind = (mode: Mode) => evaluationPanels.find(panel => panel.mode === mode)?.kind ?? "data";
+const konami = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
+function greeting(name: string) {
+  const hour = new Date().getHours();
+  const word = hour < 5 ? "夜深了" : hour < 12 ? "早上好" : hour < 18 ? "下午好" : "晚上好";
+  return name ? t("{0}，{1}", t(word), name) : t(word);
+}
+/** Replay a one-shot CSS animation class on an element. */
+function twirl(element: Element) {
+  element.classList.remove("is-twirling"); void (element as HTMLElement).getBoundingClientRect(); element.classList.add("is-twirling");
+  sparkBurstFrom(element, 14);
+}
 const emptyConversation: Conversation = { id: "", get title() { return t("新的评估对话"); }, mode: "数据分析", messages: [], updated: 0, activeRun: null, lastRun: null };
 const statusLabel: Record<string, string> = { get starting() { return t("启动中"); }, get running() { return t("运行中"); }, get cancelling() { return t("停止中"); }, get completed() { return t("已完成"); }, get cancelled() { return t("已停止"); }, get interrupted() { return t("服务重启，运行已中断"); }, get failed() { return t("运行失败"); } };
 export default function App() {
@@ -93,6 +110,7 @@ export default function App() {
 
 function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean }) {
 
+  const [language, setLanguage] = useLanguage();
   const [theme, setTheme] = useTheme();
   const [autoConclusions, setAutoConclusions] = useAutoConclusions();
   const server = useWorkspace(!demoMode);
@@ -140,6 +158,9 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const sendRef = useRef<HTMLButtonElement>(null);
+  const konamiStep = useRef(0);
+  const lastBusy = useRef({ id: "", busy: false });
   const sidebarToggleRef = useRef<HTMLButtonElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   const messagesRef = useRef<HTMLElement>(null);
@@ -161,9 +182,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   const submitting = pending.has(active.id);
   // Without a conversation (still loading, or no task exists) there is nothing to type into.
   const noConversation = !demoMode && !active.id;
-  const showCards = !noConversation && !active.messages.length && enteredId !== active.id;
-  // An entered, empty conversation gives the remaining height to the draft.
-  const fillComposer = !showCards && !visibleMessages.length;
+  // An empty conversation is a launchpad: greeting, composer and the three directions.
+  const launch = !noConversation && !active.messages.length && !visibleMessages.length;
   const sidebarVisible = compact ? mobileOpen : !sidebarCollapsed;
   const activeIdRef = useRef(active.id);
   activeIdRef.current = active.id;
@@ -217,9 +237,23 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     return () => clearTimeout(id);
   }, [toast]);
   useEffect(() => {
-    if (dialog) dialogRef.current?.showModal();
+    if (dialog) { if (!dialogRef.current?.open) dialogRef.current?.showModal(); }
     else dialogRef.current?.close();
   }, [dialog]);
+  // The draft grows with its content; CSS caps the height.
+  useLayoutEffect(() => {
+    const element = inputRef.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
+  }, [draft, active.id, launch]);
+  // A reply that finishes while you watch earns a small burst from the send button.
+  useEffect(() => {
+    const previous = lastBusy.current;
+    const finished = demoMode ? active.messages.at(-1)?.delivery !== "stopped" : currentRun?.status === "completed";
+    if (previous.id === active.id && previous.busy && !busy && finished) sparkBurstFrom(sendRef.current, 12);
+    lastBusy.current = { id: active.id, busy };
+  }, [busy, active.id]);
   useEffect(() => {
     document.documentElement.dataset.motion = motion ? "on" : "off";
   }, [motion]);
@@ -235,7 +269,20 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setDialog("search");
+        openPalette();
+      }
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      const typing = !!target?.closest("input, textarea, select, [contenteditable='true']");
+      if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey && !document.querySelector("dialog[open]")) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      konamiStep.current = key === konami[konamiStep.current] ? konamiStep.current + 1 : key === konami[0] ? 1 : 0;
+      if (konamiStep.current === konami.length) {
+        konamiStep.current = 0;
+        dieShower();
+        setToastState({ text: t("良率 100%（至少在我们心里）"), error: false });
       }
       if (e.key === "Escape") {
         setDialog(null);
@@ -248,6 +295,10 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     return () => window.removeEventListener("keydown", keydown);
   }, [compact]);
 
+  function openPalette() {
+    setQuery("");
+    setDialog("search");
+  }
   function chooseModel(id: string) {
     setModelState(id); setModelOpen(false);
     try { localStorage.setItem("pixel-chat-model", id); } catch { /* The selection still applies to this session. */ }
@@ -435,6 +486,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     if (hasCustomDraft) setToast(t("已切换至{0}，保留现有草稿", t(mode)));
     else setDraft(value);
     setEnteredId(active.id);
+    requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
   }
   async function copy(message: Message) {
     try {
@@ -462,26 +514,132 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     setToast(t("对话已导出"));
   }
 
+  const paletteActions: PaletteAction[] = [
+    ...(demoMode || activeTaskId ? [{ id: "new-chat", label: t("新建聊天"), icon: Plus, keywords: "new chat", run: () => void createChat() }] : []),
+    ...(!demoMode ? [{ id: "demo", label: t("加载 DEJOA demo"), icon: Play, keywords: "demo dejoa", run: () => void loadDejoaDemo().catch(err => showError(errorText(err))) }] : []),
+    ...(!demoMode && activeTaskId ? flowSteps.map((step, index) => ({ id: `go-${step.view}`, label: t("前往 {0}. {1}", index + 1, taskViewLabels[step.view]), icon: step.icon, keywords: step.view, run: () => openTask(activeTaskId, step.view) })) : []),
+    { id: "sidebar", label: t("切换侧边栏"), icon: PanelLeftClose, hint: `${modKey} B`, keywords: "sidebar", run: toggleSidebar },
+    ...([["light", "亮色", Sun], ["dark", "暗色", Moon], ["system", "跟随系统", Monitor]] as const).filter(([value]) => value !== theme).map(([value, label, icon]) => ({ id: `theme-${value}`, label: t("外观：{0}", t(label)), icon, keywords: "theme appearance", run: () => setTheme(value) })),
+    { id: "motion", label: motion ? t("关闭界面动效") : t("开启界面动效"), icon: Zap, keywords: "motion animation", run: () => setMotion(!motion) },
+    { id: "language", label: language === "en" ? "切换到简体中文" : "Switch to English", icon: Globe, keywords: "language 语言", run: () => setLanguage(language === "en" ? "zh-CN" : "en") },
+    ...(taskView === "chat" && active.id ? [{ id: "export", label: t("导出当前对话"), icon: Download, keywords: "export markdown", run: exportChat }] : []),
+    { id: "settings", label: t("工作台设置"), icon: Settings2, keywords: "settings", run: () => setDialog("settings") },
+  ];
+  const liveReply = (m: ReplyMessage) => m.role === "assistant" && (demoMode ? m.delivery === "streaming" : busy && m.runId === currentRun?.id);
+  const composer = (
+    <div className="composer-area">
+      <div className="composer">
+        <textarea
+          ref={inputRef}
+          value={draft}
+          disabled={submitting}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={t("补充{0}的目标、已知条件或问题…", t(active.mode))}
+          aria-label={t("输入消息")}
+          rows={launch ? 3 : 1}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              if (!busy) { sparkBurstFrom(sendRef.current); send(); }
+            }
+          }}
+        />
+        {files.length > 0 && (
+          <div className="attachments">
+            {files.map((f) => (
+              <span key={f.id}>
+                <Paperclip />
+                {f.name}
+                <button disabled={submitting} aria-label={t("移除附件 {0}", f.name)} onClick={() => setFiles((prev) => prev.filter((v) => v.id !== f.id))}>
+                  <X />
+                </button>
+              </span>
+            ))}
+            {demoMode && <small>{t("演示：附件未上传")}</small>}
+          </div>
+        )}
+        <div className="composer-bottom">
+          <div className="composer-tools">
+            <input type="file" ref={uploadRef} hidden multiple onChange={(e) => { void upload(Array.from(e.target.files || [])); e.target.value = ""; }} />
+            <button
+              className="icon-button"
+              aria-label={demoMode ? t("添加演示附件") : t("上传附件")}
+              title={demoMode ? t("添加演示附件（仅记录文件名）") : t("上传附件")} disabled={uploading || submitting || !active.id}
+              onClick={() => uploadRef.current?.click()}
+            >
+              <Paperclip />
+            </button>
+            <div className="dropdown-anchor">
+              <button className="mode-trigger" disabled={modePending || !active.id} aria-expanded={modeOpen} onClick={() => { setModeOpen(!modeOpen); setModelOpen(false); }}>
+                <span className={`mode-dot mode-${modeKind(active.mode)}`} aria-hidden="true" />
+                {t(active.mode)}
+                <ChevronDown />
+              </button>
+              {modeOpen && (
+                <div className="dropdown mode-dropdown">
+                  {modes.map((m) => (
+                    <button key={m} onClick={() => updateMode(m)}>
+                      <span className={`mode-dot mode-${modeKind(m)}`} aria-hidden="true" />
+                      <span>{t(m)}</span>
+                      {active.mode === m && <Check />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="dropdown-anchor">
+              <button className="model-trigger" title={t("选择模型")} aria-expanded={modelOpen} onClick={() => { setModelOpen(!modelOpen); setModeOpen(false); }}>
+                {demoMode ? t("本地工具演示") : models.find(item => item.id === model)?.label || (loading ? t("正在读取模型…") : t("尚未配置模型"))}
+                <ChevronDown />
+              </button>
+              {modelOpen && (
+                <div className="dropdown model-dropdown">
+                  <small>{t("可用模型")}</small>
+                  {models.map((m) => (
+                    <button key={m.id} onClick={() => chooseModel(m.id)}>
+                      <span>{m.label}</span>
+                      {model === m.id && <Check />}
+                    </button>
+                  ))}
+                  <div className="dropdown-separator" />
+                  {demoMode ? <a className="demo-mode-link" href={window.location.pathname}>{t("返回服务端工作台")}</a> : <a className="demo-mode-link" href="?demo=tools" target="_blank" rel="noopener noreferrer">{t("打开本地工具演示")}</a>}
+                  <a className="demo-mode-link" href="?demo=charts" target="_blank" rel="noopener noreferrer">{t("查看图表演示")}</a>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="send-tools">
+            <button
+              ref={sendRef}
+              className={`send-button ${busy ? "is-busy" : ""}`}
+              aria-label={busy ? t("停止回复") : t("发送消息")}
+              disabled={busy ? currentRun?.status === "cancelling" : (!draft.trim() || submitting || uploading || modePending || (!demoMode && !model) || !active.id)}
+              onClick={event => {
+                if (busy) { void stopReply(); return; }
+                sparkBurstFrom(event.currentTarget);
+                void send();
+              }}
+            >
+              {busy ? <Square fill="currentColor" /> : <ArrowUp />}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="app-shell">
       {mobileOpen && (
-        <button
-          className="sidebar-overlay"
-          aria-label={t("关闭侧边栏")}
-          onClick={() => setMobileOpen(false)}
-        />
+        <button className="sidebar-overlay" aria-label={t("关闭侧边栏")} onClick={() => setMobileOpen(false)} />
       )}
       <aside id="chat-sidebar" className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}>
         {!compact && !sidebarCollapsed && <SidebarResizeHandle disabled={false} />}
         <div className="sidebar-content">
         <div className="sidebar-header">
           <div className="brand">
-            <span className="brand-icon" onClick={event => {
-              const icon = event.currentTarget;
-              icon.classList.remove("is-twirling"); void icon.offsetWidth; icon.classList.add("is-twirling");
-              sparkBurstFrom(icon, 12);
-            }}>
-              <Spark />
+            <span className="brand-icon" onClick={event => twirl(event.currentTarget)}>
+              <WaferMark />
             </span>
             <span>Pixel Chat</span>
           </div>
@@ -493,37 +651,30 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
           </button>
         </div>
         {!demoMode ? <>
-          <button className="search-trigger" onClick={() => setDialog('search')}><Search /><span>{t("搜索任务和聊天")}</span></button>
           <TaskNavigation tasks={taskState.tasks} conversations={conversations} runs={runs} activeTaskId={activeTaskId} activeChatId={active.id} view={taskView}
             loading={loading || taskState.loading} disabled={loading || uploading || pending.size > 0}
-            onView={openTask} onChat={selectChat} onCreateChat={createChat} onCreateTask={createEvaluationTask} onLoadDemo={loadDejoaDemo} onRenameTask={renameEvaluationTask} onDeleteTask={deleteEvaluationTask} onDeleteChat={deleteChat} />
+            onView={openTask} onChat={selectChat} onCreateChat={createChat} onCreateTask={createEvaluationTask} onLoadDemo={loadDejoaDemo} onSearch={openPalette} onRenameTask={renameEvaluationTask} onDeleteTask={deleteEvaluationTask} onDeleteChat={deleteChat} />
           {taskState.error && <div className="workspace-error" role="alert">{localizeMessage(taskState.error)}<button onClick={() => void taskState.refresh()}>{t("重试")}</button></div>}
         </> : <>
         <button className="new-chat" onClick={() => createChat()}>
           <Plus />
           <span>{t("新建评估")}</span>
         </button>
-        <button className="search-trigger" onClick={() => setDialog("search")}>
+        <button className="search-trigger" onClick={openPalette}>
           <Search />
-          <span>{t("搜索对话")}</span>
+          <span>{t("搜索")}</span>
+          <kbd>{modKey} K</kbd>
         </button>
         <div className="history-heading">
           <span>{t("最近对话")}</span>
-          <button
-            className="icon-button"
-            aria-label={t("搜索全部对话")}
-            onClick={() => setDialog("search")}
-          >
+          <button className="icon-button" aria-label={t("搜索全部对话")} onClick={openPalette}>
             <Ellipsis />
           </button>
         </div>
         <div className="history-list">
           {history.length ? (
             history.map((c) => (
-              <div
-                className={`history-item ${c.id === active.id ? "selected" : ""}`}
-                key={c.id}
-              >
+              <div className={`history-item ${c.id === active.id ? "selected" : ""}`} key={c.id}>
                 <button onClick={() => selectChat(c.id)}>
                   <MessageSquare />
                   <span>{c.title}</span>
@@ -543,8 +694,9 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
         </>}
         </div>
         <div className="sidebar-bottom">
-          <button className="profile" onClick={() => setDialog("settings")}>
-            <span>{t("设置")}</span>
+          <button className="profile" onClick={() => setDialog("settings")} title={t("工作台设置")}>
+            <span className="avatar" aria-hidden="true"><span>{Array.from(user.username)[0] ?? "?"}</span></span>
+            <span>{user.username}</span>
             <Settings2 />
           </button>
         </div>
@@ -565,28 +717,26 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             >
               {sidebarVisible ? <PanelLeftClose /> : <Menu />}
             </button>
-            {!demoMode && <span className="task-breadcrumb" title={activeTask?.name}>{activeTask?.name}</span>}
-            {taskView === 'chat' ? (noConversation ? <span>{t("内存冗余架构评估")}</span> : <button className="current-title" title={t("重命名或移动聊天")} onClick={() => { setRenameTitle(active.title); setMoveTaskId(active.taskId || ''); setRenaming(true); }}>{active.title}</button>) : <span>{taskViewLabels[taskView]}</span>}
+            {!demoMode && activeTask && (taskView === 'chat'
+              ? <><span className="task-breadcrumb" title={activeTask.name}>{activeTask.name}</span><span className="crumb-sep" aria-hidden="true">/</span></>
+              : <span className="task-breadcrumb is-current" title={activeTask.name}>{activeTask.name}</span>)}
+            {taskView === 'chat' && (noConversation ? <span>{t("内存冗余架构评估")}</span> : <button className="current-title" title={t("重命名或移动聊天")} onClick={() => { setRenameTitle(active.title); setMoveTaskId(active.taskId || ''); setRenaming(true); }}>{active.title}</button>)}
           </div>
+          {!demoMode && activeTaskId ? <nav className="flow" aria-label={t("评估步骤")}>
+            {flowSteps.map((step, index) => <Fragment key={step.view}>
+              {index > 0 && <span className="flow-link" aria-hidden="true" />}
+              <button className="flow-step" aria-current={taskView === step.view ? "page" : undefined} aria-label={`${index + 1}. ${taskViewLabels[step.view]}`} title={taskViewLabels[step.view]} onClick={() => openTask(activeTaskId, step.view)}>
+                <span className="flow-index" aria-hidden="true">{index + 1}</span>
+                <span className="flow-label" aria-hidden="true">{taskViewLabels[step.view]}</span>
+              </button>
+            </Fragment>)}
+          </nav> : <span />}
           <div className="topbar-right">
-            {taskView === 'chat' && !noConversation && !showCards && !active.messages.length && (
-              <button className="return-directions" onClick={() => setEnteredId(null)}>{t("选择方向")}</button>
-            )}
-            <button
-              className="icon-button"
-              disabled={taskView !== 'chat' || !active.id}
-              aria-label={t("导出当前对话")}
-              title={t("导出当前对话")}
-              onClick={exportChat}
-            >
-              <Download />
+            <button className="icon-button" aria-label={t("搜索与命令")} title={`${t("搜索与命令")} (${modKey} K)`} onClick={openPalette}>
+              <Search />
             </button>
-            <button
-              className="icon-button"
-              aria-label={t("工作台设置")}
-              onClick={() => setDialog("settings")}
-            >
-              <Settings2 />
+            <button className="icon-button topbar-export" disabled={taskView !== 'chat' || !active.id} aria-label={t("导出当前对话")} title={t("导出当前对话")} onClick={exportChat}>
+              <Download />
             </button>
           </div>
         </header>
@@ -600,49 +750,41 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             {error && <div className="workspace-error" role="alert">{localizeMessage(error)}<button onClick={() => window.location.reload()}>{t("重新连接")}</button><button onClick={() => setError('')}>{t("关闭")}</button></div>}
             {loading && <p role="status">{t("正在读取会话…")}</p>}
 
-            {!demoMode && taskView !== 'chat' ? (activeTaskId ? <TaskPanel key={activeTaskId} taskId={activeTaskId} view={taskView} revision={taskState.revision} conversations={conversations} connections={connections} models={models} modelId={model} onRefresh={taskState.refresh} onChat={selectChat} onRepairChat={async id => { try { await refresh(id); selectChat(id); } catch (err) { showError(errorText(err)); } }} onCreateChat={createChat} onGeneratePreview={generateArchitecturePreview} previewAvailable={!!model && !loading && !uploading} /> : <p>{t("请先新建任务。")}</p>) : noConversation ? (!loading && <p className="task-empty">{t("请先新建任务。")}</p>) : <>
-            {showCards ? (
-              <div className="card-stage">
-                <section className="welcome" aria-label={t("内存冗余架构评估工作台")}>
-                  <div className="evaluation-panels">
-                    {evaluationPanels.map((panel, index) => (
-                      <section
+            {!demoMode && taskView !== 'chat' ? (activeTaskId ? <TaskPanel key={activeTaskId} taskId={activeTaskId} view={taskView} revision={taskState.revision} conversations={conversations} connections={connections} models={models} modelId={model} onRefresh={taskState.refresh} onChat={selectChat} onRepairChat={async id => { try { await refresh(id); selectChat(id); } catch (err) { showError(errorText(err)); } }} onCreateChat={createChat} onGeneratePreview={generateArchitecturePreview} previewAvailable={!!model && !loading && !uploading} /> : <p>{t("请先新建任务。")}</p>) : noConversation ? (!loading && <p className="task-empty">{t("请先新建任务。")}</p>) : launch ? (
+              <div className="launchpad">
+                <div className="launch-inner">
+                  <div className="launch-hero">
+                    <WaferMark onClick={event => twirl(event.currentTarget)} />
+                    <p className="launch-greeting">{greeting(demoMode ? "" : user.username)}</p>
+                    <h1 className="launch-title">{t("今天要修补点什么？")}</h1>
+                  </div>
+                  {composer}
+                  <div className="launch-directions" role="group" aria-label={t("评估方向")}>
+                    {evaluationPanels.map((panel) => (
+                      <button
                         key={panel.mode}
-                        className={`evaluation-slot evaluation-${panel.kind}`}
-                        aria-labelledby={`panel-${index}`}
+                        className={`direction direction-${panel.kind}`}
+                        aria-pressed={active.mode === panel.mode}
+                        aria-label={panel.action}
+                        title={`${t("输入")}${t("：")}${panel.input}`}
+                        onClick={(event) => {
+                          if (event.detail) sparkBurst(event.clientX, event.clientY, 8);
+                          setModeOpen(false);
+                          setModelOpen(false);
+                          if (active.id) prompt(panel.mode, panel.prompt);
+                        }}
                       >
-                        <div className="evaluation-card-motion">
-                          <div className={`evaluation-panel ${active.mode === panel.mode ? "selected" : ""}`}>
-                            <div className="evaluation-card-top">
-                              <panel.icon />
-                              <h1 className="evaluation-heading" id={`panel-${index}`}>{t(panel.mode)}</h1>
-                              <span className="evaluation-indicator" aria-hidden="true">
-                                {active.mode === panel.mode ? <Check /> : <ArrowRight />}
-                              </span>
-                            </div>
-                            <dl className="evaluation-details">
-                              <div><dt>{t("输入")}</dt><dd>{panel.input}</dd></div>
-                              <div><dt>{t("目标")}</dt><dd>{panel.outcome}</dd></div>
-                            </dl>
-                          </div>
-                        </div>
-                        <button
-                          className="evaluation-hit-area"
-                          aria-label={panel.action}
-                          aria-pressed={active.mode === panel.mode}
-                          onClick={(event) => {
-                            if (event.detail) sparkBurst(event.clientX, event.clientY, 7);
-                            setModeOpen(false);
-                            setModelOpen(false);
-                            if (active.id) prompt(panel.mode, panel.prompt);
-                          }}
-                        />
-                      </section>
+                        <span className="direction-icon" aria-hidden="true"><panel.icon /></span>
+                        <span className="direction-text" aria-hidden="true">
+                          <strong>{t(panel.mode)}</strong>
+                          <span>{panel.outcome}</span>
+                        </span>
+                      </button>
                     ))}
                   </div>
-                </section>
+                </div>
               </div>
-            ) : !fillComposer && (
+            ) : <>
               <section
                 className="messages"
                 ref={messagesRef}
@@ -654,7 +796,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                 aria-busy={busy}
               >
                 {visibleMessages.map((m) => (
-                  <article key={m.id} className={`message ${m.role}`}>
+                  <article key={m.id} className={`message ${m.role} ${liveReply(m) ? "is-live" : ""}`}>
                     <div className="message-body">
                       <div className="message-author">
                         {m.role === "assistant" ? demoMode ? t("Pixel（本地演示）") : "Pixel" : t("你")}
@@ -683,11 +825,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                       ) : null}
                       {m.role === "assistant" && Boolean(m.text || m.tools?.length) && (
                         <button className="copy-message" onClick={() => copy(m)}>
-                          {copied === m.id ? (
-                            <Check />
-                          ) : (
-                            <Copy />
-                          )}
+                          {copied === m.id ? <Check /> : <Copy />}
                           {copied === m.id ? t("已复制") : t("复制")}
                         </button>
                       )}
@@ -695,265 +833,88 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                   </article>
                 ))}
               </section>
-            )}
-
-            <div className="run-context">
-              {demoMode && <div className="run-status" role="status">{busy ? t("本地演示回复中 · 可停止") : t("本地工具演示 · 仅保存在当前浏览器，未连接模型")}</div>}
-              {demoMode && demo.storageError && <div className="workspace-error" role="alert">{localizeMessage(demo.storageError)}</div>}
-              {(currentRun || submitting || uploading) && <div className="run-status" role="status">{uploading ? t("附件上传中") : submitting ? t("正在提交…") : `${statusLabel[currentRun!.status]}${busy && connections[active.id] ? ` · ${localizeMessage(connections[active.id])}` : ''}`}{currentRun?.error && <span className="error-text">{localizeMessage(currentRun.error)}</span>}</div>}
-
-            </div>
-            <div className={`composer-area ${fillComposer ? "fill" : ""}`}>
-              <div className="composer">
-                <textarea
-                  ref={inputRef}
-                  value={draft}
-                  disabled={submitting}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder={t("补充{0}的目标、已知条件或问题…", t(active.mode))}
-                  aria-label={t("输入消息")}
-                  rows={2}
-                  onKeyDown={(e) => {
-                    if (
-                      e.key === "Enter" &&
-                      !e.shiftKey &&
-                      !e.nativeEvent.isComposing
-                    ) {
-                      e.preventDefault();
-                      send();
-                    }
-                  }}
-                />
-                {files.length > 0 && (
-                  <div className="attachments">
-                    {files.map((f) => (
-                      <span key={f.id}>
-                        <Paperclip />
-                        {f.name}
-                        <button
-                          disabled={submitting}
-                          aria-label={t("移除附件 {0}", f.name)}
-                          onClick={() =>
-                            setFiles((prev) => prev.filter((v) => v.id !== f.id))
-                          }
-                        >
-                          <X />
-                        </button>
-                      </span>
-                    ))}
-                    {demoMode && <small>{t("演示：附件未上传")}</small>}
-                  </div>
-                )}
-                <div className="composer-bottom">
-                  <div className="composer-tools">
-                    <input
-                      type="file"
-                      ref={uploadRef}
-                      hidden
-                      multiple
-                      onChange={(e) => { void upload(Array.from(e.target.files || [])); e.target.value = ""; }}
-                    />
-                    <button
-                      className="icon-button"
-                      aria-label={demoMode ? t("添加演示附件") : t("上传附件")}
-                      title={demoMode ? t("添加演示附件（仅记录文件名）") : t("上传附件")} disabled={uploading || submitting || !active.id}
-                      onClick={() => uploadRef.current?.click()}
-                    >
-                      <Paperclip />
-                    </button>
-                    <div className="dropdown-anchor">
-                      <button
-                        className="mode-trigger"
-                        disabled={modePending || !active.id}
-                        aria-expanded={modeOpen}
-                        onClick={() => {
-                          setModeOpen(!modeOpen);
-                          setModelOpen(false);
-                        }}
-                      >
-                        {t(active.mode)}
-                        <ChevronDown />
-                      </button>
-                      {modeOpen && (
-                        <div className="dropdown mode-dropdown">
-                          {modes.map((m) => (
-                            <button key={m} onClick={() => updateMode(m)}>
-                              {t(m)}
-                              {active.mode === m && <Check />}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="dropdown-anchor">
-                      <button
-                        className="model-trigger"
-                        title={t("选择模型")}
-                        aria-expanded={modelOpen}
-                        onClick={() => {
-                          setModelOpen(!modelOpen);
-                          setModeOpen(false);
-                        }}
-                      >
-                        {demoMode ? t("本地工具演示") : models.find(item => item.id === model)?.label || (loading ? t("正在读取模型…") : t("尚未配置模型"))}
-                        <ChevronDown />
-                      </button>
-                      {modelOpen && (
-                        <div className="dropdown model-dropdown">
-                          <small>{t("可用模型")}</small>
-                          {models.map((m) => (
-                            <button
-                              key={m.id}
-                              onClick={() => chooseModel(m.id)}
-                            >
-                              {m.label}
-                              {model === m.id && <Check />}
-                            </button>
-                          ))}
-                          <div className="dropdown-separator" />
-                          {demoMode ? <a className="demo-mode-link" href={window.location.pathname}>{t("返回服务端工作台")}</a> : <a className="demo-mode-link" href="?demo=tools" target="_blank" rel="noopener noreferrer">{t("打开本地工具演示")}</a>}
-                          <a className="demo-mode-link" href="?demo=charts" target="_blank" rel="noopener noreferrer">{t("查看图表演示")}</a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="send-tools">
-                    <button
-                      className={`send-button ${busy ? "is-busy" : ""}`}
-                      aria-label={busy ? t("停止回复") : t("发送消息")}
-                      disabled={busy ? currentRun?.status === "cancelling" : (!draft.trim() || submitting || uploading || modePending || (!demoMode && !model) || !active.id)}
-                      onClick={event => {
-                        if (busy) { void stopReply(); return; }
-                        sparkBurstFrom(event.currentTarget);
-                        void send();
-                      }}
-                    >
-                      {busy ? (
-                        <Square fill="currentColor" />
-                      ) : (
-                        <ArrowUp />
-                      )}
-                    </button>
-                  </div>
-                </div>
+              <div className="run-context">
+                {demoMode && <div className="run-status" role="status">{busy ? t("本地演示回复中 · 可停止") : t("本地工具演示 · 仅保存在当前浏览器，未连接模型")}</div>}
+                {demoMode && demo.storageError && <div className="workspace-error" role="alert">{localizeMessage(demo.storageError)}</div>}
+                {(currentRun || submitting || uploading) && <div className="run-status" role="status">{uploading ? t("附件上传中") : submitting ? t("正在提交…") : `${statusLabel[currentRun!.status]}${busy && connections[active.id] ? ` · ${localizeMessage(connections[active.id])}` : ''}`}{currentRun?.error && <span className="error-text">{localizeMessage(currentRun.error)}</span>}</div>}
               </div>
-            </div>
+              {composer}
             </>}
           </div>
         </div>
       </main>
       <dialog
         ref={dialogRef}
-        className={`modal ${dialog === "settings" && accountTab === "usage" ? "wide-modal" : ""}`}
+        className={`modal ${dialog === "search" ? "palette-modal" : ""} ${dialog === "settings" && accountTab === "usage" ? "wide-modal" : ""}`}
+        aria-label={dialog === "search" ? t("搜索与命令") : t("工作台设置")}
         onCancel={() => setDialog(null)}
         onClick={(e) => {
           if (e.target === e.currentTarget) setDialog(null);
         }}
       >
+        {dialog === "search" ? (
+          <CommandPalette
+            query={query}
+            onQuery={setQuery}
+            actions={paletteActions}
+            chats={searchResults}
+            searching={searching}
+            chatDetail={c => `${taskState.tasks.find(task => task.id === c.taskId)?.name || t(c.mode)} · ${c.messages.length} ${t("条消息")}`}
+            onChat={selectChat}
+            onClose={() => setDialog(null)}
+          />
+        ) : (
         <div className="modal-inner">
           <div className="modal-heading">
-            <h2>{dialog === "search" ? t("搜索评估对话") : t("工作台设置")}</h2>
-            <button
-              className="icon-button"
-              aria-label={t("关闭弹窗")}
-              onClick={() => setDialog(null)}
-            >
+            <h2>{t("工作台设置")}</h2>
+            <button className="icon-button" aria-label={t("关闭弹窗")} onClick={() => setDialog(null)}>
               <X />
             </button>
           </div>
-          {dialog === "search" ? (
-            <>
-              <div className="search-field">
-                <Search />
-                <input
-                  autoFocus
-                  placeholder={t("搜索任务名、聊天标题或内容…")}
-                  aria-label={t("搜索对话")}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.nativeEvent.isComposing && !searching && searchResults[0]) selectChat(searchResults[0].id);
-                  }}
-                />
-              </div>
-              <div className="search-results">{searching && <p role="status">{t("搜索中…")}</p>}
-                {searchResults.map((c) => (
-                    <button key={c.id} onClick={() => selectChat(c.id)}>
-                      <MessageSquare />
-                      <span>
-                        {c.title}
-                        <small>
-                          {taskState.tasks.find(task => task.id === c.taskId)?.name || t(c.mode)} · {c.messages.length} {" " + t("条消息")}</small>
-                      </span>
-                      <ArrowRight />
-                    </button>
-                  ))}
-                {!searching && !searchResults.length && (
-                  <div className="search-empty">
-                    <Folder />
-                    <p>
-                      {query
-                        ? t("没有找到相关对话")
-                        : t("还没有对话，先聊点什么吧。")}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="panel-actions account-tabs" role="group" aria-label={t("设置页面")}>
-                {([['settings', t("常规")], ...(!demoMode ? [['account', t("账号")], ['usage', t("用量")]] : []), ...(user.role === 'admin' ? [['users', t("用户管理")]] : [])] as [typeof accountTab, string][]).map(([tab, label]) => <button key={tab} className="action-button" aria-pressed={accountTab === tab} onClick={() => setAccountTab(tab)}>{label}</button>)}
-              </div>
-              {accountTab === 'account' && <AccountPanel user={user} />}
-              {accountTab === 'users' && user.role === 'admin' && <UsersPanel user={user} />}
-              {accountTab === 'usage' && <UsagePanel user={user} models={models} />}
-              {accountTab === 'settings' && <>
-              <div className="setting-row"><LanguageSelect /></div>
-              <div className="setting-row">
-                <div>{t("自动生成结论")}<small className="task-note"> · {t("用于之后启动的 Solver")}</small></div>
-                <button role="switch" aria-checked={autoConclusions} aria-label={t("自动生成结论")}
-                  className={`toggle ${autoConclusions ? 'on' : ''}`} onClick={() => setAutoConclusions(!autoConclusions)}><span /></button>
-              </div>
-              <div className="setting-row theme-row">
-                <span>{t("外观")}</span>
-                <div className="theme-options" role="group" aria-label={t("外观模式")}>
-                  {([
-                    { value: "system", label: t("跟随系统") },
-                    { value: "light", label: t("亮色") },
-                    { value: "dark", label: t("暗色") },
-                  ] as const).map(({ value, label }) => (
-                    <button
-                      key={value}
-                      aria-pressed={theme === value}
-                      onClick={() => setTheme(value)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="setting-row">
-                <div>
-                  {t("界面动效")}</div>
-                <button
-                  role="switch"
-                  aria-checked={motion}
-                  aria-label={t("界面动效")}
-                  className={`toggle ${motion ? "on" : ""}`}
-                  onClick={() => setMotion(!motion)}
-                >
-                  <span />
+          <div className="panel-actions account-tabs" role="group" aria-label={t("设置页面")}>
+            {([['settings', t("常规")], ...(!demoMode ? [['account', t("账号")], ['usage', t("用量")]] : []), ...(user.role === 'admin' ? [['users', t("用户管理")]] : [])] as [typeof accountTab, string][]).map(([tab, label]) => <button key={tab} className="action-button" aria-pressed={accountTab === tab} onClick={() => setAccountTab(tab)}>{label}</button>)}
+          </div>
+          {accountTab === 'account' && <AccountPanel user={user} />}
+          {accountTab === 'users' && user.role === 'admin' && <UsersPanel user={user} />}
+          {accountTab === 'usage' && <UsagePanel user={user} models={models} />}
+          {accountTab === 'settings' && <>
+          <div className="setting-row theme-row">
+            <span>{t("外观")}</span>
+            <div className="theme-options" role="group" aria-label={t("外观模式")}>
+              {([
+                { value: "system", label: t("跟随系统") },
+                { value: "light", label: t("亮色") },
+                { value: "dark", label: t("暗色") },
+              ] as const).map(({ value, label }) => (
+                <button key={value} className="theme-option" aria-pressed={theme === value} onClick={() => setTheme(value)}>
+                  <span className={`theme-swatch swatch-${value}`} aria-hidden="true" />
+                  {label}
                 </button>
-              </div>
-              <button className="export-button" onClick={exportChat}>
-                <Download />
-                {t("导出当前对话为 Markdown")}</button>
-              <div className="settings-note">
-                {t("Ctrl / Cmd + K 搜索对话")}<br />{t("Ctrl / Cmd + B 收起 / 展开侧栏")}</div></>}
-            </>
-          )}
+              ))}
+            </div>
+          </div>
+          <div className="setting-row"><LanguageSelect /></div>
+          <div className="setting-row">
+            <div>{t("自动生成结论")}<small className="task-note"> · {t("用于之后启动的 Solver")}</small></div>
+            <button role="switch" aria-checked={autoConclusions} aria-label={t("自动生成结论")}
+              className={`toggle ${autoConclusions ? 'on' : ''}`} onClick={() => setAutoConclusions(!autoConclusions)}><span /></button>
+          </div>
+          <div className="setting-row">
+            <div>{t("界面动效")}</div>
+            <button role="switch" aria-checked={motion} aria-label={t("界面动效")} className={`toggle ${motion ? "on" : ""}`} onClick={() => setMotion(!motion)}>
+              <span />
+            </button>
+          </div>
+          <button className="export-button" onClick={exportChat}>
+            <Download />
+            {t("导出当前对话为 Markdown")}</button>
+          <div className="settings-note">
+            <span><kbd>{modKey}</kbd><kbd>K</kbd>{t("搜索与命令")}</span>
+            <span><kbd>{modKey}</kbd><kbd>B</kbd>{t("收起 / 展开侧栏")}</span>
+            <span><kbd>/</kbd>{t("聚焦输入框")}</span>
+          </div></>}
         </div>
+        )}
       </dialog>
       {toast && (
         <div className={`toast ${toast.error ? "toast-error" : ""}`} role={toast.error ? "alert" : "status"}>
