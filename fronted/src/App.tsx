@@ -24,6 +24,8 @@ import { useWorkspace } from "./useWorkspace";
 import { useTheme } from "./theme";
 import { useAutoConclusions } from './solverPreferences';
 import { SidebarResizeHandle } from './SidebarResizeHandle';
+import { Thinking } from "./Thinking";
+import { sparkBurst, sparkBurstFrom } from "./fun";
 import {
   Alert,
   ArrowRight,
@@ -221,6 +223,9 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   useEffect(() => {
     document.documentElement.dataset.motion = motion ? "on" : "off";
   }, [motion]);
+  useEffect(() => {
+    document.documentElement.dataset.busy = String(busy || submitting);
+  }, [busy, submitting]);
   useEffect(() => {
     const keydown = (e: KeyboardEvent) => {
       if (e.isComposing) return;
@@ -435,6 +440,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     try {
       await navigator.clipboard.writeText(messageMarkdown(message));
       setCopied(message.id);
+      sparkBurstFrom(document.activeElement, 6);
       setTimeout(() => setCopied(""), 1800);
     } catch {
       showError(t("无法访问剪贴板，请手动选择文字复制"));
@@ -470,7 +476,11 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
         <div className="sidebar-content">
         <div className="sidebar-header">
           <div className="brand">
-            <span className="brand-icon">
+            <span className="brand-icon" onClick={event => {
+              const icon = event.currentTarget;
+              icon.classList.remove("is-twirling"); void icon.offsetWidth; icon.classList.add("is-twirling");
+              sparkBurstFrom(icon, 12);
+            }}>
               <Spark />
             </span>
             <span>Pixel Chat</span>
@@ -620,7 +630,8 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                           className="evaluation-hit-area"
                           aria-label={panel.action}
                           aria-pressed={active.mode === panel.mode}
-                          onClick={() => {
+                          onClick={(event) => {
+                            if (event.detail) sparkBurst(event.clientX, event.clientY, 7);
                             setModeOpen(false);
                             setModelOpen(false);
                             if (active.id) prompt(panel.mode, panel.prompt);
@@ -651,11 +662,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                       <div className="message-content">
                         {!demoMode && m.role === "assistant" ? <StreamingReply message={m} pending={busy && m.runId === currentRun?.id} /> : m.text ? (m.role === "assistant" ? <MarkdownMessage text={m.text} /> : <UserMessageText text={m.text} />) :
                           ((m.delivery === "streaming" || (!demoMode && busy && m.runId === currentRun?.id)) ? (
-                            <span className="typing-dots">
-                              <i />
-                              <i />
-                              <i />
-                            </span>
+                            <Thinking />
                           ) : (
                             m.delivery === "stopped" ? t("回复已停止。") : null
                           ))}
@@ -815,7 +822,11 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                       className={`send-button ${busy ? "is-busy" : ""}`}
                       aria-label={busy ? t("停止回复") : t("发送消息")}
                       disabled={busy ? currentRun?.status === "cancelling" : (!draft.trim() || submitting || uploading || modePending || (!demoMode && !model) || !active.id)}
-                      onClick={busy ? stopReply : send}
+                      onClick={event => {
+                        if (busy) { void stopReply(); return; }
+                        sparkBurstFrom(event.currentTarget);
+                        void send();
+                      }}
                     >
                       {busy ? (
                         <Square fill="currentColor" />

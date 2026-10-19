@@ -1034,5 +1034,19 @@ export const english: Record<string, string> = {
   "～": "–",
   "、": ", ",
   "；": "; ",
-  "：": ": "
+  "：": ": ",
+  "琢磨中": "Pondering",
+  "正在驯服晶圆": "Wrangling wafers",
+  "正在数失效点": "Counting fails",
+  "正在赶备用行": "Herding spare rows",
+  "正在抛接列地址": "Juggling column addresses",
+  "正在请教 CCR": "Consulting the CCR oracle",
+  "正在酿造良率": "Brewing yield",
+  "正在解开比特": "Untangling bits",
+  "正在擦亮硅片": "Polishing silicon",
+  "正在排兵布阵": "Marshalling spares",
+  "正在翻找冗余": "Rummaging for redundancy",
+  "正在和 row 谈判": "Negotiating with rows",
+  "正在给 col 编组": "Grouping columns",
+  "正在喝口咖啡": "Sipping coffee"
 };

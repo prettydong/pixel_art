@@ -18,7 +18,7 @@ export function AuthGate({ children }: { children: (user: User) => ReactNode }) 
     }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; window.removeEventListener('pixel:unauthorized', clear); };
   }, []);
-  if (loading) return <main className="auth-page"><p role="status">{t("正在连接工作台…")}</p></main>;
+  if (loading) return <main className="auth-page"><p role="status" className="auth-loading"><Spark className="thinking-spark" />{t("正在连接工作台…")}</p></main>;
   if (user) return children(user);
   return <main className="auth-page"><form className="account-form auth-form" onSubmit={async e => {
     e.preventDefault(); const data = new FormData(e.currentTarget); setBusy(true); setError('');

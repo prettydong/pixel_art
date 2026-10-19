@@ -6,6 +6,7 @@ import { MarkdownMessage } from './MarkdownMessage';
 import { ChevronDown, ChevronRight } from './Icons';
 import { chartTools, readChartTool } from '@pixel/contracts/charts';
 import { Chart } from './Chart';
+import { Thinking } from './Thinking';
 
 function ProcessDetails({ label, children, className = '', keepMounted = false }: { label: ReactNode; children: ReactNode; className?: string; keepMounted?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -102,7 +103,7 @@ export function StreamingReply({ message, pending }: { message: ReplyMessage; pe
       : block.kind === 'chart' ? <ChartResult key={block.key} tool={block.tool} />
       : <ProcessGroup key={block.key} items={block.items} pending={pending} />)}
     <GenerationStats message={message} />
-    {pending && <span className="typing-dots" role="status" aria-label={t("正在回复")}><i /><i /><i /></span>}
+    {pending && <Thinking />}
   </div>;
 }
 

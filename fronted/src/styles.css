@@ -354,12 +354,6 @@ select { padding-right: 28px; appearance: none; background-image: url("data:imag
 @media (hover: hover) and (pointer: fine) {
   .message:not(:hover):not(:focus-within) .copy-message { opacity: 0; }
 }
-.typing-dots { display: inline-flex; align-items: center; gap: 4px; height: 24px; color: var(--accent); }
-.typing-dots i { width: 6px; height: 6px; border-radius: 999px; background: currentColor; opacity: .35; }
-:root[data-motion="on"] .typing-dots i { animation: typing 1.2s ease-in-out infinite; }
-:root[data-motion="on"] .typing-dots i:nth-child(2) { animation-delay: .15s; }
-:root[data-motion="on"] .typing-dots i:nth-child(3) { animation-delay: .3s; }
-@keyframes typing { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 .attachments, .message-files { display: flex; flex-wrap: wrap; gap: 6px; }
 .attachments { flex: 0 1 auto; min-height: 0; max-height: 72px; overflow: auto; padding: 0 4px 6px; }
@@ -637,3 +631,101 @@ select { padding-right: 28px; appearance: none; background-image: url("data:imag
 .drawing-assumptions { display: grid; gap: 6px; }
 .drawing-assumptions > p { color: var(--busy); }
 .drawing-assumptions ul { display: grid; gap: 4px; margin: 0; padding-left: 18px; }
+
+/* Motion and small delights. Everything here runs only with the Motion setting on. */
+.thinking { display: inline-flex; align-items: center; gap: 8px; min-height: 24px; color: var(--accent); font-size: var(--text-md); }
+.thinking-spark { width: 16px; height: 16px; flex-basis: 16px; color: var(--accent); }
+.thinking-verb { color: var(--accent); font-weight: 500; }
+.thinking-time { color: var(--muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+.auth-loading { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+:root[data-motion="on"] .thinking-spark { animation: spark-spin 1.6s cubic-bezier(.5, 0, .5, 1) infinite; }
+:root[data-motion="on"] .thinking-verb {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent) 35%, color-mix(in srgb, var(--accent) 35%, var(--bg)) 50%, var(--accent) 65%, var(--accent) 100%);
+  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shimmer 2.2s linear infinite, verb-in 320ms var(--ease) both;
+}
+@keyframes spark-spin {
+  0% { transform: rotate(0) scale(1); }
+  50% { transform: rotate(180deg) scale(.72); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+@keyframes verb-in { from { opacity: 0; transform: translateY(6px); filter: blur(2px); } }
+
+/* Spark bursts thrown by fun.ts. */
+.spark-burst { position: fixed; z-index: 100; width: 0; height: 0; pointer-events: none; }
+.spark-burst i {
+  position: absolute; left: calc(var(--size) / -2); top: calc(var(--size) / -2); width: var(--size); height: var(--size);
+  background: var(--accent); opacity: 0;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.4' stroke-linecap='round'%3E%3Cpath d='M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.4' stroke-linecap='round'%3E%3Cpath d='M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4'/%3E%3C/svg%3E") center / contain no-repeat;
+  animation: spark-fly 720ms cubic-bezier(.2, .7, .3, 1) forwards;
+}
+.spark-burst i:nth-child(3n) { background: var(--chart-3); }
+.spark-burst i:nth-child(4n) { background: var(--data-accent); }
+@keyframes spark-fly {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0) scale(.4); }
+  60% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--spin)) scale(1); }
+}
+
+/* Brand mark: spins while a reply runs, twirls when clicked. */
+.brand-icon { cursor: pointer; }
+:root[data-motion="on"] .brand-icon .icon { transition: transform 400ms cubic-bezier(.34, 1.56, .64, 1); }
+:root[data-motion="on"] .brand:hover .brand-icon .icon { transform: rotate(45deg) scale(1.08); }
+:root[data-motion="on"][data-busy="true"] .brand-icon .icon { animation: spark-spin 1.6s cubic-bezier(.5, 0, .5, 1) infinite; }
+:root[data-motion="on"] .brand-icon.is-twirling .icon { animation: twirl 900ms cubic-bezier(.34, 1.4, .64, 1); }
+@keyframes twirl { 0% { transform: rotate(0) scale(1); } 40% { transform: rotate(540deg) scale(1.35); } 100% { transform: rotate(720deg) scale(1); } }
+
+/* Entrances */
+:root[data-motion="on"] .message { animation: rise-in 320ms var(--ease) both; }
+:root[data-motion="on"] .message.user { animation-name: rise-in-right; }
+:root[data-motion="on"] .evaluation-slot { animation: card-in 480ms cubic-bezier(.34, 1.3, .64, 1) both; }
+:root[data-motion="on"] .evaluation-slot:nth-child(2) { animation-delay: 70ms; }
+:root[data-motion="on"] .evaluation-slot:nth-child(3) { animation-delay: 140ms; }
+:root[data-motion="on"] .composer-area { animation: rise-in 360ms var(--ease) both; }
+:root[data-motion="on"] .task-panel > * { animation: rise-in 300ms var(--ease) both; }
+:root[data-motion="on"] .task-panel > :nth-child(2) { animation-delay: 40ms; }
+:root[data-motion="on"] .task-panel > :nth-child(3) { animation-delay: 80ms; }
+:root[data-motion="on"] .task-panel > :nth-child(n + 4) { animation-delay: 120ms; }
+:root[data-motion="on"] .task-children { animation: unfold 220ms var(--ease) both; transform-origin: top; }
+:root[data-motion="on"] .modal[open] { animation: pop-in 220ms cubic-bezier(.34, 1.3, .64, 1); }
+:root[data-motion="on"] .modal[open]::backdrop { animation: fade-in 200ms ease both; }
+:root[data-motion="on"] .dropdown { animation: pop-in 160ms cubic-bezier(.34, 1.3, .64, 1); transform-origin: bottom left; }
+:root[data-motion="on"] .task-actions-menu, :root[data-motion="on"] .task-delete-confirm, :root[data-motion="on"] .task-name-form { animation: unfold 180ms var(--ease) both; transform-origin: top; }
+:root[data-motion="on"] details[open] > :not(summary) { animation: fade-down 220ms var(--ease) both; }
+:root[data-motion="on"] .chart { animation: rise-in 360ms var(--ease) both; }
+:root[data-motion="on"] .chart-plot rect[rx], :root[data-motion="on"] .chart-pie path { animation: grow 520ms cubic-bezier(.34, 1.2, .64, 1) both; transform-box: fill-box; transform-origin: bottom; }
+:root[data-motion="on"] .chart-pie path { transform-origin: center; }
+:root[data-motion="on"] .chart-plot path[fill="none"] { stroke-dasharray: 2000; animation: draw-line 900ms var(--ease) both; }
+:root[data-motion="on"] .stat-tile { animation: rise-in 360ms var(--ease) both; }
+:root[data-motion="on"] .stat-tile:nth-child(2) { animation-delay: 50ms; }
+:root[data-motion="on"] .stat-tile:nth-child(3) { animation-delay: 100ms; }
+:root[data-motion="on"] .stat-tile:nth-child(n + 4) { animation-delay: 150ms; }
+@keyframes rise-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes rise-in-right { from { opacity: 0; transform: translate(10px, 4px) scale(.98); } }
+@keyframes card-in { from { opacity: 0; transform: translateY(14px) scale(.96); } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(6px) scale(.96); } }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes fade-down { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes unfold { from { opacity: 0; transform: scaleY(.92); } }
+@keyframes grow { from { transform: scaleY(0); } }
+@keyframes draw-line { from { stroke-dashoffset: 2000; } to { stroke-dashoffset: 0; } }
+@keyframes wiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-12deg) scale(1.08); } 60% { transform: rotate(9deg) scale(1.08); } }
+@keyframes nudge-up { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+
+/* Hover and press feedback */
+:root[data-motion="on"] .evaluation-slot:hover .evaluation-card-top > .icon:first-child { animation: wiggle 480ms var(--ease); }
+:root[data-motion="on"] .evaluation-slot:hover .evaluation-indicator .icon { transform: translateX(3px); transition: transform 200ms var(--ease); }
+:root[data-motion="on"] .send-button:hover:not(:disabled):not(.is-busy) .icon { animation: nudge-up 600ms var(--ease) infinite; }
+:root[data-motion="on"] .send-button.is-busy .icon { animation: pulse 1.2s ease-in-out infinite; }
+:root[data-motion="on"] .new-chat:hover:not(:disabled) .icon { transform: rotate(90deg); transition: transform 260ms cubic-bezier(.34, 1.56, .64, 1); }
+:root[data-motion="on"] .new-chat .icon { transition: transform 260ms var(--ease); }
+:root[data-motion="on"] :is(.send-button, .action-button, .icon-button, .new-chat, .search-trigger, .theme-options button, .interactive-tool-actions button):active:not(:disabled) { transform: scale(.94); }
+:root[data-motion="on"] .task-resource:hover:not(:disabled) .icon, :root[data-motion="on"] .history-item:hover > button:first-child .icon { transform: scale(1.12); transition: transform 180ms cubic-bezier(.34, 1.56, .64, 1); }
+:root[data-motion="on"] .toggle span { transition: transform 280ms cubic-bezier(.34, 1.56, .64, 1); }
+:root[data-motion="on"] .copy-message .icon { transition: transform 200ms cubic-bezier(.34, 1.56, .64, 1); }
+:root[data-motion="on"] .copy-message:active .icon { transform: scale(.8); }
+:root[data-motion="on"] .tool-dot.is-running { animation: pulse-ring 1.4s ease-out infinite; }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--busy) 55%, transparent); } 100% { box-shadow: 0 0 0 7px transparent; } }
+:root[data-motion="on"] .process-group-status { animation: pulse 1.4s ease-in-out infinite; }
