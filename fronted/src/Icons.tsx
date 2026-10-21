@@ -55,5 +55,7 @@ export const Square = icon(<rect x="6" y="6" width="12" height="12" rx="2" />);
 export const BarChart = icon(<path d="M3 3v18h18M8 17v-4M13 17V8M18 17v-7" />);
 export const Chip = icon(<><rect x="6" y="6" width="12" height="12" rx="2" /><rect x="10" y="10" width="4" height="4" rx=".5" /><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4" /></>);
 export const Repair = icon(<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z" />);
+export const Pencil = icon(<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />);
+export const Brush = icon(<><path d="m9.5 12 9-9a2.1 2.1 0 0 1 3 3l-9 9" /><path d="M7 14.5a3 3 0 0 0-3 3c0 1.5-1.5 2.5-2 2.5 1 1 2.5 1.5 4 1.5a4 4 0 0 0 4-4 3 3 0 0 0-3-3z" /></>);
 export const Trash2 = icon(<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" />);
 export const X = icon(<path d="M18 6 6 18M6 6l12 12" />);

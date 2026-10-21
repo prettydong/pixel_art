@@ -1101,5 +1101,6 @@ export const english: Record<string, string> = {
   "保存架构": "Save architecture",
   "删除架构": "Delete architecture",
   "删除架构：{0}": "Delete architecture: {0}",
-  "确认删除架构：{0}": "Confirm deleting architecture: {0}"
+  "确认删除架构：{0}": "Confirm deleting architecture: {0}",
+  "{0}：{1}": "{0}: {1}"
 };

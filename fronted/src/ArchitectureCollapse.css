@@ -2,6 +2,9 @@
 .architecture-record-details[open] > summary { margin-bottom: 10px; }
 .architecture-sheet td .icon { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
 .architecture-sheet-actions { text-align: right; }
-.architecture-sheet-actions .action-button { margin-left: 6px; white-space: nowrap; }
-.architecture-sheet-actions .delete-architecture:hover:enabled { color: var(--danger); }
-.architecture-sheet-actions .delete-architecture.armed { border-color: var(--danger); background: var(--danger); color: var(--on-danger); }
+.architecture-sheet-actions { white-space: nowrap; }
+.architecture-sheet-actions .icon-button { display: inline-grid; margin-left: 2px; vertical-align: middle; }
+.architecture-sheet-actions .delete-architecture:hover:enabled { color: var(--danger); background: var(--danger-soft); }
+.architecture-sheet-actions .delete-architecture.armed, .architecture-sheet-actions .delete-architecture.armed:hover:enabled { background: var(--danger); color: var(--on-danger); }
+:root[data-motion="on"] .architecture-sheet-actions .is-spinning { animation: icon-spin 1.2s linear infinite; }
+@keyframes icon-spin { to { transform: rotate(360deg); } }

@@ -1,6 +1,6 @@
 import { t } from './i18n';
 import { useEffect, useState } from 'react';
-import { Trash2 } from './Icons';
+import { Check, Trash2 } from './Icons';
 
 // The first press arms the button; deletion needs a second press within 3 s.
 export function useArmedDelete(disabled: boolean) {
@@ -29,11 +29,11 @@ export function DeleteChatButton({ title, disabled, onDelete }: { title: string;
 export function DeleteArchitectureButton({ name, disabled, onDelete }: { name: string; disabled: boolean; onDelete: () => void }) {
   const [armed, setArmed] = useArmedDelete(disabled);
   return <button
-    className={`action-button delete-architecture ${armed ? 'armed' : ''}`}
+    className={`icon-button delete-architecture ${armed ? 'armed' : ''}`}
     disabled={disabled}
     aria-label={armed ? t("确认删除架构：{0}", name) : t("删除架构：{0}", name)}
     title={armed ? t("再次点击确认删除") : t("删除架构")}
     onBlur={() => setArmed(false)}
     onClick={() => { if (armed) { setArmed(false); onDelete(); } else setArmed(true); }}
-  >{armed ? t("确认删除") : t("删除")}</button>;
+  >{armed ? <Check /> : <Trash2 />}</button>;
 }

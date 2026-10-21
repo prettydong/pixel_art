@@ -16,7 +16,7 @@ import { api, errorText, fileUrl } from './api';
 import { MarkdownMessage } from './MarkdownMessage';
 import { StatTile } from './StatTile';
 import { groupReplyMessages } from './replyMessages';
-import { Alert, ChevronDown, ChevronRight, Download, Plus } from './Icons';
+import { Alert, Brush, ChevronDown, ChevronRight, Download, Pencil, Plus, RefreshCw } from './Icons';
 import { taskViewLabels, type TaskView } from './TaskNavigation';
 import './ArchitectureCollapse.css';
 
@@ -87,7 +87,7 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
       }} />}
       {!editing && !loading && !detail?.architectures.length && <p className="task-empty">{t("暂无架构")}</p>}
       {!editing && !!detail?.architectures.length && <div className="sheet-frame"><table className="sheet architecture-sheet">
-        <thead><tr><th scope="col">{t("架构")} ({detail.architectures.length})</th><ArchitectureHeaders region /><th scope="col" className="sheet-optional" style={{ width: 150 }}>{t("示意图")}</th><th scope="col" style={{ width: 300 }}><span className="visually-hidden">{t("操作")}</span></th></tr></thead>
+        <thead><tr><th scope="col">{t("架构")} ({detail.architectures.length})</th><ArchitectureHeaders region /><th scope="col" className="sheet-optional" style={{ width: 150 }}>{t("示意图")}</th><th scope="col" style={{ width: 112 }}><span className="visually-hidden">{t("操作")}</span></th></tr></thead>
         <tbody>{detail.architectures.map(architecture => {
         const starting = startingArchitecture === architecture.id;
         const drawing = starting ? undefined : findArchitectureDrawing(chats, architecture.id);
@@ -102,11 +102,14 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
             <th scope="row"><button type="button" className="sheet-toggle" aria-expanded={open} aria-label={t("{0}架构：{1}", open ? t("折叠") : t("展开"), architecture.name)} title={architecture.name} onClick={() => toggleArchitecture(architecture.id)}>{open ? <ChevronDown /> : <ChevronRight />}<span>{architecture.name}</span></button>{architecture.sourceFile && <span className="data-badge">{t("快照")}</span>}</th><ArchitectureCells description={architecture.description} region />
             <td className={`sheet-optional ${drawing?.run.error || issues ? 'error-text' : 'sheet-muted'}`} title={[drawing?.run.error, issues].filter(Boolean).join(' · ') || status}>{issues && <Alert />}{status}</td>
             <td className="architecture-sheet-actions">
-              <button className="action-button" disabled={pending || !previewAvailable || drawingActive} onClick={() => {
-                setStartingArchitecture(architecture.id);
-                void action(() => onGeneratePreview(architecture)).finally(() => setStartingArchitecture(null));
-              }}>{drawingActive ? t("正在绘制…") : architecture.previews?.length ? t("重新绘制") : t("绘制")}</button>
-              {!architecture.sourceFile && <button className="action-button" disabled={pending || !!editing} onClick={() => setEditing({ id: architecture.id, name: architecture.name, description: architecture.description })}>{t("编辑")}</button>}
+              {(() => {
+                const label = drawingActive ? t("正在绘制…") : architecture.previews?.length ? t("重新绘制") : t("绘制");
+                return <button className="icon-button" aria-label={t("{0}：{1}", label, architecture.name)} title={label} disabled={pending || !previewAvailable || drawingActive} onClick={() => {
+                  setStartingArchitecture(architecture.id);
+                  void action(() => onGeneratePreview(architecture)).finally(() => setStartingArchitecture(null));
+                }}>{drawingActive ? <RefreshCw className="is-spinning" /> : architecture.previews?.length ? <RefreshCw /> : <Brush />}</button>;
+              })()}
+              {!architecture.sourceFile && <button className="icon-button" aria-label={t("{0}：{1}", t("编辑"), architecture.name)} title={t("编辑")} disabled={pending || !!editing} onClick={() => setEditing({ id: architecture.id, name: architecture.name, description: architecture.description })}><Pencil /></button>}
               {!architecture.sourceFile && <DeleteArchitectureButton name={architecture.name} disabled={pending || !!editing} onDelete={() => void action(() => api(`/tasks/${taskId}/architectures/${architecture.id}`, { method: 'DELETE' }))} />}
             </td>
           </tr>
