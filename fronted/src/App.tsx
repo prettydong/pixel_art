@@ -26,6 +26,7 @@ import { useAutoConclusions } from './solverPreferences';
 import { SidebarResizeHandle } from './SidebarResizeHandle';
 import { Thinking } from "./Thinking";
 import { sparkBurst, sparkBurstFrom } from "./fun";
+import { EvaluationDiagram } from './EvaluationDiagram';
 import {
   Alert,
   ArrowRight,
@@ -332,7 +333,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
     } else if (deletedChats.has(activeIdRef.current)) {
       setActiveId(''); setDraft(''); setFiles([]); setEnteredId(null); setRenaming(false);
     }
-    try { localStorage.removeItem(`pixel:collapsed-architectures:${id}`); } catch { /* Optional local view state. */ }
+    try { localStorage.removeItem(`pixel:collapsed-architectures:${id}`); localStorage.removeItem(`pixel:expanded-architectures:${id}`); } catch { /* Optional local view state. */ }
     await taskState.refresh();
     setToast(t("评估任务及其聊天已删除"));
   }
@@ -620,6 +621,9 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                                 {active.mode === panel.mode ? <Check /> : <ArrowRight />}
                               </span>
                             </div>
+                            <figure className="evaluation-figure">
+                              <EvaluationDiagram kind={panel.kind} />
+                            </figure>
                             <dl className="evaluation-details">
                               <div><dt>{t("输入")}</dt><dd>{panel.input}</dd></div>
                               <div><dt>{t("目标")}</dt><dd>{panel.outcome}</dd></div>

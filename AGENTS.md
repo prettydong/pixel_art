@@ -33,6 +33,7 @@ This file records the design and collaboration requirements confirmed by the use
 - Shapes use the radius tokens (`--radius-sm` 6, `--radius` 8, `--radius-lg` 12, `--radius-xl` 18), 1 px borders, and the shadow tokens (`--shadow-sm/md/lg`).
 - The user wants the interface lively and a little funny. While a reply runs, `Thinking.tsx` shows a spinning clay spark, a rotating playful verb with a shimmer, and elapsed seconds; the verbs describe waiting and never imply progress or results. `fun.ts` throws spark bursts on send, direction cards, copy, and the brand mark (an easter egg twirl). Messages, cards, panels, dialogs, menus, and charts animate in; buttons give springy press and hover feedback.
 - All motion lives under `:root[data-motion="on"]` (the Interface animations setting, defaulting off under `prefers-reduced-motion`), and `fun.ts` checks the same conditions. Animations must never block input, delay data, or move hit areas.
+- Each welcome direction card shows a smooth SVG diagram (`fronted/src/EvaluationDiagram.tsx`: fail distribution, CCR architecture, row / CCR col repair) drawn with the card accent and theme tokens. They are illustrations, not results.
 - Charts are smooth SVG: polylines with point markers, rounded bars, arc pies, circular scatter points, and rounded heatmap cells, using `--chart-*` and `--heat-*` tokens. Wafer and CCR data maps may stay crisp-edged because each cell is data.
 - Tool calls in replies read like Claude Code: a status dot (running / done / failed), a monospace tool name, and collapsible output with a left rule.
 

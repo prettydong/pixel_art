@@ -1,0 +1,62 @@
+/* Welcome-card diagrams: smooth SVG drawn with the card's accent and theme tokens. */
+.evaluation-figure { margin: 0; border-radius: var(--radius); background: var(--card-surface); overflow: hidden; }
+.evaluation-diagram { display: block; width: 100%; height: auto; }
+
+.dg-stop { stop-color: var(--card-accent); }
+.dg-disk { fill: color-mix(in srgb, var(--card-accent) 14%, var(--panel)); stroke: color-mix(in srgb, var(--card-accent) 45%, transparent); }
+.dg-notch { fill: var(--card-surface); }
+.dg-die { fill: var(--panel); }
+.dg-heat-1 { fill: var(--heat-1); }
+.dg-heat-2 { fill: var(--heat-2); }
+.dg-heat-3 { fill: var(--heat-3); }
+.dg-heat-4 { fill: var(--heat-4); }
+.dg-axis { stroke: var(--line-strong); }
+.dg-grid { stroke: color-mix(in srgb, var(--card-accent) 22%, transparent); stroke-dasharray: 2 3; }
+.dg-bar { fill: color-mix(in srgb, var(--card-accent) 60%, transparent); }
+.dg-bar-hot { fill: var(--accent); }
+.dg-trend { fill: none; stroke: var(--card-accent); stroke-width: 1.6; stroke-linecap: round; }
+.dg-marker { fill: var(--panel); stroke: var(--card-accent); stroke-width: 1.4; }
+
+.dg-region { fill: var(--panel); stroke: color-mix(in srgb, var(--card-accent) 40%, var(--line)); }
+.dg-rail { fill: none; stroke: color-mix(in srgb, var(--card-accent) 55%, transparent); stroke-width: 1.4; stroke-linecap: round; }
+.dg-segment-frame { fill: color-mix(in srgb, var(--card-accent) 7%, var(--panel)); stroke: var(--line); }
+.dg-cell { fill: color-mix(in srgb, var(--line-strong) 75%, transparent); }
+.dg-divider { stroke: var(--line-strong); stroke-dasharray: 2 2; }
+.dg-ccr rect, .dg-spare, .dg-spare-used, .dg-ccr-used { fill: var(--card-accent); }
+.dg-pool { fill: color-mix(in srgb, var(--card-accent) 12%, var(--panel)); stroke: color-mix(in srgb, var(--card-accent) 35%, var(--line)); }
+
+.dg-band-row { fill: color-mix(in srgb, var(--danger) 14%, transparent); stroke: color-mix(in srgb, var(--danger) 55%, transparent); stroke-dasharray: 3 2.5; }
+.dg-band-col { fill: color-mix(in srgb, var(--card-accent) 18%, transparent); stroke: color-mix(in srgb, var(--card-accent) 70%, transparent); stroke-dasharray: 3 2.5; }
+.dg-fail { fill: var(--danger); }
+.dg-link { stroke: var(--card-accent); stroke-dasharray: 1.5 2.5; stroke-linecap: round; }
+.dg-flow { fill: none; stroke: var(--card-accent); stroke-width: 1.6; stroke-dasharray: 3 4; stroke-linecap: round; }
+.dg-arrowhead { fill: none; stroke: var(--card-accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.dg-spare-free { fill: var(--panel); stroke: color-mix(in srgb, var(--card-accent) 40%, var(--line)); }
+.dg-ring { fill: var(--panel); stroke: color-mix(in srgb, var(--line-strong) 70%, transparent); stroke-width: 3.5; }
+.dg-ring-value { fill: none; stroke: var(--success); stroke-width: 3.5; stroke-linecap: round; }
+.dg-check { fill: none; stroke: var(--success); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Motion: entrances once, a slow wafer scan and row-repair flow, extra life on hover. */
+:root[data-motion="on"] .evaluation-diagram :is(.dg-die, .dg-bar, .dg-marker, .dg-segment, .dg-spare-used) { transform-box: fill-box; }
+:root[data-motion="on"] .dg-die { animation: fade-in 360ms ease-out both; }
+:root[data-motion="on"] .dg-scan { animation: dg-scan 4.2s cubic-bezier(.45, 0, .55, 1) 600ms infinite; }
+:root[data-motion="on"] .dg-bar { transform-origin: 50% 100%; animation: grow 620ms var(--ease) both; }
+:root[data-motion="on"] .dg-trend { stroke-dasharray: 400; animation: dg-draw 900ms var(--ease) 420ms both; }
+:root[data-motion="on"] .dg-marker { transform-origin: center; animation: pop-in 320ms cubic-bezier(.34, 1.56, .64, 1) both; }
+:root[data-motion="on"] .dg-segment { animation: rise-in 420ms var(--ease) both; }
+:root[data-motion="on"] .dg-flow { animation: dg-flow 900ms linear infinite; }
+:root[data-motion="on"] .dg-spare-used { transform-origin: 0 50%; animation: dg-fill 700ms var(--ease) 500ms both; }
+:root[data-motion="on"] .dg-ring-value { animation: dg-ring 1100ms var(--ease) 300ms both; }
+:root[data-motion="on"] .dg-check { stroke-dasharray: 20; animation: dg-draw-check 360ms var(--ease) 1200ms both; }
+:root[data-motion="on"] .evaluation-slot:hover :is(.dg-heat-3, .dg-heat-4) { animation: fade-in 360ms ease-out both, dg-pulse 1.1s ease-in-out infinite; }
+:root[data-motion="on"] .evaluation-slot:hover .dg-fail { animation: dg-pulse 1.1s ease-in-out infinite; }
+:root[data-motion="on"] .evaluation-slot:hover .dg-ccr { animation: dg-pulse 1.3s ease-in-out infinite; }
+:root[data-motion="on"] .evaluation-slot:hover .dg-spare { animation: dg-pulse 1.3s ease-in-out infinite; }
+:root[data-motion="on"] .evaluation-slot:hover .dg-flow { animation-duration: 450ms; }
+@keyframes dg-scan { 0% { transform: translateY(0); opacity: 0; } 8% { opacity: 1; } 72% { transform: translateY(126px); opacity: 1; } 80%, 100% { transform: translateY(126px); opacity: 0; } }
+@keyframes dg-draw { from { stroke-dashoffset: 400; } to { stroke-dashoffset: 0; } }
+@keyframes dg-draw-check { from { stroke-dashoffset: 20; } to { stroke-dashoffset: 0; } }
+@keyframes dg-flow { to { stroke-dashoffset: -14; } }
+@keyframes dg-fill { from { transform: scaleX(0); } }
+@keyframes dg-ring { from { stroke-dasharray: 0 100; } }
+@keyframes dg-pulse { 50% { opacity: .4; } }

@@ -1,27 +1,5 @@
-.architecture-record-heading h2 { min-width: 0; }
-.task-record.architecture-record { gap: 8px; }
-.architecture-record-heading .action-button { flex-shrink: 0; }
 .architecture-record-details > summary { color: var(--muted); cursor: pointer; }
 .architecture-record-details[open] > summary { margin-bottom: 10px; }
-.architecture-fold-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  max-width: 100%;
-  padding: 2px 6px 2px 2px;
-  margin-left: -2px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-}
-.architecture-fold-toggle:hover { background: var(--hover); }
-.architecture-fold-toggle .icon { flex-shrink: 0; color: var(--muted); }
-.architecture-fold-toggle span,
-.architecture-collapsed-status { overflow-wrap: anywhere; }
-.architecture-collapsed-status { color: var(--muted); font-size: var(--text-sm); }
-.architecture-record-body { display: grid; gap: 12px; min-width: 0; }
-.architecture-record-body[hidden] { display: none; }
+.architecture-sheet td .icon { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
+.architecture-sheet-actions { text-align: right; }
+.architecture-sheet-actions .action-button { margin-left: 6px; white-space: nowrap; }

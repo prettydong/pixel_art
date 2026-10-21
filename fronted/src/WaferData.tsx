@@ -1,5 +1,5 @@
 import { localizeMessage, getLanguage, t } from './i18n';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { FileRecord, ListResponse } from '@pixel/contracts';
 import { MAX_WAFER_BYTES, decodeWafer, validateWaferLayout, type ProductRecord, type WaferRecord } from '@pixel/contracts/wafer-data';
 import { SPATIAL_PATTERNS, type GenerationMetadata } from '@pixel/contracts/wafer-spatial';
@@ -8,7 +8,7 @@ import { WaferGenerator } from './WaferGenerator';
 import { chipFailStats } from './waferStats';
 import { StatTile } from './StatTile';
 import { api, errorText, fileUrl } from './api';
-import { Download, Plus } from './Icons';
+import { ChevronDown, ChevronRight, Download, Plus } from './Icons';
 import './WaferData.css';
 
 type Props = { taskId: string; files: FileRecord[]; onChanged: () => Promise<void> };
@@ -54,7 +54,7 @@ export function WaferData({ taskId, files, onChanged }: Props) {
     let alive = true; const controller = new AbortController();
     setWafersLoading(true); setError(''); setWaferId(''); setDecoded(null); setPreviewError(''); setChip(0); setRegion(0);
     api<ListResponse<WaferRecord>>(`/products/${encodeURIComponent(productId)}/wafers`, { signal: controller.signal })
-      .then(result => { if (alive) { setWafers(result.items); setWaferId(result.items[0]?.id ?? ''); } })
+      .then(result => { if (alive) setWafers(result.items); })
       .catch(err => { if (alive && (err as Error).name !== 'AbortError') setError(errorText(err)); })
       .finally(() => { if (alive) setWafersLoading(false); });
     return () => { alive = false; controller.abort(); };
@@ -104,8 +104,8 @@ export function WaferData({ taskId, files, onChanged }: Props) {
     try { await storeWafer(file); }
     catch (err) { setError(errorText(err)); setNotice(''); } finally { setBusy(false); }
   }
-  async function attachWafer() {
-    if (!wafer || busy || attachedFileIds.has(wafer.fileId)) return;
+  async function attachWafer(wafer: WaferRecord) {
+    if (busy || attachedFileIds.has(wafer.fileId)) return;
     setBusy(true); setError(''); setNotice(t("正在关联到当前任务…"));
     try {
       await api(`/tasks/${encodeURIComponent(taskId)}/files`, { method: 'POST', body: JSON.stringify({ fileId: wafer.fileId }) });
@@ -120,6 +120,9 @@ export function WaferData({ taskId, files, onChanged }: Props) {
     if (field === 'chip') { setChip(next); setRegion(0); } else setRegion(next);
   };
   function setChipIndex(next: number) { setChip(next); setRegion(0); }
+  function toggleWafer(id: string) {
+    setWaferId(previous => previous === id ? '' : id); setDecoded(null); setPreviewError(''); setChip(0); setRegion(0);
+  }
   function selectProduct(nextId: string) {
     setProductId(nextId); setWafers([]); setWaferId(''); setDecoded(null); setPreviewError(''); setChip(0); setRegion(0);
   }
@@ -130,7 +133,6 @@ export function WaferData({ taskId, files, onChanged }: Props) {
       <button className="action-button" disabled={busy || productsLoading}><Plus />{t("创建产品")}</button>
     </form></details>;
   const totalRegions = product ? product.chipCount * product.regionCount : 0;
-  const attached = !!wafer && attachedFileIds.has(wafer.fileId);
   const language = getLanguage();
 
   return <section className="wafer-data" aria-label={t("产品 wafer 数据")} aria-busy={busy || productsLoading || wafersLoading || previewLoading}>
@@ -138,41 +140,54 @@ export function WaferData({ taskId, files, onChanged }: Props) {
     {!products.length && !productsLoading && <><p className="task-empty">{t("暂无产品。")}</p>{productForm(true)}</>}
     {!!products.length && <div className="wafer-selector">
       <label>{t("产品")}<select disabled={busy || productsLoading} value={productId} onChange={event => selectProduct(event.target.value)}>{products.map(item => <option value={item.id} key={item.id}>{item.name} · {item.chipCount} × {item.regionCount} · {item.rows} × {item.cols}</option>)}</select></label>
-      <label>Wafer<select disabled={busy || wafersLoading} value={waferId} onChange={event => { setWaferId(event.target.value); setDecoded(null); setPreviewError(''); setChip(0); setRegion(0); }}>{!wafers.length && <option value="">{t("暂无 wafer")}</option>}{wafers.map(item => <option value={item.id} key={item.id}>{item.name} · {item.failCount.toLocaleString(language)} fail{item.synthetic ? t(" · 合成") : ''}</option>)}</select></label>
       {product && <span className="wafer-layout">{product.chipCount.toLocaleString(language)} chips · {product.regionCount.toLocaleString(language)} regions/chip · {product.rows.toLocaleString(language)} × {product.cols.toLocaleString(language)}</span>}
     </div>}
     {product && <div className="wafer-actions"><input hidden type="file" accept=".pwafer,application/octet-stream" ref={inputRef} onChange={importWafer} />
-      {wafer && <span className={`data-badge ${wafer.synthetic ? 'data-badge-warn' : ''}`}>{wafer.synthetic ? t("合成数据") : t("导入数据")}</span>}
-      {wafer && <span className={`data-badge ${attached ? '' : 'data-badge-muted'}`}>{attached ? t("已关联当前任务") : t("未关联当前任务")}</span>}
-      {wafer && !attached && <button className="action-button primary" disabled={busy} onClick={() => void attachWafer()}>{t("关联到当前任务")}</button>}
-      {wafer && <a className="action-button" href={fileUrl(wafer.file)} download><Download />{t("下载")}</a>}
       <button className="action-button" disabled={busy || wafersLoading} onClick={() => inputRef.current?.click()}><Plus />{t("导入 .pwafer")}</button>
     </div>}
     {product && <WaferGenerator key={product.id} product={product} disabled={busy || wafersLoading} onBusy={setBusy} onSave={async (file, generation) => { try { await storeWafer(file, generation); } catch (err) { setNotice(''); throw err; } }} />}
-    {notice && <p className="wafer-notice" role="status">{localizeMessage(notice)}</p>}{error && <p className="workspace-error" role="alert">{localizeMessage(error)}</p>}{previewError && <p className="workspace-error" role="alert">{t("无法读取 wafer 预览：")}{localizeMessage(previewError)}</p>}
-    {wafer && product && <div className="wafer-browser">
-      <div className="stat-tiles">
-        <StatTile label={t("总 fail")} value={wafer.failCount.toLocaleString(language)} />
-        <StatTile label={t("非空 region")} value={`${wafer.occupiedRegionCount.toLocaleString(language)} / ${totalRegions.toLocaleString(language)}`} detail={totalRegions ? `${(wafer.occupiedRegionCount / totalRegions * 100).toFixed(1)}%` : undefined} />
-        {chipStats && <StatTile label={t("零 fail chip")} value={`${chipStats.zero.toLocaleString(language)} / ${product.chipCount.toLocaleString(language)}`} />}
-        {chipStats && <StatTile label={t("最大 fail / chip")} value={chipStats.maximum.toLocaleString(language)} />}
-      </div>
-      {wafer.generation && <div className="data-limit">
-        <p>{t("合成数据 ·") + " "}{t(SPATIAL_PATTERNS.find(item => item.id === wafer.generation?.pattern)?.label ?? wafer.generation.pattern)} {" " + t("· 种子") + " "}{wafer.generation.seed} {" " + t("· 未使用实测数据拟合")}</p>
-        <details><summary>{t("分布参数")}</summary><p>{t("均值") + " "}{wafer.generation.meanFails / product.regionCount} {" " + t("fail/region · 强度") + " "}{wafer.generation.strength} {" " + t("· 离散") + " "}{wafer.generation.dispersion}</p></details>
-      </div>}
-      {decoded && chipStats && <WaferHeatmap key={wafer.id} decoded={decoded} stats={chipStats} selected={chip} onSelect={setChipIndex} />}
-      <div className="wafer-indexes">
-        <NumberPicker label="Chip" value={chip} maximum={product.chipCount - 1} onChange={setChipIndex} onStep={delta => step('chip', delta)} />
-        <NumberPicker label="Region" value={region} maximum={product.regionCount - 1} onChange={setRegion} onStep={delta => step('region', delta)} />
-      </div>
-      <h3 className="wafer-region-heading">Chip {chip.toLocaleString(language)} · Region {region.toLocaleString(language)} <span>{t("全局 region #")}{selectedRegionIndex.toLocaleString(language)}{decoded ? ` · ${(group?.positions.length ?? 0).toLocaleString(language)} fail` : ''}</span></h3>
-      {decoded && <RegionOverview rows={product.rows} cols={product.cols} positions={group?.positions} />}
-      {previewLoading && <p role="status" className="task-note">{t("正在读取 region 数据…")}</p>}
-      {!previewLoading && previewError && <p className="task-note">{t("预览不可用")}</p>}
-      {decoded && !group && <p className="task-note">{t("该 region 没有 fail。")}</p>}
-      {group && <details className="wafer-positions"><summary>{t("fail 地址（row, col，0 起）· 前 {0} / {1} 个", Math.min(50, group.positions.length).toLocaleString(language), group.positions.length.toLocaleString(language))}</summary><ol>{Array.from(group.positions.slice(0, 50), position => <li key={position}>({Math.floor(position / product.cols)}, {position % product.cols})</li>)}</ol></details>}
-    </div>}
+    {notice && <p className="wafer-notice" role="status">{localizeMessage(notice)}</p>}{error && <p className="workspace-error" role="alert">{localizeMessage(error)}</p>}
+    {product && <div className="sheet-frame"><table className="sheet">
+      <thead><tr><th scope="col">Wafer ({wafers.length})</th><th scope="col" style={{ width: 96 }}>{t("总 fail")}</th><th scope="col" className="sheet-optional" style={{ width: 168 }}>{t("非空 region")}</th><th scope="col" style={{ width: 172 }}>{t("当前任务")}</th></tr></thead>
+      <tbody>
+        {wafers.map(item => {
+          const open = item.id === waferId;
+          const attached = attachedFileIds.has(item.fileId);
+          return <Fragment key={item.id}>
+            <tr className={`sheet-row ${open ? 'is-open' : ''}`} onClick={event => { if (!(event.target as Element).closest('button, a')) toggleWafer(item.id); }}>
+              <th scope="row"><button className="sheet-toggle" aria-expanded={open} title={item.name} onClick={() => toggleWafer(item.id)}>{open ? <ChevronDown /> : <ChevronRight />}<span>{item.name}</span></button>{item.synthetic && <span className="data-badge data-badge-warn">{t("合成")}</span>}</th>
+              <td>{item.failCount.toLocaleString(language)}</td>
+              <td className="sheet-optional">{item.occupiedRegionCount.toLocaleString(language)} / {totalRegions.toLocaleString(language)}{totalRegions ? <span className="sheet-muted"> · {(item.occupiedRegionCount / totalRegions * 100).toFixed(1)}%</span> : null}</td>
+              <td>{attached ? <span className="sheet-muted">{t("已关联")}</span> : <button className="action-button" disabled={busy} onClick={() => void attachWafer(item)}>{t("关联到当前任务")}</button>}</td>
+            </tr>
+            {open && <tr className="sheet-detail"><td colSpan={4}><div className="wafer-browser">
+              <div className="wafer-actions"><span className={`data-badge ${item.synthetic ? 'data-badge-warn' : ''}`}>{item.synthetic ? t("合成数据") : t("导入数据")}</span><a className="action-button" href={fileUrl(item.file)} download><Download />{t("下载")}</a></div>
+              {previewError && <p className="error-text" role="alert">{t("无法读取 wafer 预览：")}{localizeMessage(previewError)}</p>}
+              {chipStats && <div className="stat-tiles">
+                <StatTile label={t("零 fail chip")} value={`${chipStats.zero.toLocaleString(language)} / ${product.chipCount.toLocaleString(language)}`} />
+                <StatTile label={t("最大 fail / chip")} value={chipStats.maximum.toLocaleString(language)} />
+              </div>}
+              {item.generation && <div className="data-limit">
+                <p>{t("合成数据 ·") + " "}{t(SPATIAL_PATTERNS.find(pattern => pattern.id === item.generation?.pattern)?.label ?? item.generation.pattern)} {" " + t("· 种子") + " "}{item.generation.seed} {" " + t("· 未使用实测数据拟合")}</p>
+                <details><summary>{t("分布参数")}</summary><p>{t("均值") + " "}{item.generation.meanFails / product.regionCount} {" " + t("fail/region · 强度") + " "}{item.generation.strength} {" " + t("· 离散") + " "}{item.generation.dispersion}</p></details>
+              </div>}
+              {decoded && chipStats && <WaferHeatmap key={item.id} decoded={decoded} stats={chipStats} selected={chip} onSelect={setChipIndex} />}
+              <div className="wafer-indexes">
+                <NumberPicker label="Chip" value={chip} maximum={product.chipCount - 1} onChange={setChipIndex} onStep={delta => step('chip', delta)} />
+                <NumberPicker label="Region" value={region} maximum={product.regionCount - 1} onChange={setRegion} onStep={delta => step('region', delta)} />
+              </div>
+              <h3 className="wafer-region-heading">Chip {chip.toLocaleString(language)} · Region {region.toLocaleString(language)} <span>{t("全局 region #")}{selectedRegionIndex.toLocaleString(language)}{decoded ? ` · ${(group?.positions.length ?? 0).toLocaleString(language)} fail` : ''}</span></h3>
+              {decoded && <RegionOverview rows={product.rows} cols={product.cols} positions={group?.positions} />}
+              {previewLoading && <p role="status" className="task-note">{t("正在读取 region 数据…")}</p>}
+              {!previewLoading && previewError && <p className="task-note">{t("预览不可用")}</p>}
+              {decoded && !group && <p className="task-note">{t("该 region 没有 fail。")}</p>}
+              {group && <details className="wafer-positions"><summary>{t("fail 地址（row, col，0 起）· 前 {0} / {1} 个", Math.min(50, group.positions.length).toLocaleString(language), group.positions.length.toLocaleString(language))}</summary><ol>{Array.from(group.positions.slice(0, 50), position => <li key={position}>({Math.floor(position / product.cols)}, {position % product.cols})</li>)}</ol></details>}
+            </div></td></tr>}
+          </Fragment>;
+        })}
+        {!wafersLoading && !wafers.length && <tr className="sheet-empty"><td colSpan={4}>{t("暂无 wafer")}</td></tr>}
+      </tbody>
+    </table></div>}
     {!!products.length && productForm(false)}
   </section>;
 }

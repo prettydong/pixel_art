@@ -7,7 +7,7 @@ import { architectureSummary } from './architectureTemplates';
 import { WaferData } from './WaferData';
 import { RepairPanel } from './RepairPanel';
 import { SolverConclusions } from './SolverConclusions';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { FileRecord, ModelOption, TaskDetail, TaskArchitecture } from '@pixel/contracts';
 import { isActiveRun } from '@pixel/contracts';
 import type { Conversation } from './chatTypes';
@@ -15,13 +15,13 @@ import { api, errorText, fileUrl } from './api';
 import { MarkdownMessage } from './MarkdownMessage';
 import { StatTile } from './StatTile';
 import { groupReplyMessages } from './replyMessages';
-import { ChevronDown, ChevronRight, Download, Plus } from './Icons';
+import { Alert, ChevronDown, ChevronRight, Download, Plus } from './Icons';
 import { taskViewLabels, type TaskView } from './TaskNavigation';
 import './ArchitectureCollapse.css';
 
-function readCollapsedArchitectures(taskId: string): Set<string> {
+function readExpandedArchitectures(taskId: string): Set<string> {
   try {
-    const ids: unknown = JSON.parse(localStorage.getItem(`pixel:collapsed-architectures:${taskId}`) ?? '[]');
+    const ids: unknown = JSON.parse(localStorage.getItem(`pixel:expanded-architectures:${taskId}`) ?? '[]');
     return new Set(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string').slice(0, 1000) : []);
   } catch { return new Set(); }
 }
@@ -36,13 +36,13 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
   const [startingArchitecture, setStartingArchitecture] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: string; name: string; description: string } | null>(null);
   const [reload, setReload] = useState(0);
-  const [collapsedArchitectures, setCollapsedArchitectures] = useState(() => readCollapsedArchitectures(taskId));
+  const [expandedArchitectures, setExpandedArchitectures] = useState(() => readExpandedArchitectures(taskId));
   useEffect(() => {
-    try { localStorage.setItem(`pixel:collapsed-architectures:${taskId}`, JSON.stringify([...collapsedArchitectures])); }
+    try { localStorage.setItem(`pixel:expanded-architectures:${taskId}`, JSON.stringify([...expandedArchitectures])); }
     catch { /* Storage restrictions must not prevent folding in this session. */ }
-  }, [taskId, collapsedArchitectures]);
+  }, [taskId, expandedArchitectures]);
   function toggleArchitecture(id: string) {
-    setCollapsedArchitectures(previous => {
+    setExpandedArchitectures(previous => {
       const next = new Set(previous);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
@@ -72,7 +72,7 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
     {view === 'architecture' && <>
       {!editing && <div className="panel-actions">
         <button className="action-button" disabled={pending || !!editing} onClick={() => setEditing({ id: 'new', name: '', description: '' })}><Plus />{t("新建架构")}</button>
-        {detail && detail.architectures.length > 1 && <button type="button" className="action-button" onClick={() => setCollapsedArchitectures(detail.architectures.every(architecture => collapsedArchitectures.has(architecture.id)) ? new Set() : new Set(detail.architectures.map(architecture => architecture.id)))}>{detail.architectures.every(architecture => collapsedArchitectures.has(architecture.id)) ? t("全部展开") : t("全部收起")}</button>}
+        {detail && detail.architectures.length > 1 && <button type="button" className="action-button" onClick={() => setExpandedArchitectures(detail.architectures.some(architecture => expandedArchitectures.has(architecture.id)) ? new Set() : new Set(detail.architectures.map(architecture => architecture.id)))}>{detail.architectures.some(architecture => expandedArchitectures.has(architecture.id)) ? t("全部收起") : t("全部展开")}</button>}
       </div>}
       {editing && <ArchitectureEditor key={editing.id} initial={editing.id === 'new' ? undefined : editing} pending={pending} onCancel={() => setEditing(null)} onSave={async (name, description) => {
         if (pending) return;
@@ -85,41 +85,45 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
         } finally { setPending(false); }
       }} />}
       {!editing && !loading && !detail?.architectures.length && <p className="task-empty">{t("暂无架构")}</p>}
-      {!editing && detail?.architectures.map(architecture => {
+      {!editing && !!detail?.architectures.length && <div className="sheet-frame"><table className="sheet architecture-sheet">
+        <thead><tr><th scope="col">{t("架构")} ({detail.architectures.length})</th><th scope="col" className="sheet-optional" style={{ width: '38%' }}>CCR</th><th scope="col" className="sheet-optional" style={{ width: 150 }}>{t("示意图")}</th><th scope="col" style={{ width: 236 }}><span className="visually-hidden">{t("操作")}</span></th></tr></thead>
+        <tbody>{detail.architectures.map(architecture => {
         const starting = startingArchitecture === architecture.id;
         const drawing = starting ? undefined : findArchitectureDrawing(chats, architecture.id);
         const drawingActive = starting || !!(drawing && isActiveRun(drawing.run.status));
         const previewReady = !!drawing && !!architecture.previews?.some(preview => preview.file.conversationId === drawing.conversation.id && preview.createdAt >= drawing.run.createdAt);
-        const collapsed = collapsedArchitectures.has(architecture.id);
-        const bodyId = `architecture-body-${architecture.id}`;
+        const open = expandedArchitectures.has(architecture.id);
         const summary = architectureSummary(architecture.description);
+        const issues = [...new Set(architecture.previewIssues ?? [])].map(localizeMessage).join(' ');
+        const status = `${drawing || starting ? statusText(drawing?.run, starting, previewReady) : architecture.previews?.length ? t("{0} 份 Agent 绘图", architecture.previews.length) : t("尚无预览")}${drawingActive && drawing && connections[drawing.conversation.id] ? ` · ${connections[drawing.conversation.id]}` : ''}`;
         const progress = <ArchitectureDrawingProgress key={starting ? 'starting' : drawing?.run.id ?? 'idle'} drawing={drawing} starting={starting} connection={drawing ? connections[drawing.conversation.id] : undefined} previewReady={previewReady} onOpenChat={onChat} />;
-        return <article className="task-record architecture-record" key={architecture.id}>
-        <div className="task-record-heading architecture-record-heading"><h2><button type="button" className="architecture-fold-toggle" aria-expanded={!collapsed} aria-controls={bodyId} aria-label={t("{0}架构：{1}", collapsed ? t("展开") : t("折叠"), architecture.name)} onClick={() => toggleArchitecture(architecture.id)}>{collapsed ? <ChevronRight /> : <ChevronDown />}<span>{architecture.name}</span></button></h2>
-          {architecture.sourceFile && <span className="data-badge">{t("已执行的架构快照")}</span>}
-          <button className="action-button" disabled={pending || !previewAvailable || drawingActive} onClick={() => {
-            setStartingArchitecture(architecture.id);
-            void action(() => onGeneratePreview(architecture)).finally(() => setStartingArchitecture(null));
-          }}>{drawingActive ? t("正在绘制…") : architecture.previews?.length ? t("重新绘制示意图") : t("Agent 绘制示意图")}</button>
-          {!architecture.sourceFile && <button className="action-button" disabled={pending || !!editing} onClick={() => setEditing({ id: architecture.id, name: architecture.name, description: architecture.description })}>{t("编辑")}</button>}
-        </div>
-        {architecture.previewIssues?.length ? <p className="task-warning" role="status">{[...new Set(architecture.previewIssues)].map(localizeMessage).join(' ')}</p> : null}
-        {summary && <p className="task-note">{summary}</p>}
-        {collapsed && <p className={drawing?.run.error ? 'error-text architecture-collapsed-status' : 'task-note architecture-collapsed-status'} role="status">
-          {drawing || starting ? statusText(drawing?.run, starting, previewReady) : architecture.previews?.length ? t("{0} 份 Agent 绘图", architecture.previews.length) : summary ? t("可展开查看 CCR 结构") : t("尚无预览")}
-          {drawingActive && drawing && connections[drawing.conversation.id] ? ` · ${connections[drawing.conversation.id]}` : ''}
-          {drawing?.run.error ? ` · ${drawing.run.error}` : ''}
-        </p>}
-        <div id={bodyId} className="architecture-record-body" hidden={collapsed}>{!collapsed && <>
-        <CcrLayoutPreview description={architecture.description} />
-        {drawingActive || drawing?.run.error || (drawing && !previewReady) ? progress : drawing ? <details className="architecture-record-details"><summary>{t("绘制记录 ·") + " "}{statusText(drawing.run, false, previewReady)}</summary>{progress}</details> : null}
-        {!!architecture.previews?.length && <ArchitecturePreview previews={architecture.previews} />}
-        <details className="architecture-record-details"><summary>{t("定义与来源")}</summary><pre className="architecture-definition">{architecture.description}</pre>
-        {architecture.sourceConversationId && <button className="action-button" onClick={() => onChat(architecture.sourceConversationId!)}>{t("查看来源聊天")}</button>}
-        {architecture.sourceFile && downloads([architecture.sourceFile])}
-        </details>
-        </>}</div>
-      </article>; })}
+        return <Fragment key={architecture.id}>
+          <tr className={`sheet-row ${open ? 'is-open' : ''}`} onClick={event => { if (!(event.target as Element).closest('button, a')) toggleArchitecture(architecture.id); }}>
+            <th scope="row"><button type="button" className="sheet-toggle" aria-expanded={open} aria-label={t("{0}架构：{1}", open ? t("折叠") : t("展开"), architecture.name)} title={architecture.name} onClick={() => toggleArchitecture(architecture.id)}>{open ? <ChevronDown /> : <ChevronRight />}<span>{architecture.name}</span></button>{architecture.sourceFile && <span className="data-badge">{t("快照")}</span>}</th>
+            <td className="sheet-muted sheet-optional" title={summary ?? undefined}>{summary ?? '–'}</td>
+            <td className={`sheet-optional ${drawing?.run.error || issues ? 'error-text' : 'sheet-muted'}`} title={[drawing?.run.error, issues].filter(Boolean).join(' · ') || status}>{issues && <Alert />}{status}</td>
+            <td className="architecture-sheet-actions">
+              <button className="action-button" disabled={pending || !previewAvailable || drawingActive} onClick={() => {
+                setStartingArchitecture(architecture.id);
+                void action(() => onGeneratePreview(architecture)).finally(() => setStartingArchitecture(null));
+              }}>{drawingActive ? t("正在绘制…") : architecture.previews?.length ? t("重新绘制") : t("绘制")}</button>
+              {!architecture.sourceFile && <button className="action-button" disabled={pending || !!editing} onClick={() => setEditing({ id: architecture.id, name: architecture.name, description: architecture.description })}>{t("编辑")}</button>}
+            </td>
+          </tr>
+          {open && <tr className="sheet-detail"><td colSpan={4}><div>
+            {issues && <p className="task-warning" role="status">{issues}</p>}
+            {architecture.sourceFile && <p className="task-note">{t("已执行的架构快照")}</p>}
+            {summary && <p className="task-note">{summary}</p>}
+            <CcrLayoutPreview description={architecture.description} />
+            {drawingActive || drawing?.run.error || (drawing && !previewReady) ? progress : drawing ? <details className="architecture-record-details"><summary>{t("绘制记录 ·") + " "}{statusText(drawing.run, false, previewReady)}</summary>{progress}</details> : null}
+            {!!architecture.previews?.length && <ArchitecturePreview previews={architecture.previews} />}
+            <details className="architecture-record-details"><summary>{t("定义与来源")}</summary><pre className="architecture-definition">{architecture.description}</pre>
+            {architecture.sourceConversationId && <button className="action-button" onClick={() => onChat(architecture.sourceConversationId!)}>{t("查看来源聊天")}</button>}
+            {architecture.sourceFile && downloads([architecture.sourceFile])}
+            </details>
+          </div></td></tr>}
+        </Fragment>; })}</tbody>
+      </table></div>}
     </>}
     {view === 'data' && <WaferData key={taskId} taskId={taskId} files={uploads} onChanged={async () => { await onRefresh(); setReload(value => value + 1); }} />}
     {view === 'repair' && detail && <RepairPanel taskId={taskId} architectures={detail.architectures} models={models} modelId={modelId} onChat={onRepairChat} />}
