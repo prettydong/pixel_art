@@ -2,7 +2,7 @@
 .wafer-heading, .wafer-selector, .wafer-actions, .wafer-summary, .wafer-indexes, .wafer-product-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .wafer-heading h2 { font-family: var(--font-serif); font-size: var(--text-xl); font-weight: 500; }
 .wafer-heading span, .wafer-layout, .wafer-actions > span, .wafer-number small { color: var(--muted); font-size: var(--text-sm); }
-.wafer-product-details, .wafer-selector, .wafer-help { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); padding: 12px 14px; }
+.wafer-product-details, .wafer-selector, .wafer-help { min-width: 0; }
 .wafer-product-details { color: var(--muted); }
 .wafer-product-details summary { cursor: pointer; }
 .wafer-product-details summary:hover { color: var(--text); }

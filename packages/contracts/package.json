@@ -23,6 +23,10 @@
     "./architecture-scene": {
       "types": "./architecture-scene.d.ts",
       "default": "./architecture-scene.js"
+    },
+    "./chat-cards": {
+      "types": "./chat-cards.d.ts",
+      "default": "./chat-cards.js"
     }
   },
   "scripts": {

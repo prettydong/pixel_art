@@ -38,7 +38,8 @@ This file records the design and collaboration requirements confirmed by the use
 - Charts are smooth SVG: polylines with point markers, rounded bars, arc pies, circular scatter points, and rounded heatmap cells, using `--chart-*` and `--heat-*` tokens. Wafer and CCR data maps may stay crisp-edged because each cell is data.
 - Architecture drawings put redundancy flush against the main array with no gap, fixed in screen space even after axis transposition: Region-shared row redundancy on the right as vertical strokes "|", CCR col redundancy below as horizontal strokes "—" aligned per segment. Segment labels `S<index>` sit on the array; row-axis ticks sit above it. The global row pool stays shared at Region level and CCR col resources stay independent per segment/subgroup.
 - Standard drawings come from the harness starter (`backend/architecture-preview/starter-draw.mjs`, generated with `publish.mjs --init <id> --publish`). Keep layout rule changes in the starter, the README and the prompts together, and keep the drawing prompts short: agents read only the README and task context and do not patch project files.
-- Tool calls in replies read like Claude Code: a status dot (running / done / failed), a monospace tool name, and collapsible output with a left rule.
+- Tool calls in replies read like Claude Code: a status dot (running / done / failed), a monospace tool name, and collapsible indented output.
+- Do not use vertical accent bars ("|" left borders) on callouts, notes, quotes, tool output, or navigation trees; use a soft tinted background with the radius tokens instead. Table gridlines are fine.
 
 ## Layout: Efficient Use of Space, Less Is More
 

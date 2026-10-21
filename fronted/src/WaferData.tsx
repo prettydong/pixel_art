@@ -139,7 +139,7 @@ export function WaferData({ taskId, files, onChanged }: Props) {
     {productsLoading && !products.length && <p role="status" className="task-note">{t("正在读取产品…")}</p>}
     {!products.length && !productsLoading && <><p className="task-empty">{t("暂无产品。")}</p>{productForm(true)}</>}
     {!!products.length && <div className="wafer-selector">
-      <label>{t("产品")}<select disabled={busy || productsLoading} value={productId} onChange={event => selectProduct(event.target.value)}>{products.map(item => <option value={item.id} key={item.id}>{item.name} · {item.chipCount} × {item.regionCount} · {item.rows} × {item.cols}</option>)}</select></label>
+      <label>{t("产品")}<select disabled={busy || productsLoading} value={productId} onChange={event => selectProduct(event.target.value)}>{products.map(item => <option value={item.id} key={item.id}>{item.name}{products.some(other => other.id !== item.id && other.name === item.name) ? ` · ${item.chipCount.toLocaleString(language)} × ${item.regionCount.toLocaleString(language)} · ${item.rows.toLocaleString(language)} × ${item.cols.toLocaleString(language)}` : ''}</option>)}</select></label>
       {product && <span className="wafer-layout">{product.chipCount.toLocaleString(language)} chips · {product.regionCount.toLocaleString(language)} regions/chip · {product.rows.toLocaleString(language)} × {product.cols.toLocaleString(language)}</span>}
     </div>}
     {product && <div className="wafer-actions"><input hidden type="file" accept=".pwafer,application/octet-stream" ref={inputRef} onChange={importWafer} />
@@ -148,19 +148,21 @@ export function WaferData({ taskId, files, onChanged }: Props) {
     {product && <WaferGenerator key={product.id} product={product} disabled={busy || wafersLoading} onBusy={setBusy} onSave={async (file, generation) => { try { await storeWafer(file, generation); } catch (err) { setNotice(''); throw err; } }} />}
     {notice && <p className="wafer-notice" role="status">{localizeMessage(notice)}</p>}{error && <p className="workspace-error" role="alert">{localizeMessage(error)}</p>}
     {product && <div className="sheet-frame"><table className="sheet">
-      <thead><tr><th scope="col">Wafer ({wafers.length})</th><th scope="col" style={{ width: 96 }}>{t("总 fail")}</th><th scope="col" className="sheet-optional" style={{ width: 168 }}>{t("非空 region")}</th><th scope="col" style={{ width: 172 }}>{t("当前任务")}</th></tr></thead>
+      <thead><tr><th scope="col">Wafer ({wafers.length})</th><th scope="col">{t("来源")}</th><th scope="col" className="sheet-num">{t("总 fail")}</th><th scope="col" className="sheet-num sheet-optional">{t("非空 region")}</th><th scope="col" className="sheet-num sheet-optional">{t("占比")}</th><th scope="col">{t("当前任务")}</th></tr></thead>
       <tbody>
         {wafers.map(item => {
           const open = item.id === waferId;
           const attached = attachedFileIds.has(item.fileId);
           return <Fragment key={item.id}>
             <tr className={`sheet-row ${open ? 'is-open' : ''}`} onClick={event => { if (!(event.target as Element).closest('button, a')) toggleWafer(item.id); }}>
-              <th scope="row"><button className="sheet-toggle" aria-expanded={open} title={item.name} onClick={() => toggleWafer(item.id)}>{open ? <ChevronDown /> : <ChevronRight />}<span>{item.name}</span></button>{item.synthetic && <span className="data-badge data-badge-warn">{t("合成")}</span>}</th>
-              <td>{item.failCount.toLocaleString(language)}</td>
-              <td className="sheet-optional">{item.occupiedRegionCount.toLocaleString(language)} / {totalRegions.toLocaleString(language)}{totalRegions ? <span className="sheet-muted"> · {(item.occupiedRegionCount / totalRegions * 100).toFixed(1)}%</span> : null}</td>
+              <th scope="row"><button className="sheet-toggle" aria-expanded={open} title={item.name} onClick={() => toggleWafer(item.id)}>{open ? <ChevronDown /> : <ChevronRight />}<span>{item.name}</span></button></th>
+              <td>{item.synthetic ? <span className="data-badge data-badge-warn">{t("合成")}</span> : <span className="sheet-muted">{t("导入")}</span>}</td>
+              <td className="sheet-num">{item.failCount.toLocaleString(language)}</td>
+              <td className="sheet-num sheet-optional">{item.occupiedRegionCount.toLocaleString(language)} / {totalRegions.toLocaleString(language)}</td>
+              <td className="sheet-num sheet-muted sheet-optional">{totalRegions ? `${(item.occupiedRegionCount / totalRegions * 100).toFixed(1)}%` : '–'}</td>
               <td>{attached ? <span className="sheet-muted">{t("已关联")}</span> : <button className="action-button" disabled={busy} onClick={() => void attachWafer(item)}>{t("关联到当前任务")}</button>}</td>
             </tr>
-            {open && <tr className="sheet-detail"><td colSpan={4}><div className="wafer-browser">
+            {open && <tr className="sheet-detail"><td colSpan={6}><div className="wafer-browser">
               <div className="wafer-actions"><span className={`data-badge ${item.synthetic ? 'data-badge-warn' : ''}`}>{item.synthetic ? t("合成数据") : t("导入数据")}</span><a className="action-button" href={fileUrl(item.file)} download><Download />{t("下载")}</a></div>
               {previewError && <p className="error-text" role="alert">{t("无法读取 wafer 预览：")}{localizeMessage(previewError)}</p>}
               {chipStats && <div className="stat-tiles">
@@ -185,7 +187,7 @@ export function WaferData({ taskId, files, onChanged }: Props) {
             </div></td></tr>}
           </Fragment>;
         })}
-        {!wafersLoading && !wafers.length && <tr className="sheet-empty"><td colSpan={4}>{t("暂无 wafer")}</td></tr>}
+        {!wafersLoading && !wafers.length && <tr className="sheet-empty"><td colSpan={6}>{t("暂无 wafer")}</td></tr>}
       </tbody>
     </table></div>}
     {!!products.length && productForm(false)}
@@ -193,7 +195,7 @@ export function WaferData({ taskId, files, onChanged }: Props) {
 }
 
 function NumberPicker({ label, value, maximum, onChange, onStep }: { label: string; value: number; maximum: number; onChange: (value: number) => void; onStep: (delta: number) => void }) {
-  return <label className="wafer-number">{label}<span><button type="button" className="action-button" disabled={value <= 0} onClick={() => onStep(-1)}>{t("上一项")}</button><input min="0" max={maximum} type="number" value={value} onChange={event => onChange(Math.min(maximum, Math.max(0, number(event.target.value))))} /><button type="button" className="action-button" disabled={value >= maximum} onClick={() => onStep(1)}>{t("下一项")}</button></span><small>0–{maximum.toLocaleString(getLanguage())}</small></label>;
+  return <label className="wafer-number">{label}<span><button type="button" className="action-button" disabled={value <= 0} onClick={() => onStep(-1)}>{t("上一项")}</button><input min="0" max={maximum} type="number" title={`0–${maximum.toLocaleString(getLanguage())}`} value={value} onChange={event => onChange(Math.min(maximum, Math.max(0, number(event.target.value))))} /><button type="button" className="action-button" disabled={value >= maximum} onClick={() => onStep(1)}>{t("下一项")}</button></span></label>;
 }
 
 function RegionOverview({ rows, cols, positions }: { rows: number; cols: number; positions?: Uint32Array }) {

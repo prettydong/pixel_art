@@ -15,7 +15,7 @@ function ownValue<T>(record: Record<string, T>, key: string): T | undefined {
 
 function resultSummary(tool: InteractiveTool): string {
   const result = tool.result;
-  if (!result || result.type !== tool.type) return t("已提交，回答记录不可用。");
+  if (!result || result.type !== tool.type) return t("已回答");
   if (tool.type === "single" && result.type === "single") {
     return t("已选择：{0}", tool.options.find((option) => option.value === result.value)?.label ?? result.value);
   }

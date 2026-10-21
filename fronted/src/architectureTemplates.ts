@@ -147,6 +147,19 @@ export function parseArchitecture(description: string): { templateId: string; fi
   } catch { return null; }
 }
 
+/** Key configuration values shown as separate sheet columns. */
+export function architectureColumns(description: string) {
+  const value = ccrDefinition(description);
+  if (!value) return null;
+  const capacities = value.device.ccr_spares_per_group;
+  const low = Math.min(...capacities); const high = Math.max(...capacities);
+  return {
+    rows: value.array.rows, cols: value.array.cols, spareRows: value.device.spare_rows,
+    ccrCols: low === high ? String(low) : `${low}–${high}`, groups: value.device.ccr_groups_per_segment,
+    segments: value.device.row_layout.section_count / value.device.row_layout.sections_per_segment,
+  };
+}
+
 export function architectureSummary(description: string): string | null {
   const parsed = parseArchitecture(description);
   if (!parsed) return null;

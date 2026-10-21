@@ -2,15 +2,16 @@
 .repair-comparison-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
 .repair-comparison-types { display: flex; gap: 4px; }
 .repair-comparison-toolbar select { min-width: 0; max-width: 100%; }
-.repair-comparison-variants { margin-left: auto; min-width: 0; max-width: 100%; }
+/* The option list floats under its button so opening it never moves the toolbar. */
+.repair-comparison-variants { position: relative; margin-left: auto; min-width: 0; max-width: 100%; }
 .repair-comparison-variants > summary { padding: 4px 8px; border-radius: var(--radius-sm); color: var(--text-secondary); cursor: pointer; font-size: var(--text-sm); }
 .repair-comparison-variants > summary:hover { background: var(--hover); }
-.repair-comparison-options { display: grid; gap: 4px; margin-top: 4px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--elevated); max-height: 200px; overflow: auto; }
-.repair-comparison .chart { margin: 0; }
+.repair-comparison-options { position: absolute; top: calc(100% + 4px); right: 0; z-index: 20; display: grid; gap: 4px; width: max-content; max-width: min(360px, 80vw); padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--elevated); box-shadow: var(--shadow-md); max-height: 240px; overflow: auto; }
+.repair-comparison .chart { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
 .repair-comparison .chart-legend { gap: 4px 16px; }
 .repair-comparison .chart-selection { min-height: 32px; align-items: center; }
 .repair-comparison .repair-result-insight { margin: 0; }
-.repair-result-details { display: grid; gap: 10px; min-width: 0; }
+.repair-result-details { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
 .repair-result-details > summary { cursor: pointer; color: var(--text-secondary); padding: 4px 0; font-weight: 500; }
 .repair-result-details > summary:hover { color: var(--text); }
 .repair-result-details[open] > summary { margin-bottom: 6px; }

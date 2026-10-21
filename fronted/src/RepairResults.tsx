@@ -63,10 +63,10 @@ export function RepairResults({ jobs, architectures, models }: { jobs: RepairJob
   const leaders = best ? rows.filter(job => counts(job, metric).passed === best.passed) : [];
 
   return <section className="repair-results" aria-label={t("结果分析")}>
-    <div className="repair-job-heading"><h2><BarChart />{t("结果分析")}</h2><span className="task-note">{t("完成") + " "}{completed} {" " + t("· 进行中") + " "}{active} {" " + t("· 失败 / 取消 / 中断") + " "}{stopped}</span></div>
+    <div className="repair-job-heading"><h2><BarChart />{t("结果分析")}</h2><span className="task-note">{t("完成") + " "}{completed}{active > 0 && <>{" " + t("· 进行中") + " "}{active}</>}{stopped > 0 && <>{" " + t("· 失败 / 取消 / 中断") + " "}{stopped}</>}</span></div>
     <RepairComparisonChart jobs={jobs} models={models} />
     {!group || !best ? <p className="task-empty">{t("暂无结果")}</p> : <>
-      <details className="repair-result-details"><summary>{t("Wafer 详情")}</summary>
+      <details className="repair-result-details"><summary>{t("Wafer 详情（{0}）", groups.length)}</summary>
       <div className="repair-analysis-controls">
         <label className="repair-wafer-filter">{t("对比 wafer")}<select value={group.key} onChange={event => setGroupKey(event.target.value)}>{groups.map(item => <option key={item.key} value={item.key}>{item.name}</option>)}</select></label>
         <label>{t("统计单位")}<select value={metric} onChange={event => setMetric(event.target.value as Metric)}><option value="chip">Chip</option><option value="region">Region</option></select></label>

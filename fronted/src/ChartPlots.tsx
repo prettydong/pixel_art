@@ -1,4 +1,5 @@
 import { t } from './i18n';
+import { Hint } from './Hint';
 import { useId, useMemo, useState, type CSSProperties } from 'react';
 import type { CategoryChart, ScatterChart, HeatmapChart } from '@pixel/contracts/charts';
 import { axisNumber, colors, shortLabel } from './chartGeometry';
@@ -31,7 +32,7 @@ export function PiePlot({ chart }: { chart: CategoryChart }) {
     <div className="chart-pie-legend">{chart.labels.map((label, index) => <button key={label} type="button" className={selected === index ? 'is-selected' : ''} style={colorStyle(index)} onClick={() => setSelected(index)} onFocus={() => setSelected(index)} aria-pressed={selected === index}>
       <i aria-hidden="true" /><span>{index + 1}. {label}{t("：")}{unitValue(values[index], chart.unit)} · {values[index] === null ? t("无占比") : `${(proportions[index] * 100).toFixed(1)}%`}</span>
     </button>)}</div>
-    <p className="chart-caption">{chart.series[0].name} {" " + t("· 占比按有效数值总和计算，缺失值不计入总和。")}</p>
+    <p className="chart-caption">{chart.series[0].name}<Hint>{t("占比按有效数值总和计算，缺失值不计入总和。")}</Hint></p>
   </div>;
 }
 
@@ -55,7 +56,7 @@ export function ScatterPlot({ chart }: { chart: ScatterChart }) {
   const y = (value: number) => top + plotHeight - Math.round(ys.fraction(value) * plotHeight);
   const ticks = [0, 1, 2, 3, 4];
   return <>
-    <div className="chart-legend">{chart.series.map((series, index) => <span key={series.name} style={colorStyle(index)}><i aria-hidden="true" />{index + 1}. {series.name}</span>)}</div>
+    <div className="chart-legend">{chart.series.map((series, index) => <span key={series.name} style={colorStyle(index)}><i aria-hidden="true" />{series.name}</span>)}</div>
     <p className="chart-caption">{chart.yLabel || 'Y'}{chart.unit ? ` · ${chart.unit}` : ''}</p>
     <div ref={viewport} className="chart-viewport" tabIndex={0} role="group" aria-label={t("散点图，左右方向键逐点查看，Home 和 End 跳到首尾")} aria-describedby={`${id}-selection`} onKeyDown={event => {
       if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
@@ -75,7 +76,7 @@ export function ScatterPlot({ chart }: { chart: ScatterChart }) {
         {ticks.map(tick => <span key={`x${tick}`} className="chart-x-tick" style={{ left: `${left + Math.round(plotWidth * tick / 4) - 40}px`, top: `${top + plotHeight + 8}px`, width: '80px' }}>{axisNumber((xs.min + (xs.max - xs.min) * tick / 4) * xs.magnitude)}</span>)}
       </div>
     </div>
-    <p className="chart-caption">{chart.xLabel || 'X'}{chart.xUnit ? ` · ${chart.xUnit}` : ''} {" " + t("· 数值坐标轴 · 方向键逐点查看")}</p>
+    <p className="chart-caption">{chart.xLabel || 'X'}{chart.xUnit ? ` · ${chart.xUnit}` : ''}</p>
     <p id={`${id}-selection`} className="chart-selection">{point.series} / {point.label}{t("：")}{chart.xLabel || 'X'} = {unitValue(point.x, chart.xUnit)}{t("，")}{chart.yLabel || 'Y'} = {unitValue(point.y, chart.unit)}</p>
   </>;
 }

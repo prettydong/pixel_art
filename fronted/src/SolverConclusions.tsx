@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ModelOption, RepairConclusion, RepairPanelData } from '@pixel/contracts';
 import { api, errorText } from './api';
 import { getLanguage, localizeMessage, t, useLanguage } from './i18n';
+import { Hint } from './Hint';
 import { useAutoConclusions } from './solverPreferences';
 import { RepairComparisonChart } from './RepairComparisonChart';
 import { completedRepairGroups } from './repairComparisons';
@@ -43,12 +44,12 @@ export function SolverConclusions({ taskId, revision, models }: { taskId: string
   const active = jobs.filter(job => activeStatuses.includes(job.status)).length;
   const stopped = jobs.length - completed - active;
   return <section className="solver-conclusions" aria-label={t("Solver 结论")} aria-busy={loading}>
-    <div className="task-record-heading"><h2>{t("Solver 结论")}</h2>{conclusion && <span className="task-note">{t("更新于 {0}", new Date(conclusion.updatedAt).toLocaleString(getLanguage()))}</span>}</div>
+    <div className="task-record-heading"><h2>{t("Solver 结论")}{conclusion && <Hint>{t("更新于 {0}", new Date(conclusion.updatedAt).toLocaleString(getLanguage()))}<br />{t("使用同一 wafer 输入下各架构版本 / 引擎的最近已完成结果。repairMost 未修成不代表已证明无解。")}</Hint>}</h2></div>
     {error && <div className="workspace-error" role="alert">{localizeMessage(error)}<button className="action-button" onClick={() => setRetry(value => value + 1)}>{t("重新读取")}</button></div>}
     {loading && <p className="task-note" role="status">{t("正在读取结论…")}</p>}
     {!autoConclusions && <p className="task-note">{t("自动结论已关闭；已有结论保留。")}</p>}
     {conclusion && <div className="solver-conclusion-status">
-      <span>{t("已完成运行")} {completed}</span><span>{t("进行中")} {active}</span><span>{t("失败 / 取消 / 中断")} {stopped}</span>
+      <span>{t("已完成运行")} {completed}</span>{active > 0 && <span>{t("进行中")} {active}</span>}{stopped > 0 && <span>{t("失败 / 取消 / 中断")} {stopped}</span>}
     </div>}
     {!loading && !error && !groups.length && <p className="task-empty" role="status">{active ? t("等待 Solver 结果，结论将自动更新。") : conclusion ? t("暂无已完成的求解结果。") : autoConclusions ? t("启动 Solver 后自动生成结论。") : t("可在设置中开启自动结论。")}</p>}
     {active > 0 && groups.length > 0 && <p className="task-note" role="status">{t("部分结果 · 还有 {0} 项进行中", active)}</p>}
@@ -73,7 +74,6 @@ export function SolverConclusions({ taskId, revision, models }: { taskId: string
       </article>;
     })}
     </details>}
-    {!!groups.length && <p className="task-note">{t("使用同一 wafer 输入下各架构版本 / 引擎的最近已完成结果。repairMost 未修成不代表已证明无解。")}</p>}
     {stopped > 0 && <details><summary>{t("失败 / 取消 / 中断")} ({stopped})</summary>{jobs.filter(job => !activeStatuses.includes(job.status) && job.status !== 'completed').map(job => <p key={job.id}>{job.architectureName} × {job.waferName} · {localizeMessage(job.error ?? job.status)}</p>)}</details>}
   </section>;
 }

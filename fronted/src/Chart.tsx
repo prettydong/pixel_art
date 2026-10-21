@@ -70,7 +70,7 @@ function CategoryPlot({ chart, yRange, colorIndices, compact }: { chart: Categor
   }
 
   return <>
-    <div className="chart-legend">{chart.series.map((series, index) => <span key={series.name} style={seriesStyle(index)}><i aria-hidden="true" />{index + 1}. {series.name}</span>)}</div>
+    <div className="chart-legend">{chart.series.map((series, index) => <span key={series.name} style={seriesStyle(index)}><i aria-hidden="true" />{series.name}</span>)}</div>
     {(chart.yLabel || chart.unit) && <p className="chart-caption">{[chart.yLabel, chart.unit].filter(Boolean).join(' · ')}</p>}
     <div ref={viewport} className="chart-viewport" tabIndex={0} role="group" aria-label={t("图表绘图区，左右方向键选择分类，Home 和 End 跳到首尾")} aria-describedby={`${id}-selection`} onKeyDown={selectKey}>
       <div className="chart-plot" style={{ width: `${width}px`, height: `${height}px` }} onPointerMove={event => {
@@ -102,7 +102,7 @@ function CategoryPlot({ chart, yRange, colorIndices, compact }: { chart: Categor
         {chart.labels.map((label, index) => <span key={label} className="chart-x-tick" title={label} style={{ left: `${left + index * slot}px`, top: `${bottom + 8}px`, width: `${slot}px` }}>{shortLabel(label, slot - 4)}</span>)}
       </div>
     </div>
-    {!compact && <p className="chart-caption">{chart.xLabel || t("分类")}{chart.kind !== 'bar' ? t(" · 等距分类轴") : ''}{chart.kind === 'area' ? t(" · 非堆叠") : ''} {" " + t("· 方向键或指针查看数值")}</p>}
+    {!compact && <p className="chart-caption">{chart.xLabel || t("分类")}{chart.kind !== 'bar' ? t(" · 等距分类轴") : ''}{chart.kind === 'area' ? t(" · 非堆叠") : ''}</p>}
     <div id={`${id}-selection`} className="chart-selection">
       <span>{chart.labels[selectedIndex]}</span>
       {chart.series.map((series, index) => <span key={series.name} style={seriesStyle(index)}><i aria-hidden="true" />{series.name}{t("：")}{series.values[selectedIndex] === null ? t("缺失") : `${series.values[selectedIndex]}${chart.unit ? ` ${chart.unit}` : ''}`}</span>)}

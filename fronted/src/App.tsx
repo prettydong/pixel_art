@@ -1,10 +1,12 @@
 import { localizeMessage, t, useLanguage } from './i18n';
+import { Hint } from './Hint';
 import { LanguageSelect } from './LanguageSelect';
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { modes, isActiveRun, type Mode, type User, type FileRecord, type Run, type CreateRunInput, type ListResponse, type EvaluationTask, type TaskArchitecture, type DemoTask } from "@pixel/contracts";
 import { saveRepairDraft } from './repairDraft';
-import type { Message, Conversation } from "./chatTypes";
-import { messageMarkdown } from "./chatTools";
+import type { Message, Conversation, InteractiveTool, ToolResult } from "./chatTypes";
+import { messageMarkdown, toolAnswer } from "./chatTools";
+import type { CardContext } from "./ChatCards";
 import { useDemoWorkspace } from "./useDemoWorkspace";
 import { InteractiveTools } from "./InteractiveTools";
 import { MarkdownMessage } from "./MarkdownMessage";
@@ -47,7 +49,7 @@ import {
   Plus,
   Search,
   Settings2,
-  Spark,
+  Logo,
   Square,
   X,
 } from "./Icons";
@@ -109,6 +111,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [uploading, setUploading] = useState(false);
   const [pending, setPending] = useState<Set<string>>(() => new Set());
+  const [askResults, setAskResults] = useState<Map<string, ToolResult>>(() => new Map());
   const pendingRequests = useRef(new Map<string, CreateRunInput>());
   const demoRequestKey = useRef<string | null>(null);
   const [accountTab, setAccountTab] = useState<"settings" | "account" | "usage" | "users">("settings");
@@ -383,21 +386,40 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       setToast(t("对话已删除"));
     } catch (err) { showError(errorText(err)); }
   }
-  async function send() {
-    const text = draft.trim();
+  async function answerCard(tool: InteractiveTool, result: ToolResult) {
+    setAskResults(prev => new Map(prev).set(tool.id, result));
+    const text = t("回答「{0}」：{1}", tool.title, toolAnswer({ ...tool, status: 'submitted', result }));
+    if (!await send(text)) setAskResults(prev => { const next = new Map(prev); next.delete(tool.id); return next; });
+  }
+  function cardContext(index: number): CardContext | undefined {
+    if (demoMode || !active.taskId) return undefined;
+    const taskId = active.taskId;
+    const answered = visibleMessages.slice(index + 1).some(message => message.role === 'user');
+    const latest = index === visibleMessages.length - 1;
+    return {
+      taskId, locked: busy || submitting,
+      askState: id => { const result = askResults.get(id); return result ? { status: 'submitted', result } : answered ? { status: 'submitted' } : { status: latest ? 'pending' : 'expired' }; },
+      onAnswer: (tool, result) => void answerCard(tool, result),
+      onOpenSolver: () => openTask(taskId, 'repair'),
+    };
+  }
+  /** An answer is sent on its own; the composer draft and attachments stay as they are. */
+  async function send(answer?: string): Promise<boolean> {
+    const text = answer ?? draft.trim();
     if (demoMode) {
       if (demo.send(active.id, text, files)) {
         followMessages.current = true; drafts.current.delete(active.id);
         setDraft(''); setFiles([]); setEnteredId(active.id);
       }
-      return;
+      return false;
     }
-    if (!text || busy || submitting || uploading || modePending || !active.id || !model) return;
+    if (!text || busy || submitting || uploading || modePending || !active.id || !model) return false;
     followMessages.current = true;
     const id = active.id;
     const prior = pendingRequests.current.get(id);
-    const same = prior && prior.text === text && prior.mode === active.mode && prior.modelId === model && JSON.stringify(prior.fileIds) === JSON.stringify(files.map(f => f.id));
-    const request: CreateRunInput = same && prior ? prior : { text, mode: active.mode, modelId: model, fileIds: files.map(f => f.id), idempotencyKey: requestId() };
+    const fileIds = answer === undefined ? files.map(f => f.id) : [];
+    const same = prior && prior.text === text && prior.mode === active.mode && prior.modelId === model && JSON.stringify(prior.fileIds) === JSON.stringify(fileIds);
+    const request: CreateRunInput = same && prior ? prior : { text, mode: active.mode, modelId: model, fileIds, idempotencyKey: requestId() };
     pendingRequests.current.set(id, request);
     setPending(prev => new Set(prev).add(id)); setError('');
     try {
@@ -405,13 +427,18 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       // Keep the authoritative user message and a complete snapshot before replay.
       await refresh(id).catch(err => showError(errorText(err)));
       attach(run);
-      pendingRequests.current.delete(id); drafts.current.delete(id);
-      if (activeIdRef.current === id) { setDraft(''); setFiles([]); setEnteredId(id); }
+      pendingRequests.current.delete(id);
+      if (answer === undefined) {
+        drafts.current.delete(id);
+        if (activeIdRef.current === id) { setDraft(''); setFiles([]); setEnteredId(id); }
+      }
+      return true;
     } catch (err) {
       if (err instanceof RequestError && err.status < 500) pendingRequests.current.delete(id);
       if (err instanceof RequestError && err.status === 409) void refresh(id).then(c => { if (c.activeRun || c.lastRun) attach((c.activeRun || c.lastRun)!); }).catch(() => {});
       showError(errorText(err));
       // Retain an uncertain submission's key so retry cannot execute it twice.
+      return false;
     } finally { setPending(prev => { const next = new Set(prev); next.delete(id); return next; }); }
   }
   async function upload(selected: File[]) {
@@ -482,9 +509,9 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               icon.classList.remove("is-twirling"); void icon.offsetWidth; icon.classList.add("is-twirling");
               sparkBurstFrom(icon, 12);
             }}>
-              <Spark />
+              <Logo />
             </span>
-            <span>Pixel Chat</span>
+            <span>Yield Analysis</span>
           </div>
         </div>
         {!demoMode ? <>
@@ -651,14 +678,14 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
                 aria-label={t("对话消息")}
                 aria-busy={busy}
               >
-                {visibleMessages.map((m) => (
+                {visibleMessages.map((m, index) => (
                   <article key={m.id} className={`message ${m.role}`}>
                     <div className="message-body">
                       <div className="message-author">
                         {m.role === "assistant" ? demoMode ? t("Pixel（本地演示）") : "Pixel" : t("你")}
                       </div>
                       <div className="message-content">
-                        {!demoMode && m.role === "assistant" ? <StreamingReply message={m} pending={busy && m.runId === currentRun?.id} /> : m.text ? (m.role === "assistant" ? <MarkdownMessage text={m.text} /> : <UserMessageText text={m.text} />) :
+                        {!demoMode && m.role === "assistant" ? <StreamingReply message={m} pending={busy && m.runId === currentRun?.id} cards={cardContext(index)} /> : m.text ? (m.role === "assistant" ? <MarkdownMessage text={m.text} /> : <UserMessageText text={m.text} />) :
                           ((m.delivery === "streaming" || (!demoMode && busy && m.runId === currentRun?.id)) ? (
                             <Thinking />
                           ) : (
@@ -909,7 +936,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               {accountTab === 'settings' && <>
               <div className="setting-row"><LanguageSelect /></div>
               <div className="setting-row">
-                <div>{t("自动生成结论")}<small className="task-note"> · {t("用于之后启动的 Solver")}</small></div>
+                <div>{t("自动生成结论")}<Hint>{t("用于之后启动的 Solver")}</Hint></div>
                 <button role="switch" aria-checked={autoConclusions} aria-label={t("自动生成结论")}
                   className={`toggle ${autoConclusions ? 'on' : ''}`} onClick={() => setAutoConclusions(!autoConclusions)}><span /></button>
               </div>
@@ -947,8 +974,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
               <button className="export-button" onClick={exportChat}>
                 <Download />
                 {t("导出当前对话为 Markdown")}</button>
-              <div className="settings-note">
-                {t("Ctrl / Cmd + K 搜索对话")}<br />{t("Ctrl / Cmd + B 收起 / 展开侧栏")}</div></>}
+              </>}
             </>
           )}
         </div>

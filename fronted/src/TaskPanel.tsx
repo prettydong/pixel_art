@@ -3,7 +3,7 @@ import { ArchitecturePreview } from './ArchitecturePreview';
 import { CcrLayoutPreview } from './CcrLayoutPreview';
 import { ArchitectureDrawingProgress, findArchitectureDrawing, statusText } from './ArchitectureDrawingProgress';
 import { ArchitectureEditor } from './ArchitectureEditor';
-import { architectureSummary } from './architectureTemplates';
+import { ArchitectureCells, ArchitectureHeaders } from './ArchitectureColumns';
 import { WaferData } from './WaferData';
 import { RepairPanel } from './RepairPanel';
 import { SolverConclusions } from './SolverConclusions';
@@ -86,21 +86,19 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
       }} />}
       {!editing && !loading && !detail?.architectures.length && <p className="task-empty">{t("暂无架构")}</p>}
       {!editing && !!detail?.architectures.length && <div className="sheet-frame"><table className="sheet architecture-sheet">
-        <thead><tr><th scope="col">{t("架构")} ({detail.architectures.length})</th><th scope="col" className="sheet-optional" style={{ width: '38%' }}>CCR</th><th scope="col" className="sheet-optional" style={{ width: 150 }}>{t("示意图")}</th><th scope="col" style={{ width: 236 }}><span className="visually-hidden">{t("操作")}</span></th></tr></thead>
+        <thead><tr><th scope="col">{t("架构")} ({detail.architectures.length})</th><ArchitectureHeaders region /><th scope="col" className="sheet-optional" style={{ width: 150 }}>{t("示意图")}</th><th scope="col" style={{ width: 236 }}><span className="visually-hidden">{t("操作")}</span></th></tr></thead>
         <tbody>{detail.architectures.map(architecture => {
         const starting = startingArchitecture === architecture.id;
         const drawing = starting ? undefined : findArchitectureDrawing(chats, architecture.id);
         const drawingActive = starting || !!(drawing && isActiveRun(drawing.run.status));
         const previewReady = !!drawing && !!architecture.previews?.some(preview => preview.file.conversationId === drawing.conversation.id && preview.createdAt >= drawing.run.createdAt);
         const open = expandedArchitectures.has(architecture.id);
-        const summary = architectureSummary(architecture.description);
         const issues = [...new Set(architecture.previewIssues ?? [])].map(localizeMessage).join(' ');
         const status = `${drawing || starting ? statusText(drawing?.run, starting, previewReady) : architecture.previews?.length ? t("{0} 份 Agent 绘图", architecture.previews.length) : t("尚无预览")}${drawingActive && drawing && connections[drawing.conversation.id] ? ` · ${connections[drawing.conversation.id]}` : ''}`;
         const progress = <ArchitectureDrawingProgress key={starting ? 'starting' : drawing?.run.id ?? 'idle'} drawing={drawing} starting={starting} connection={drawing ? connections[drawing.conversation.id] : undefined} previewReady={previewReady} onOpenChat={onChat} />;
         return <Fragment key={architecture.id}>
           <tr className={`sheet-row ${open ? 'is-open' : ''}`} onClick={event => { if (!(event.target as Element).closest('button, a')) toggleArchitecture(architecture.id); }}>
-            <th scope="row"><button type="button" className="sheet-toggle" aria-expanded={open} aria-label={t("{0}架构：{1}", open ? t("折叠") : t("展开"), architecture.name)} title={architecture.name} onClick={() => toggleArchitecture(architecture.id)}>{open ? <ChevronDown /> : <ChevronRight />}<span>{architecture.name}</span></button>{architecture.sourceFile && <span className="data-badge">{t("快照")}</span>}</th>
-            <td className="sheet-muted sheet-optional" title={summary ?? undefined}>{summary ?? '–'}</td>
+            <th scope="row"><button type="button" className="sheet-toggle" aria-expanded={open} aria-label={t("{0}架构：{1}", open ? t("折叠") : t("展开"), architecture.name)} title={architecture.name} onClick={() => toggleArchitecture(architecture.id)}>{open ? <ChevronDown /> : <ChevronRight />}<span>{architecture.name}</span></button>{architecture.sourceFile && <span className="data-badge">{t("快照")}</span>}</th><ArchitectureCells description={architecture.description} region />
             <td className={`sheet-optional ${drawing?.run.error || issues ? 'error-text' : 'sheet-muted'}`} title={[drawing?.run.error, issues].filter(Boolean).join(' · ') || status}>{issues && <Alert />}{status}</td>
             <td className="architecture-sheet-actions">
               <button className="action-button" disabled={pending || !previewAvailable || drawingActive} onClick={() => {
@@ -110,10 +108,8 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
               {!architecture.sourceFile && <button className="action-button" disabled={pending || !!editing} onClick={() => setEditing({ id: architecture.id, name: architecture.name, description: architecture.description })}>{t("编辑")}</button>}
             </td>
           </tr>
-          {open && <tr className="sheet-detail"><td colSpan={4}><div>
+          {open && <tr className="sheet-detail"><td colSpan={9}><div>
             {issues && <p className="task-warning" role="status">{issues}</p>}
-            {architecture.sourceFile && <p className="task-note">{t("已执行的架构快照")}</p>}
-            {summary && <p className="task-note">{summary}</p>}
             <CcrLayoutPreview description={architecture.description} />
             {drawingActive || drawing?.run.error || (drawing && !previewReady) ? progress : drawing ? <details className="architecture-record-details"><summary>{t("绘制记录 ·") + " "}{statusText(drawing.run, false, previewReady)}</summary>{progress}</details> : null}
             {!!architecture.previews?.length && <ArchitecturePreview previews={architecture.previews} />}

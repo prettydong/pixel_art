@@ -7,6 +7,8 @@ import { ChevronDown, ChevronRight } from './Icons';
 import { chartTools, readChartTool } from '@pixel/contracts/charts';
 import { Chart } from './Chart';
 import { Thinking } from './Thinking';
+import { cardTools } from '@pixel/contracts/chat-cards';
+import { ChatCard, type CardContext } from './ChatCards';
 
 function ProcessDetails({ label, children, className = '', keepMounted = false }: { label: ReactNode; children: ReactNode; className?: string; keepMounted?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -36,6 +38,7 @@ type ProcessItem =
 type ReplyBlock =
   | { kind: 'text'; key: string; text: string }
   | { kind: 'chart'; key: string; tool: ToolCall }
+  | { kind: 'card'; key: string; tool: ToolCall }
   | { kind: 'process'; key: string; items: ProcessItem[] };
 
 /** Group adjacent process entries across model rounds; prose breaks the group. */
@@ -52,6 +55,7 @@ function replyBlocks(message: ReplyMessage): ReplyBlock[] {
     for (const tool of segment.toolCalls ?? []) {
       appendProcess({ kind: 'tool', key: `${segment.id}:tool:${tool.id}`, tool });
       if (tool.status === 'completed' && Object.hasOwn(chartTools, tool.name)) blocks.push({ kind: 'chart', key: `${segment.id}:chart:${tool.id}`, tool });
+      if (tool.status === 'completed' && Object.hasOwn(cardTools, tool.name)) blocks.push({ kind: 'card', key: `${segment.id}:card:${tool.id}`, tool });
     }
   }
   return blocks;
@@ -96,11 +100,12 @@ function GenerationStats({ message }: { message: ReplyMessage }) {
   </div>;
 }
 
-export function StreamingReply({ message, pending }: { message: ReplyMessage; pending: boolean }) {
+export function StreamingReply({ message, pending, cards }: { message: ReplyMessage; pending: boolean; cards?: CardContext }) {
   return <div className="reply-flow">
     {replyBlocks(message).map(block => block.kind === 'text'
       ? <MarkdownMessage key={block.key} text={block.text} />
       : block.kind === 'chart' ? <ChartResult key={block.key} tool={block.tool} />
+      : block.kind === 'card' ? <ChatCard key={block.key} tool={block.tool} context={cards} />
       : <ProcessGroup key={block.key} items={block.items} pending={pending} />)}
     <GenerationStats message={message} />
     {pending && <Thinking />}

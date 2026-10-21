@@ -56,3 +56,8 @@
 .interactive-tool fieldset > .interactive-tool-status { margin-top: 10px; }
 .interactive-tool-unavailable { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); }
 .interactive-tool-unavailable h3 { margin: 0 0 4px; }
+.solver-card-lists { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0 0 8px; font-size: var(--text-sm); }
+.solver-card-lists dt { color: var(--muted); }
+.solver-card-lists dd { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; min-width: 0; }
+.solver-card-lists dd span { padding: 1px 8px; border-radius: var(--radius-sm); background: var(--hover); }
+.interactive-tool-actions button svg { width: 14px; height: 14px; vertical-align: -2px; margin: 0 4px; }

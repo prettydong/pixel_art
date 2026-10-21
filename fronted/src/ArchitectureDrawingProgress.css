@@ -1,10 +1,6 @@
 .architecture-drawing-progress {
   display: grid;
   gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
   min-width: 0;
 }
 
@@ -50,7 +46,7 @@
 }
 .architecture-drawing-tool pre { font-family: var(--font-mono); font-size: 12.5px; }
 
-.architecture-drawing-tool { border-left: 2px solid var(--line); min-width: 0; }
+.architecture-drawing-tool { min-width: 0; }
 .architecture-drawing-tool[open] { border-color: var(--architecture-accent); }
 .architecture-drawing-tool summary { cursor: pointer; padding: 4px 10px; color: var(--muted); font-family: var(--font-mono); font-size: 12.5px; }
 .architecture-drawing-tool summary:hover { color: var(--text); }

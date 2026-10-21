@@ -27,11 +27,13 @@ function icon(shape: ReactNode) {
 }
 
 export const Alert = icon(<><circle cx="12" cy="12" r="9" /><path d="M12 8v4.5M12 16h.01" /></>);
+export const Help = icon(<><circle cx="12" cy="12" r="9" /><path d="M9.6 9.3a2.5 2.5 0 0 1 4.85.85c0 1.65-2.45 2.2-2.45 3.6M12 17h.01" /></>);
 export const ArrowUp = icon(<path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />);
 export const ArrowRight = icon(<path d="M5 12h14M12.5 5.5 19 12l-6.5 6.5" />);
 export const Check = icon(<path d="M20 6 9 17l-5-5" />);
 export const ChevronDown = icon(<path d="m6 9 6 6 6-6" />);
 export const ChevronRight = icon(<path d="m9 6 6 6-6 6" />);
+export const ChevronLeft = icon(<path d="m15 6-6 6 6 6" />);
 export const Copy = icon(<><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></>);
 export const Download = icon(<path d="M12 4v11M7 10l5 5 5-5M5 20h14" />);
 export const Ellipsis = icon(<><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>);
@@ -42,9 +44,12 @@ export const PanelLeftClose = icon(<><rect x="3" y="3" width="18" height="18" rx
 export const Paperclip = icon(<path d="m20.5 11.5-8.4 8.4a5 5 0 0 1-7.1-7.1l8.4-8.4a3.3 3.3 0 0 1 4.7 4.7l-8.4 8.4a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" />);
 export const Play = icon(<path d="M7 4.5v15a1 1 0 0 0 1.5.9l12-7.5a1 1 0 0 0 0-1.8l-12-7.5A1 1 0 0 0 7 4.5z" />);
 export const Plus = icon(<path d="M12 5v14M5 12h14" />);
+export const RefreshCw = icon(<path d="M20 11a8 8 0 0 0-14.6-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5L20 16M20 20v-4h-4" />);
 export const Search = icon(<><circle cx="11" cy="11" r="7" /><path d="m20 20-3.6-3.6" /></>);
 export const Settings2 = icon(<><path d="M20 7h-9M14 17H4" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" /></>);
 /** The asterisk mark used for the brand and the working indicator. */
+// Brand mark: a notched wafer with a rising yield line.
+export const Logo = icon(<><path d="M13.4 20.9A9 9 0 1 0 10.6 20.9" /><path d="M10.6 20.9a1.4 1.4 0 0 1 2.8 0" /><path d="m7.5 14.5 3-3 2.5 2.5 4-4.5" /><path d="M14.5 9.5h2.5V12" /></>);
 export const Spark = icon(<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4" strokeWidth={2.6} />);
 export const Square = icon(<rect x="6" y="6" width="12" height="12" rx="2" />);
 export const BarChart = icon(<path d="M3 3v18h18M8 17v-4M13 17V8M18 17v-7" />);

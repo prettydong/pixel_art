@@ -16,9 +16,9 @@ export const getLanguage = () => language;
 
 export function applyLanguage() {
   document.documentElement.lang = language;
-  document.title = 'Pixel Chat';
+  document.title = 'Yield Analysis';
   document.querySelector('meta[name="description"]')?.setAttribute('content',
-    language === 'en' ? 'Pixel Chat — a workspace for memory repair analysis.' : 'Pixel Chat — 内存修补分析工作台。');
+    language === 'en' ? 'Yield Analysis — a workspace for memory repair analysis.' : 'Yield Analysis — 内存修补分析工作台。');
 }
 
 export function setLanguage(next: Language) {

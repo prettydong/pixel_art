@@ -1,0 +1,20 @@
+export type AskOption = { value: string; label: string; description?: string };
+export type AskField = { id: string; label: string; type: "text" | "number"; required?: boolean; min?: number; max?: number };
+export type AskCard = {
+  kind: "ask";
+  type: "single" | "multi" | "confirm" | "form";
+  title: string;
+  description?: string;
+  options?: AskOption[];
+  fields?: AskField[];
+  confirmLabel?: string;
+  cancelLabel?: string;
+};
+export type SolverCard = { kind: "solver"; architectureIds: string[]; waferIds: string[]; note?: string };
+export type PixelCard = AskCard | SolverCard;
+export const cardProtocol: "pixel-card/v1";
+export const cardTools: Readonly<Record<"pixel_ask_user" | "pixel_configure_solver", { kind: PixelCard["kind"]; label: string }>>;
+export function cardParametersFor(kind: PixelCard["kind"]): Record<string, unknown>;
+export function createCard(kind: PixelCard["kind"], input: unknown): PixelCard;
+export function encodeCard(card: PixelCard): string;
+export function readCardTool(tool: { name: string; status: string; text?: string } | null | undefined): PixelCard | null;
