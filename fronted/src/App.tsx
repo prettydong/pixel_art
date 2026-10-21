@@ -486,12 +486,6 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
             </span>
             <span>Pixel Chat</span>
           </div>
-          <button className="icon-button" aria-label={t("收起侧边栏")} title={t("收起侧边栏（Ctrl / Cmd + B）")} onClick={() => {
-            toggleSidebar();
-            sidebarToggleRef.current?.focus();
-          }}>
-            <PanelLeftClose />
-          </button>
         </div>
         {!demoMode ? <>
           <button className="search-trigger" onClick={() => setDialog('search')}><Search /><span>{t("搜索任务和聊天")}</span></button>
