@@ -2,7 +2,28 @@
 
 The agent writes a **browser-executed JavaScript module, `draw.mjs`**, exporting `draw(ctx)`. The frontend injects Pixi 8, the default grid, current view, and theme colors. The internal system runs this module directly; it is not a DSL restricted to primitives. Do not generate SVG or PNG files or modify frontend source code or the database.
 
-## Workflow for Each Run
+## Fast Path (use first)
+
+Everything you need is in this README and `$PIXEL_TASK_CONTEXT`. A standard drawing is one command:
+
+```sh
+"$PIXEL_NODE" "$PIXEL_ARCHITECTURE_HARNESS" --init <architectureId> --publish
+```
+
+`--init` reads the architecture from the task context, computes the real segment row ranges, and writes `preview-<id>-<time>-draw.mjs`, `-scene.json` and `-recipe.mjs` into `$PIXEL_WORK_DIR`. The starter already follows every layout rule below (flush `|` row strip on the right, per-segment `—` col strips below, `S<index>` on the array, ticks above and left, insets, palette, records). `--publish` validates and archives it in the same call. Report the `output` path and dimensions, and you are done.
+
+- **User asked for changes:** run `--init <architectureId>` without `--publish`, edit the generated files, then publish them with the command in step 4. Keep `PARAMS` as written by `--init`.
+- **`--init` says the architecture is not a standard region-ccr definition:** write the drawing by hand following the rest of this README.
+
+Speed rules:
+
+- Do not read the harness source, `packages/contracts`, frontend source, `styles.css`, other runs' artifacts, or git history. The palette roles, schema fields and `draw(ctx)` API in this README are complete.
+- Do not write mock Pixi test harnesses. `node --check <file>` is enough; publishing validates the rest.
+- Never edit files outside `$PIXEL_WORK_DIR`.
+- If publishing fails for a reason outside your own files (theme colour missing, module not found, permission), stop and report the error verbatim. Do not investigate or patch the project.
+- Narrate in one short line at the start and one at the end.
+
+## Workflow for Hand-Written Drawings
 
 1. Read `$PIXEL_TASK_CONTEXT`, find the requested architecture, and copy its `id` / `fingerprint`. Publish multiple architectures separately. Do not invent banks, ECC, groups, or spare resources that have not been provided.
    In this project, a region is an independent bank and the architecture type is CCR; bigSection is consistently called segment. Draw segment boundaries using the section/subsection formula in `device.row_layout`, not equal row partitions. Within each segment, CCR subgroups use original column addresses modulo the subgroup count; column addresses are not folded. A region shares a global spare-row pool (spare_rows, 128 by default), drawn at region level. Each segment has independent CCR column resources, further independent by subgroup; columns cannot borrow across segments or subgroups. See task context `repairModel.definitions` for the complete definitions.
@@ -43,9 +64,18 @@ export function draw({ PIXI, world, overlay, grid, colors, view, orientation, to
 
 Always display the larger dimension horizontally (columns are horizontal when equal). Actual rows/cols and fail coordinates remain unchanged. Do not swap world coordinates again or transpose the matrix yourself. `view.x/width` still represents the logical column range; `view.y/height` still represents the logical row range. Screen coordinates and axis labels must use `toScreen` and `orientation`. Do not hard-code fixed-row dividers as horizontal; convert both endpoints before determining direction. Put text in overlay and use `text()` to keep it upright.
 
-Place CCR **col resources below the main array** and the region-shared **row resources to its right**, in screen coordinates regardless of axis transposition. Keep each segment's col resources independent, and retain modulo-interleaved subgroup semantics. Reserve space using optional `draw.insets: { top, right, bottom, left }` (0–256 CSS pixels per side); fit, zoom bounds, and resize account for these margins. Do not duplicate the global row pool per segment or hide resource panels simply because the default fit fills the viewport.
+### Resource layout (screen-fixed)
 
-Regions may use world. For dividers exactly 1 design unit wide, use `toScreen` and draw integer rectangles in overlay. Use `text()` for labels so font size does not follow world zoom. Prefer empty space above/below the viewport, avoiding the grid; use `view.viewportWidth` to decide whether to wrap. Chinese characters use 12 units each, English at most 8 units. Preserve all actual coordinates; coordinate labels must reflect the current view rather than hard-coded full-array endpoints. You choose layout/dividers/colors; the frontend provides only the basic grid and viewport.
+- Draw spare resources **flush against the main array, with no gap**: the strip's inner edge is the array's outer edge from `toScreen`, not offset by a margin.
+- Region-shared **row redundancy** (the global spare-row pool) sits on the array's **right edge** as a strip of **vertical strokes `|`**. It spans the array's full screen height.
+- CCR **col redundancy** sits on the array's **bottom edge** as a strip of **horizontal strokes `—`**. Each segment's strip spans exactly that segment's screen extent, and segment boundaries continue through it. Keep every segment's and subgroup's col capacity independent, and keep the modulo-interleaved subgroup semantics; do not draw subgroups as contiguous partitions.
+- Positions and stroke directions are fixed in screen space and do not swap when the row/col axes are transposed. Do not duplicate the global row pool per segment, and do not hide a resource strip because the default fit fills the viewport.
+- Draw strips in `overlay` with a fixed thickness (about 16–32 CSS pixels), filled with the `repair` surface and outlined in 2-unit `repair`. Draw at most as many strokes as fit at 3 or more pixels apart, and label the actual count (for example `128 spare row`, `CCR 4×2 col`), inside the strip when it fits, otherwise just outside it.
+- **Segment labels** `S<index>` (`S0`, `S1`, …) go **on the main array**, centred on each segment's visible span, with a small `background` chip behind the text for legibility. Skip a label whose segment is narrower on screen than its text.
+- **Row-axis ticks** go **above the main array**, along its top edge. Col-axis ticks go along the left edge.
+- Reserve space with `draw.insets: { top, right, bottom, left }` (0–256 CSS pixels per side): `top` for the row ticks, `right` and `bottom` for the strips plus their labels, and `left` for the col ticks. Fit, zoom bounds and resize account for these margins.
+
+Regions may use world. For dividers exactly 1 design unit wide, use `toScreen` and draw integer rectangles in overlay. Use `text()` for labels so font size does not follow world zoom. Apart from the segment labels on the array, keep labels off the grid, in the reserved margins; use `view.viewportWidth` to decide whether to wrap. Chinese characters use 12 units each, English at most 8 units. Preserve all actual coordinates; coordinate labels must reflect the current view rather than hard-coded full-array endpoints. You choose layout/dividers/colors; the frontend provides only the basic grid and viewport.
 
 Coordinate and Segment label sampling must account for text width, not just color-band width or grid-line spacing. Horizontally reserve text width plus 4 units; vertically allow a 16-unit line height. After axis transposition, determine spacing by actual screen direction. Do not clamp all off-view coordinate labels to canvas edges. After `draw` returns, the frontend avoids collisions using actual overlay Text bounds: earlier labels are retained; overlapping or out-of-bounds labels move into "Annotation details" below the drawing. This is recalculated on zoom, pan, and window changes. Create titles and essential legends first. Keep coordinates in place instead of moving text to change what it points to. This handling does not alter archived source or actual coordinates.
 
