@@ -61,3 +61,7 @@
 .solver-card-lists dd { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; min-width: 0; }
 .solver-card-lists dd span { padding: 1px 8px; border-radius: var(--radius-sm); background: var(--hover); }
 .interactive-tool-actions button svg { width: 14px; height: 14px; vertical-align: -2px; margin: 0 4px; }
+.architecture-card .interactive-tool-field { margin-bottom: 10px; }
+.architecture-card-definition { margin: 0 0 4px; font-size: var(--text-sm); }
+.architecture-card-definition summary { color: var(--muted); cursor: pointer; }
+.architecture-card-definition pre { max-height: 240px; overflow: auto; margin: 6px 0 0; padding: 8px 10px; border-radius: var(--radius); background: var(--bg); font-family: var(--font-mono); font-size: var(--text-xs); white-space: pre-wrap; }

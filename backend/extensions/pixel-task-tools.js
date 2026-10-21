@@ -1,4 +1,6 @@
-const CREATE_ARCHITECTURE_PARAMETERS = {
+import { encodeCard } from "@pixel/contracts/chat-cards";
+
+const PROPOSE_ARCHITECTURE_PARAMETERS = {
   type: "object",
   additionalProperties: false,
   required: ["name"],
@@ -27,7 +29,7 @@ function resultContent(value) {
   return [{ type: "text", text: JSON.stringify(value) }];
 }
 
-function requestArchitectureCreation(toolCallId, parameters, signal) {
+function requestArchitectureProposal(toolCallId, parameters, signal) {
   return new Promise((resolve, reject) => {
     let settled = false;
     const finish = (callback, value) => {
@@ -43,22 +45,22 @@ function requestArchitectureCreation(toolCallId, parameters, signal) {
     const onMessage = (message) => {
       if (!message || message.type !== "pixel_task_response" || message.id !== toolCallId) return;
       if (message.success === true) finish(resolve, { success: true, result: message.result });
-      else finish(resolve, { success: false, error: typeof message.error === "string" ? message.error : "新增架构失败" });
+      else finish(resolve, { success: false, error: typeof message.error === "string" ? message.error : "架构提议失败" });
     };
-    const onAbort = () => fail("新增架构已取消");
+    const onAbort = () => fail("架构提议已取消");
     const onDisconnect = () => fail("任务服务连接已断开");
-    const timeout = setTimeout(() => fail("新增架构超时"), 15_000);
+    const timeout = setTimeout(() => fail("架构提议超时"), 15_000);
 
     process.on("message", onMessage);
     signal?.addEventListener("abort", onAbort, { once: true });
     process.once("disconnect", onDisconnect);
     if (signal?.aborted) { onAbort(); return; }
     try {
-      process.send({ type: "pixel_task_request", id: toolCallId, operation: "create_architecture", parameters }, (error) => {
-        if (error) fail("无法发送新增架构请求");
+      process.send({ type: "pixel_task_request", id: toolCallId, operation: "prepare_architecture", parameters }, (error) => {
+        if (error) fail("无法发送架构提议请求");
       });
     } catch {
-      fail("无法发送新增架构请求");
+      fail("无法发送架构提议请求");
     }
   });
 }
@@ -68,39 +70,26 @@ export default function pixelTaskTools(pi) {
   if (process.env.PIXEL_TASK_TOOLS !== "1" || !process.send || !process.connected) return;
 
   pi.registerTool({
-    name: "pixel_create_architecture",
-    label: "新增架构",
-    description: "保存一个新的架构定义。description 直接传入内容，或 descriptionFile 指向本轮工作目录内的文件；两者只能选一个。",
-    promptSnippet: "新增架构",
+    name: "pixel_propose_architecture",
+    label: "提议架构",
+    description: "在聊天中展示一个架构提议卡片，用户核对后点击保存才会加入任务；本工具不保存任何内容。description 直接传入内容，或 descriptionFile 指向本轮工作目录内的文件；两者只能选一个。",
+    promptSnippet: "提议架构，由用户确认保存",
     promptGuidelines: [
-      "用户要求添加架构时，直接调用 pixel_create_architecture，不要让用户手动录入。",
-      "pixel_create_architecture 的 description 与 descriptionFile 只能选一个；不要猜测 CCR 或切分参数。",
-      "pixel_create_architecture 成功且 contextUpdated 为 true 后，读取更新的 PIXEL_TASK_CONTEXT 再做预览或评估；contextUpdated 为 false 时说明架构已保存、本轮上下文未更新，下一轮再预览。",
-      "只有 pixel_create_architecture 返回成功时才能说明架构已保存。",
+      "只有在 row / col 尺寸、备用 row 数、segment 映射、CCR 子组数与每组容量都已由用户给出或确认后，才调用 pixel_propose_architecture；缺少的先用 pixel_ask_user 的 form 问清，不要猜测或套用示例值。",
+      "pixel_propose_architecture 的 description 与 descriptionFile 只能选一个。",
+      "pixel_propose_architecture 只展示待确认的卡片，不会保存。调用后请用户核对并点击保存，然后结束本轮；不要说架构已添加，也不要在本轮基于它做预览或评估。",
+      "返回 status 为 name-conflict 时，说明已有同名但内容不同的架构，请用户在卡片中改名；identical 表示任务中已有相同架构，无需再保存。",
     ],
-    parameters: CREATE_ARCHITECTURE_PARAMETERS,
+    parameters: PROPOSE_ARCHITECTURE_PARAMETERS,
     async execute(toolCallId, parameters, signal) {
       const invalid = parameterError(parameters);
       if (invalid) throw new Error(invalid);
-      if (signal?.aborted) throw new Error("新增架构已取消");
-      const response = await requestArchitectureCreation(toolCallId, parameters, signal);
+      if (signal?.aborted) throw new Error("架构提议已取消");
+      const response = await requestArchitectureProposal(toolCallId, parameters, signal);
       if (!response.success) throw new Error(response.error);
-      const result = response.result;
-      const architecture = result?.architecture;
-      if (!architecture || typeof architecture.id !== "string" || typeof architecture.name !== "string" || typeof architecture.fingerprint !== "string") {
-        throw new Error("任务服务返回了无效的架构结果");
-      }
-      const contextUpdated = result.contextUpdated === true;
-      return {
-        content: resultContent({
-          success: true,
-          architecture: { id: architecture.id, name: architecture.name, fingerprint: architecture.fingerprint },
-          created: result.created === true,
-          contextUpdated,
-          message: contextUpdated ? "架构已保存，本轮上下文已更新。" : "架构已保存；本轮上下文未更新，请下一轮再做预览。",
-        }),
-        details: { ...result, architecture },
-      };
+      const { name, description, status } = response.result ?? {};
+      if (typeof name !== "string" || typeof description !== "string" || !["new", "identical", "name-conflict"].includes(status)) throw new Error("任务服务返回了无效的架构提议");
+      return { content: [{ type: "text", text: encodeCard({ kind: "architecture", name, description, status }) }], details: {} };
     },
   });
 }

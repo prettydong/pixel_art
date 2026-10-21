@@ -11,9 +11,10 @@ export type AskCard = {
   cancelLabel?: string;
 };
 export type SolverCard = { kind: "solver"; architectureIds: string[]; waferIds: string[]; note?: string };
-export type PixelCard = AskCard | SolverCard;
+export type ArchitectureCard = { kind: "architecture"; name: string; description: string; status: "new" | "identical" | "name-conflict" };
+export type PixelCard = AskCard | SolverCard | ArchitectureCard;
 export const cardProtocol: "pixel-card/v1";
-export const cardTools: Readonly<Record<"pixel_ask_user" | "pixel_configure_solver", { kind: PixelCard["kind"]; label: string }>>;
+export const cardTools: Readonly<Record<"pixel_ask_user" | "pixel_configure_solver" | "pixel_propose_architecture", { kind: PixelCard["kind"]; label: string }>>;
 export function cardParametersFor(kind: PixelCard["kind"]): Record<string, unknown>;
 export function createCard(kind: PixelCard["kind"], input: unknown): PixelCard;
 export function encodeCard(card: PixelCard): string;

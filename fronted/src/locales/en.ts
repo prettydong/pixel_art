@@ -1088,5 +1088,15 @@ export const english: Record<string, string> = {
   "替换 Solver 待运行列表（{0}）": "Replace Solver draft ({0})",
   "应用到 Solver": "Apply to Solver",
   "回答「{0}」：{1}": "Answer to \u201c{0}\u201d: {1}",
-  "已回答": "Answered"
+  "已回答": "Answered",
+  "架构提议": "Proposed architecture",
+  "不是标准 CCR 定义，请展开完整定义核对。": "Not a standard CCR definition. Expand the full definition to review it.",
+  "完整定义": "Full definition",
+  "已有同名但内容不同的架构，请改名后保存。": "An architecture with this name but different content exists. Rename it to save.",
+  "任务中已有相同架构。": "This task already has an identical architecture.",
+  "已保存": "Saved",
+  "已存在": "Already exists",
+  "打开架构": "Open architectures",
+  "保存中…": "Saving…",
+  "保存架构": "Save architecture"
 };

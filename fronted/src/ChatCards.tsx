@@ -1,7 +1,8 @@
 import { t } from './i18n';
 import { useEffect, useState } from 'react';
-import type { RepairPanelData, TaskDetail, ToolCall } from '@pixel/contracts';
-import { readCardTool, type AskCard, type SolverCard } from '@pixel/contracts/chat-cards';
+import type { RepairPanelData, TaskArchitecture, TaskDetail, ToolCall } from '@pixel/contracts';
+import { readCardTool, type ArchitectureCard, type AskCard, type SolverCard } from '@pixel/contracts/chat-cards';
+import { architectureColumns } from './architectureTemplates';
 import { api, errorText } from './api';
 import type { InteractiveTool, ToolResult } from './chatTypes';
 import { InteractiveTools } from './InteractiveTools';
@@ -18,12 +19,15 @@ export type CardContext = {
   askState: (toolId: string) => { status: InteractiveTool['status']; result?: ToolResult };
   onAnswer: (tool: InteractiveTool, result: ToolResult) => void;
   onOpenSolver: () => void;
+  onOpenArchitectures: () => void;
 };
 
 export function ChatCard({ tool, context }: { tool: ToolCall; context?: CardContext }) {
   const card = readCardTool(tool);
   if (!card) return <p className="chart-unavailable">{t("卡片数据无效或不完整，请查看工具详情或让 agent 重新生成。")}</p>;
-  return card.kind === 'ask' ? <AskCardView id={tool.id} card={card} context={context} /> : <SolverCardView id={tool.id} card={card} context={context} />;
+  if (card.kind === 'ask') return <AskCardView id={tool.id} card={card} context={context} />;
+  if (card.kind === 'architecture') return <ArchitectureCardView id={tool.id} card={card} context={context} />;
+  return <SolverCardView id={tool.id} card={card} context={context} />;
 }
 
 function AskCardView({ id, card, context }: { id: string; card: AskCard; context?: CardContext }) {
@@ -95,6 +99,72 @@ function SolverCardView({ id, card, context }: { id: string; card: SolverCard; c
           : <button type="button" className="interactive-tool-submit" disabled={!context || !data || !pairs.length} onClick={apply}>
             {current?.items.length ? t("替换 Solver 待运行列表（{0}）", current.items.length) : t("应用到 Solver")}
           </button>}
+      </div>
+    </fieldset>
+  </section>;
+}
+
+const saved = new Map<string, string>();
+
+/** The agent only proposes; this card's Save button is the one place a chat architecture is added. */
+function ArchitectureCardView({ id, card, context }: { id: string; card: ArchitectureCard; context?: CardContext }) {
+  const taskId = context?.taskId;
+  const [name, setName] = useState(card.name);
+  const [existing, setExisting] = useState<TaskArchitecture[] | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [savedId, setSavedId] = useState(() => saved.get(id));
+  useEffect(() => {
+    if (!taskId) return;
+    const controller = new AbortController();
+    api<TaskDetail>(`/tasks/${encodeURIComponent(taskId)}`, { signal: controller.signal })
+      .then(detail => { setExisting(detail.architectures); setError(''); })
+      .catch(reason => { if ((reason as Error).name !== 'AbortError') setError(errorText(reason)); });
+    return () => controller.abort();
+  }, [taskId]);
+
+  const trimmed = name.trim();
+  const identical = existing?.find(item => item.name === trimmed && item.description === card.description);
+  const conflict = !identical && !!existing?.some(item => item.name === trimmed);
+  const done = !!savedId || !!identical;
+  const columns = architectureColumns(card.description);
+
+  async function save() {
+    if (!taskId || saving || done || conflict || !trimmed) return;
+    setSaving(true); setError('');
+    try {
+      const architecture = await api<TaskArchitecture>(`/tasks/${encodeURIComponent(taskId)}/architectures`, { method: 'POST', body: JSON.stringify({ name: trimmed, description: card.description }) });
+      saved.set(id, architecture.id); setSavedId(architecture.id);
+      setExisting(previous => [...(previous ?? []), architecture]);
+      window.dispatchEvent(new Event('pixel:tasks'));
+    } catch (reason) { setError(errorText(reason)); }
+    finally { setSaving(false); }
+  }
+
+  return <section className="interactive-tool architecture-card" aria-label={t("架构提议")}>
+    <fieldset disabled={!context}>
+      <legend>{t("架构提议")}</legend>
+      <div className="interactive-tool-field">
+        <label htmlFor={`${id}-name`}>{t("名称")}</label>
+        <input id={`${id}-name`} value={name} maxLength={120} disabled={done || saving} aria-invalid={conflict} onChange={event => setName(event.target.value)} />
+      </div>
+      {columns ? <dl className="solver-card-lists architecture-card-values">
+        <dt>Region row × col</dt><dd><span>{columns.rows} × {columns.cols}</span></dd>
+        <dt>{t("备用 row")}</dt><dd><span>{columns.spareRows}</span></dd>
+        <dt>{t("CCR col/组")}</dt><dd><span>{columns.ccrCols}</span></dd>
+        <dt>{t("CCR 组/段")}</dt><dd><span>{columns.groups}</span></dd>
+        <dt>Segment</dt><dd><span>{columns.segments}</span></dd>
+      </dl> : <p className="interactive-tool-status">{t("不是标准 CCR 定义，请展开完整定义核对。")}</p>}
+      <details className="architecture-card-definition">
+        <summary>{t("完整定义")}</summary>
+        <pre>{card.description}</pre>
+      </details>
+      {conflict && <p className="interactive-tool-error" role="alert">{t("已有同名但内容不同的架构，请改名后保存。")}</p>}
+      {!savedId && identical && <p className="interactive-tool-status">{t("任务中已有相同架构。")}</p>}
+      {error && <p className="interactive-tool-error" role="alert">{error}</p>}
+      <div className="interactive-tool-actions">
+        {done ? <button type="button" onClick={() => context?.onOpenArchitectures()}><Check />{savedId ? t("已保存") : t("已存在")} · {t("打开架构")}<ArrowRight /></button>
+          : <button type="button" className="interactive-tool-submit" disabled={!existing || saving || conflict || !trimmed} onClick={() => void save()}>{saving ? t("保存中…") : t("保存架构")}</button>}
       </div>
     </fieldset>
   </section>;

@@ -121,7 +121,6 @@ export function useWorkspace(enabled = true) {
         updateRun(data.run);
         if (!isActiveRun(data.run.status)) finish(data.run);
       } else if (data.type === 'tool.status') {
-        if (data.name === 'pixel_create_architecture' && data.status === 'completed') window.dispatchEvent(new Event('pixel:tasks'));
         const previousMessages = [...replay.values()];
         const owner = data.messageId ?? previousMessages.find(message => message.toolCalls?.some(call => call.id === data.toolCallId))?.id ?? previousMessages[previousMessages.length - 1]?.id;
         if (!owner) return;

@@ -7,6 +7,7 @@ export const cardProtocol = "pixel-card/v1";
 export const cardTools = Object.freeze({
   pixel_ask_user: { kind: "ask", label: "向用户提问" },
   pixel_configure_solver: { kind: "solver", label: "配置 Solver" },
+  pixel_propose_architecture: { kind: "architecture", label: "提议架构" },
 });
 const label = (max) => z.string().trim().min(1).max(max).regex(/^[^\x00-\x1f\x7f]*$/, "不能包含换行或控制字符");
 const id = z.string().trim().min(1).max(64).regex(/^[A-Za-z0-9_.:-]+$/, "只能使用字母、数字、_ . : -");
@@ -33,7 +34,14 @@ const solverSchema = z.object({
   note: label(300).optional().describe("一句话说明这样组合的理由"),
 }).strict();
 
-const schemas = { ask: askSchema, solver: solverSchema };
+// Produced by pixel-task-tools after the server read and validated the proposal.
+const architectureSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().min(1).max(30000),
+  status: z.enum(["new", "identical", "name-conflict"]),
+}).strict();
+
+const schemas = { ask: askSchema, solver: solverSchema, architecture: architectureSchema };
 
 export function cardParametersFor(kind) {
   if (!Object.hasOwn(schemas, kind)) throw new Error("不支持的卡片类型");
@@ -57,7 +65,7 @@ export function createCard(kind, input) {
       if (card.fields.some(field => field.type === "text" && (field.min !== undefined || field.max !== undefined))) throw new Error("text 字段不能设置 min / max");
       if (card.fields.some(field => field.min !== undefined && field.max !== undefined && field.min > field.max)) throw new Error("min 不能大于 max");
     }
-  } else {
+  } else if (kind === "solver") {
     if (!unique(card.architectureIds) || !unique(card.waferIds)) throw new Error("架构或 wafer ID 不能重复");
     if (card.architectureIds.length * card.waferIds.length > 100) throw new Error("组合数不能超过 100");
   }
@@ -70,7 +78,7 @@ export function encodeCard(card) {
 }
 
 export function readCardTool(tool) {
-  if (!tool || !Object.hasOwn(cardTools, tool.name) || tool.status !== "completed" || typeof tool.text !== "string" || tool.text.length > 32000) return null;
+  if (!tool || !Object.hasOwn(cardTools, tool.name) || tool.status !== "completed" || typeof tool.text !== "string" || tool.text.length > 64000) return null;
   try {
     const envelope = JSON.parse(tool.text);
     if (envelope?.protocol !== cardProtocol || !envelope.card || envelope.card.kind !== cardTools[tool.name].kind) return null;

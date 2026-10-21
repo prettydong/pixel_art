@@ -401,6 +401,7 @@ function Workspace({ user, demoMode = false }: { user: User; demoMode?: boolean 
       askState: id => { const result = askResults.get(id); return result ? { status: 'submitted', result } : answered ? { status: 'submitted' } : { status: latest ? 'pending' : 'expired' }; },
       onAnswer: (tool, result) => void answerCard(tool, result),
       onOpenSolver: () => openTask(taskId, 'repair'),
+      onOpenArchitectures: () => openTask(taskId, 'architecture'),
     };
   }
   /** An answer is sent on its own; the composer draft and attachments stay as they are. */
