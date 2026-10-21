@@ -10,7 +10,7 @@ export type ArchitectureScene = {
   protocol: typeof architectureSceneProtocol; architectureId: string; fingerprint: string; title: string; description: string;
   canvas: { width: number; height: number; background: string; physicalPixelsPerUnit: 3 };
   font: { family: 'Fusion Pixel'; size: 12; lineHeight: 16; weight: 400 };
-  draw?: { file: 'draw.mjs'; grid: { rows: number; cols: number; lineColor: string; fill: string }; records: { label: string; geometry: string; color: string }[] };
+  draw?: { file: 'draw.mjs'; grid: { rows: number; cols: number; lineColor: string; fill: string }; insets?: { top: number; right: number; bottom: number; left: number }; records: { label: string; geometry: string; color: string }[] };
   palette: Record<string, string>; nodes: ArchitectureNode[]; assumptions: string[];
 };
 export function validateArchitectureScene(input: unknown): ArchitectureScene;

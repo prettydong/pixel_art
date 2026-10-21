@@ -2,6 +2,8 @@ import { acquireLock, openDatabase } from "./db/index.js";
 import { config, readModels } from "./config.js";
 import { Runs } from "./runs/index.js";
 import { createServer } from "./server.js";
+import { createUser } from "./auth/index.js";
+import { createUserSchema, DEFAULT_PASSWORD } from "@pixel/contracts";
 
 const release = await acquireLock();
 // Let a crashed parent's supervisor stop its writers before migrating session files.
@@ -11,6 +13,10 @@ let closeDatabase = () => {};
 try {
   const db = openDatabase();
   closeDatabase = () => db.close();
+  if (process.env.NODE_ENV !== "production" && !db.prepare("SELECT 1 FROM users LIMIT 1").get()) {
+    const initial = createUserSchema.parse({ username: "admin", password: process.env.PIXEL_ADMIN_PASSWORD ?? DEFAULT_PASSWORD, role: "admin" });
+    await createUser(db, initial.username, initial.password, initial.role);
+  }
   const models = readModels();
   const runs = new Runs(db, models);
   runs.recover();

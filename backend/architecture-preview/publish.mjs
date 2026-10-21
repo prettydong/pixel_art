@@ -25,8 +25,11 @@ try {
   const architecture = context.architectures.find(item => item.id === scene.architectureId);
   if (!architecture || architecture.fingerprint !== scene.fingerprint) throw new Error('架构ID或指纹与本轮任务上下文不匹配');
   const css = readFileSync(fileURLToPath(new URL('../../fronted/src/styles.css', import.meta.url)), 'utf8');
-  const dark = css.match(/:root \{([\s\S]*?)\n\}/)?.[1];
-  const light = css.match(/:root\[data-theme="light"\] \{([\s\S]*?)\n\}/)?.[1];
+  // Theme blocks: light may live on the default ':root' block with only a dark override.
+  const cssBlock = selector => css.match(new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([\\s\\S]*?)\\n\\}`))?.[1];
+  const defaultBlock = cssBlock(':root');
+  const light = cssBlock(':root[data-theme="light"]') ?? defaultBlock;
+  const dark = cssBlock(':root[data-theme="dark"]') ?? defaultBlock;
   const themeSnapshot = {};
   for (const token of new Set(Object.values(scene.palette))) {
     const color = block => block?.match(new RegExp(`${token}:\\s*(#[a-fA-F0-9]{6});`))?.[1];

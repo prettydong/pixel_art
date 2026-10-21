@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { createUserSchema } from "@pixel/contracts";
+import { createUserSchema, DEFAULT_PASSWORD } from "@pixel/contracts";
 import { acquireLock, openDatabase } from "./db/index.js";
 import { createUser } from "./auth/index.js";
 
@@ -11,14 +11,13 @@ let closeDatabase = () => {};
 try {
   const db = openDatabase();
   closeDatabase = () => db.close();
-  const username = process.argv[2];
-  if (!username) throw new Error("Usage: npm run admin:create -- <username> (read password from PIXEL_ADMIN_PASSWORD or stdin)");
+  const username = process.argv[2] ?? "admin";
   let password = process.env.PIXEL_ADMIN_PASSWORD;
-  if (!password) {
-    if (stdin.isTTY) throw new Error("For hidden input, use: read -s PIXEL_ADMIN_PASSWORD; export PIXEL_ADMIN_PASSWORD; npm run admin:create -- <username>; unset PIXEL_ADMIN_PASSWORD");
+  if (password === undefined && !stdin.isTTY) {
     const reader = createInterface({ input: stdin });
     try { password = (await reader[Symbol.asyncIterator]().next()).value as string | undefined; } finally { reader.close(); }
   }
+  password ??= DEFAULT_PASSWORD;
   const body = createUserSchema.parse({ username, password, role: "admin" });
   const user = await createUser(db, body.username, body.password, body.role);
   stdout.write(`Created administrator ${user.username} (${user.id})\n`);

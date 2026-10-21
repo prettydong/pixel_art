@@ -1,6 +1,6 @@
 import { localizeMessage, getLanguage, t } from './i18n';
 import { useEffect, useState } from 'react';
-import type { ListResponse, ModelOption, UsageResponse, User } from '@pixel/contracts';
+import { DEFAULT_PASSWORD, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH, type ListResponse, type ModelOption, type UsageResponse, type User } from '@pixel/contracts';
 import { api, errorText } from './api';
 import { StatTile } from './StatTile';
 
@@ -15,7 +15,7 @@ export function AccountPanel({ user }: { user: User }) {
         window.dispatchEvent(new Event('pixel:unauthorized'));
       } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
     }}><label>{t("当前密码")}<input type="password" name="currentPassword" autoComplete="current-password" required maxLength={256} /></label>
-      <label>{t("新密码（至少 12 字符）")}<input type="password" name="password" autoComplete="new-password" required minLength={12} maxLength={256} /></label>
+      <label>{t("新密码")}<input type="password" name="password" autoComplete="new-password" defaultValue={DEFAULT_PASSWORD} required minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} /></label>
       <button className="action-button" disabled={busy}>{t("修改密码并重新登录")}</button>
     </form>
     <button className="action-button" disabled={busy} onClick={async () => {
@@ -43,7 +43,7 @@ export function UsersPanel({ user }: { user: User }) {
       } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
     }}>
       <label>{t("用户名")}<input name="username" required maxLength={64} pattern="[a-zA-Z0-9_.\-]+" autoComplete="off" /></label>
-      <label>{t("初始密码")}<input name="password" type="password" required minLength={12} maxLength={256} autoComplete="new-password" /></label>
+      <label>{t("初始密码")}<input name="password" type="password" defaultValue={DEFAULT_PASSWORD} required minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} autoComplete="new-password" /></label>
       <label>{t("角色")}<select name="role"><option value="user">{t("用户")}</option><option value="admin">{t("管理员")}</option></select></label>
       <button className="action-button" disabled={busy}>{t("创建账号")}</button>
     </form>
@@ -60,7 +60,7 @@ export function UsersPanel({ user }: { user: User }) {
       e.preventDefault(); const data = new FormData(e.currentTarget); setBusy(true); setError('');
       try { await api(`/admin/users/${selected.id}/password`, { method: 'POST', body: JSON.stringify({ password: data.get('password') }) }); setNotice(t("{0} 的密码已重置", selected.username)); setSelected(null); }
       catch (err) { setError(errorText(err)); } finally { setBusy(false); }
-    }}><label>{t("重置") + " "}{selected.username} {" " + t("的密码")}<input name="password" type="password" required minLength={12} maxLength={256} autoComplete="new-password" /></label>
+    }}><label>{t("重置") + " "}{selected.username} {" " + t("的密码")}<input name="password" type="password" defaultValue={DEFAULT_PASSWORD} required minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} autoComplete="new-password" /></label>
       <div className="panel-actions"><button className="action-button" disabled={busy}>{t("保存新密码")}</button><button type="button" className="action-button" onClick={() => setSelected(null)}>{t("取消")}</button></div>
     </form>}
     {error && <p role="alert" className="error-text">{localizeMessage(error)}</p>}{notice && <p role="status">{localizeMessage(notice)}</p>}

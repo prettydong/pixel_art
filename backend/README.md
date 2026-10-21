@@ -20,17 +20,17 @@ The "Task solving" panel uses a separate C++17 repairMost queue: batch-add archi
 
 If model requests require a proxy, configure `HTTPS_PROXY`, `NO_PROXY`, and `NODE_USE_ENV_PROXY=1` in root `.env`, using a Node runtime that supports this option. The backend passes these network variables, including lowercase HTTP/HTTPS/NO_PROXY forms, to Pi subprocesses; they do not need to be added to the model credential `env` list. Node does not automatically use the macOS system proxy. Restart the backend after changing proxy configuration.
 
-Create an administrator before the first startup (the service must be stopped):
+For this debug version, a non-production startup creates `admin` with password `123456` when the user table is empty. Existing accounts are retained. Set `PIXEL_ADMIN_PASSWORD` to override the initial password.
+
+To create an administrator manually while the service is stopped:
 
 ```sh
-# Run at the root; avoid putting passwords in command-line arguments or history.
-read -s PIXEL_ADMIN_PASSWORD
-export PIXEL_ADMIN_PASSWORD
-npm run admin:create -- admin
-unset PIXEL_ADMIN_PASSWORD
+npm run admin:create
 ```
 
-Passwords must contain at least 12 characters. The administrator CLI also accepts a password from the first line of stdin. Passwords are stored using scrypt with random salts; login credentials are stored in the database only as SHA-256 hashes. Administrators create accounts, reset passwords, and enable/disable accounts in the application; public registration is unavailable. Password resets revoke logins and stop tasks; disabling a user does the same. The last enabled administrator cannot be disabled.
+The CLI defaults to username `admin` and password `123456`. Pass a username after `--` to use another name; `PIXEL_ADMIN_PASSWORD` or the first line of stdin overrides the password. An explicitly supplied empty password is rejected.
+
+Passwords accept 1–256 characters without complexity rules. New-account and administrator-reset forms default to `123456`; the corresponding APIs use that default when the password field is omitted. Changing your own password requires an explicit non-empty value. Passwords remain stored as salted scrypt hashes; login-session tokens are stored as SHA-256 hashes. Administrators create accounts, reset passwords, and enable/disable accounts in the application; public registration is unavailable. Administrator password resets revoke logins and stop the target account's tasks; disabling a user does the same. The last enabled administrator cannot be disabled.
 
 `PIXEL_ORIGIN` determines whether session cookies use Secure, for example `https://chat.example.com`. HTTPS automatically enables Secure; HttpOnly + SameSite=Strict are always enabled. The access URL does not have to match this configuration exactly; write endpoints still reject `Sec-Fetch-Site: cross-site` requests. Reverse proxies must allow SSE and disable response buffering. The development frontend must use Vite's `/api` proxy. For local HTTP development, `PIXEL_ORIGIN` should also use HTTP so Secure cookies do not prevent sending.
 

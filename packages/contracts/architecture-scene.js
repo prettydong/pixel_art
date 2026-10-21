@@ -24,6 +24,7 @@ const schema = z.object({
   draw: z.object({
     file: z.literal('draw.mjs'),
     grid: z.object({ rows: z.number().int().min(1).max(1000000), cols: z.number().int().min(1).max(1000000), lineColor: key, fill: key }).strict(),
+    insets: z.object({ top: z.number().int().min(0).max(256), right: z.number().int().min(0).max(256), bottom: z.number().int().min(0).max(256), left: z.number().int().min(0).max(256) }).strict().optional(),
     records: z.array(z.object({ label, geometry: z.string().min(1).max(500), color: key }).strict()).max(200),
   }).strict().optional(),
   assumptions: z.array(z.string().trim().min(1).max(300)).max(30),

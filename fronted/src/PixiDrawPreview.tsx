@@ -78,12 +78,24 @@ export function PixiDrawPreview({ preview, heading }: { preview: ArchitecturePre
       const orientation: DrawContext['orientation'] = { horizontal: transposed ? 'row' : 'col', vertical: transposed ? 'col' : 'row', transposed };
       let scale = 1; let offsetX = 0; let offsetY = 0; let fitting = true;
       let frame = 0;
-      const padX = () => Math.min(48, Math.floor(width / 4));
-      const padY = Math.min(48, Math.floor(height / 4));
-      const fitScale = () => Math.min(Math.max(1, width - padX() * 2) / horizontalSize, Math.max(1, height - padY * 2) / verticalSize);
+      const padding = () => {
+        if (!drawing.insets) {
+          const x = Math.min(48, Math.floor(width / 4)); const y = Math.min(48, Math.floor(height / 4));
+          return { left: x, right: x, top: y, bottom: y };
+        }
+        const { left, right, top, bottom } = drawing.insets;
+        const sx = Math.min(1, width / (left + right + 64));
+        const sy = Math.min(1, height / (top + bottom + 64));
+        return { left: Math.floor(left * sx), right: Math.floor(right * sx), top: Math.floor(top * sy), bottom: Math.floor(bottom * sy) };
+      };
+      const fitScale = () => {
+        const pad = padding();
+        return Math.min(Math.max(1, width - pad.left - pad.right) / horizontalSize, Math.max(1, height - pad.top - pad.bottom) / verticalSize);
+      };
       const bound = () => {
-        offsetX = Math.round(horizontalSize * scale < width - padX() * 2 ? (width - horizontalSize * scale) / 2 : Math.min(padX(), Math.max(width - padX() - horizontalSize * scale, offsetX)));
-        offsetY = Math.round(verticalSize * scale < height - padY * 2 ? (height - verticalSize * scale) / 2 : Math.min(padY, Math.max(height - padY - verticalSize * scale, offsetY)));
+        const pad = padding();
+        offsetX = Math.round(horizontalSize * scale < width - pad.left - pad.right ? pad.left + (width - pad.left - pad.right - horizontalSize * scale) / 2 : Math.min(pad.left, Math.max(width - pad.right - horizontalSize * scale, offsetX)));
+        offsetY = Math.round(verticalSize * scale < height - pad.top - pad.bottom ? pad.top + (height - pad.top - pad.bottom - verticalSize * scale) / 2 : Math.min(pad.top, Math.max(height - pad.bottom - verticalSize * scale, offsetY)));
       };
       const toScreen = (col: number, row: number) => ({ x: Math.round(offsetX + (transposed ? row : col) * scale), y: Math.round(offsetY + (transposed ? col : row) * scale) });
       const toLogical = (px: number, py: number) => {
@@ -158,7 +170,11 @@ export function PixiDrawPreview({ preview, heading }: { preview: ArchitecturePre
         } catch (err) { canvas.style.visibility = 'hidden'; setOmittedLabels([]); setError(err instanceof Error ? err.message : t("draw 执行失败")); setReady(false); }
       };
       const schedule = () => { if (!frame) frame = requestAnimationFrame(paint); };
-      const fit = () => { fitting = true; scale = fitScale(); offsetX = (width - horizontalSize * scale) / 2; offsetY = (height - verticalSize * scale) / 2; schedule(); };
+      const fit = () => {
+        const pad = padding(); fitting = true; scale = fitScale();
+        offsetX = pad.left + (width - pad.left - pad.right - horizontalSize * scale) / 2;
+        offsetY = pad.top + (height - pad.top - pad.bottom - verticalSize * scale) / 2; schedule();
+      };
       const zoomAt = (factor: number, px = width / 2, py = height / 2) => {
         const next = Math.min(48, Math.max(fitScale(), scale * factor));
         offsetX = px - (px - offsetX) * next / scale; offsetY = py - (py - offsetY) * next / scale;

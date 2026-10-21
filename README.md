@@ -16,13 +16,10 @@ Edit the model credentials in `.env`, and the models and service URLs in `backen
 
 ```bash
 npm run build
-read -r -s PIXEL_ADMIN_PASSWORD
-export PIXEL_ADMIN_PASSWORD
-npm run admin:create -- admin
-unset PIXEL_ADMIN_PASSWORD
+npm run admin:create
 ```
 
-Run the administrator initialization command while the service is stopped. It reads a password (at least 12 characters) from `PIXEL_ADMIN_PASSWORD` or standard input and does not generate a default password. In an interactive terminal, follow the command prompt to set a temporary environment variable using hidden input, then clear it afterward. Next:
+This debug version accepts non-empty passwords of 1–256 characters, with no complexity requirement. The administrator CLI defaults to username `admin` and password `123456`; `PIXEL_ADMIN_PASSWORD` or the first line of standard input can override the password. Run the CLI while the service is stopped. A non-production startup also creates `admin` automatically when the user table is empty. Existing account passwords are retained on restart. Next:
 
 ```bash
 npm start

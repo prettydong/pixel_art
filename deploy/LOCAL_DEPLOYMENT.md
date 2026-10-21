@@ -40,7 +40,7 @@ Read the served HTML and its JS/CSS to confirm the new entry and lazy chunks are
 available. This release check is not browser visual validation; do not run tests
 or browser acceptance unless requested, per `AGENTS.md`.
 
-The initial administrator username is `admin`; change the generated password after signing in.
+The debug default administrator is `admin` / `123456`. Passwords accept 1–256 characters without complexity rules. Non-production startup creates this account only when no users exist; restarts retain existing passwords. The offline administrator CLI uses the same defaults, with `PIXEL_ADMIN_PASSWORD` or stdin available as an override.
 
 OpenCode Go is configured in `backend/models.json` with 27 models from the local
 OpenCode 1.18.29 catalog (2026-09-20). Muse Spark 1.3 Contributor is listed first,

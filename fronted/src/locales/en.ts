@@ -1,5 +1,6 @@
 // Application copy only. User content and protocol identifiers stay unchanged.
 export const english: Record<string, string> = {
+  "将 col 资源画在 main array 下方，将 Region 共享的 row 资源画在 main array 右方；位置按屏幕方向固定，不随 row/col 轴转置互换。用 draw.insets 为资源及标签预留空间，保留每个 segment / 子组的独立 col 容量。": "Draw col resources below the main array and the Region-shared row resources to its right. Keep these screen positions fixed when the row/col axes are transposed. Reserve space for resources and labels with draw.insets, and preserve independent col capacities for each segment / subgroup.",
   "加载 DEJOA demo": "Load DEJOA demo",
   "正在加载 DEJOA demo…": "Loading DEJOA demo…",
   "DEJOA 演示已加载，9 个组合待手动运行。": "DEJOA demo loaded. 9 combinations ready for a manual run.",
@@ -42,7 +43,7 @@ export const english: Record<string, string> = {
   "管理员": "Administrator",
   "用户": "User",
   "当前密码": "Current password",
-  "新密码（至少 12 字符）": "New password (at least 12 characters)",
+  "新密码": "New password",
   "修改密码并重新登录": "Change password and sign in again",
   "退出登录": "Sign out",
   "创建账号": "Create account",
