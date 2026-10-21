@@ -198,6 +198,15 @@ export function registerTaskRoutes(app: FastifyInstance, db: Db) {
     db.prepare('UPDATE tasks SET updated_at=? WHERE id=?').run(Date.now(), row.id);
     return { id, ...body, fingerprint: architectureFingerprint(id, body.name, body.description) };
   });
+  // Solver programs and evaluations keep their own architecture snapshots, so past results survive deletion.
+  app.delete('/api/tasks/:id/architectures/:architectureId', async request => {
+    const row = taskRow(db, owned(request), currentUser(db, request).id);
+    const id = idSchema.parse((request.params as Record<string, unknown>).architectureId);
+    const result = db.prepare('DELETE FROM task_architectures WHERE id=? AND task_id=?').run(id, row.id);
+    if (!result.changes) throw missing();
+    db.prepare('UPDATE tasks SET updated_at=? WHERE id=?').run(Date.now(), row.id);
+    return { ok: true };
+  });
   app.post('/api/tasks/:id/files', async request => {
     const row = taskRow(db, owned(request), currentUser(db, request).id); const body = taskFileSchema.parse(request.body);
     const file = fileById(db, row.user_id, null, body.fileId);

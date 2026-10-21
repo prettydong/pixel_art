@@ -3,3 +3,5 @@
 .architecture-sheet td .icon { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
 .architecture-sheet-actions { text-align: right; }
 .architecture-sheet-actions .action-button { margin-left: 6px; white-space: nowrap; }
+.architecture-sheet-actions .delete-architecture:hover:enabled { color: var(--danger); }
+.architecture-sheet-actions .delete-architecture.armed { border-color: var(--danger); background: var(--danger); color: var(--on-danger); }

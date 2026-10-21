@@ -1098,5 +1098,8 @@ export const english: Record<string, string> = {
   "已存在": "Already exists",
   "打开架构": "Open architectures",
   "保存中…": "Saving…",
-  "保存架构": "Save architecture"
+  "保存架构": "Save architecture",
+  "删除架构": "Delete architecture",
+  "删除架构：{0}": "Delete architecture: {0}",
+  "确认删除架构：{0}": "Confirm deleting architecture: {0}"
 };

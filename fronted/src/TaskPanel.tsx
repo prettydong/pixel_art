@@ -3,6 +3,7 @@ import { ArchitecturePreview } from './ArchitecturePreview';
 import { CcrLayoutPreview } from './CcrLayoutPreview';
 import { ArchitectureDrawingProgress, findArchitectureDrawing, statusText } from './ArchitectureDrawingProgress';
 import { ArchitectureEditor } from './ArchitectureEditor';
+import { DeleteArchitectureButton } from './DeleteChatButton';
 import { ArchitectureCells, ArchitectureHeaders } from './ArchitectureColumns';
 import { WaferData } from './WaferData';
 import { RepairPanel } from './RepairPanel';
@@ -86,7 +87,7 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
       }} />}
       {!editing && !loading && !detail?.architectures.length && <p className="task-empty">{t("暂无架构")}</p>}
       {!editing && !!detail?.architectures.length && <div className="sheet-frame"><table className="sheet architecture-sheet">
-        <thead><tr><th scope="col">{t("架构")} ({detail.architectures.length})</th><ArchitectureHeaders region /><th scope="col" className="sheet-optional" style={{ width: 150 }}>{t("示意图")}</th><th scope="col" style={{ width: 236 }}><span className="visually-hidden">{t("操作")}</span></th></tr></thead>
+        <thead><tr><th scope="col">{t("架构")} ({detail.architectures.length})</th><ArchitectureHeaders region /><th scope="col" className="sheet-optional" style={{ width: 150 }}>{t("示意图")}</th><th scope="col" style={{ width: 300 }}><span className="visually-hidden">{t("操作")}</span></th></tr></thead>
         <tbody>{detail.architectures.map(architecture => {
         const starting = startingArchitecture === architecture.id;
         const drawing = starting ? undefined : findArchitectureDrawing(chats, architecture.id);
@@ -106,6 +107,7 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
                 void action(() => onGeneratePreview(architecture)).finally(() => setStartingArchitecture(null));
               }}>{drawingActive ? t("正在绘制…") : architecture.previews?.length ? t("重新绘制") : t("绘制")}</button>
               {!architecture.sourceFile && <button className="action-button" disabled={pending || !!editing} onClick={() => setEditing({ id: architecture.id, name: architecture.name, description: architecture.description })}>{t("编辑")}</button>}
+              {!architecture.sourceFile && <DeleteArchitectureButton name={architecture.name} disabled={pending || !!editing} onDelete={() => void action(() => api(`/tasks/${taskId}/architectures/${architecture.id}`, { method: 'DELETE' }))} />}
             </td>
           </tr>
           {open && <tr className="sheet-detail"><td colSpan={9}><div>
