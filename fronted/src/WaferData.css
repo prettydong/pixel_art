@@ -1,6 +1,6 @@
 .wafer-data { display: grid; gap: 12px; min-width: 0; }
 .wafer-heading, .wafer-selector, .wafer-actions, .wafer-summary, .wafer-indexes, .wafer-product-form { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.wafer-heading h2 { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 650; letter-spacing: -.015em; }
+.wafer-heading h2 { font-family: var(--font-serif); font-size: var(--text-xl); font-weight: 500; }
 .wafer-heading span, .wafer-layout, .wafer-actions > span, .wafer-number small { color: var(--muted); font-size: var(--text-sm); }
 .wafer-product-details, .wafer-selector, .wafer-browser, .wafer-help { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); padding: 12px 14px; }
 .wafer-product-details { color: var(--muted); }

@@ -2,19 +2,11 @@ import { localizeMessage, t } from './i18n';
 import { useEffect, useState } from 'react';
 import { isActiveRun, type EvaluationTask, type Run } from '@pixel/contracts';
 import type { Conversation } from './chatTypes';
-import { BarChart, ChevronDown, ChevronRight, Chip, Database, Ellipsis, MessageSquare, Play, Plus, Repair, Search } from './Icons';
-import { modKey } from './CommandPalette';
+import { BarChart, ChevronDown, ChevronRight, Chip, Ellipsis, Folder, MessageSquare, Plus, Repair } from './Icons';
 import { errorText } from './api';
 import { DeleteChatButton } from './DeleteChatButton';
 
 export type TaskView = 'chat' | 'architecture' | 'data' | 'repair' | 'conclusions';
-/** The evaluation flow, in order; the top bar shows it as numbered steps. */
-export const flowSteps = [
-  { view: 'architecture', icon: Chip },
-  { view: 'data', icon: Database },
-  { view: 'repair', icon: Repair },
-  { view: 'conclusions', icon: BarChart },
-] as const;
 export const taskViewLabels = { get chat() { return t("聊天"); }, get architecture() { return t("架构"); }, get data() { return t("数据"); }, get repair() { return t("任务求解"); }, get conclusions() { return t("执行结论"); } };
 type Props = {
   tasks: EvaluationTask[]; conversations: Conversation[]; runs: Record<string, Run>;
@@ -23,7 +15,6 @@ type Props = {
   onChat: (id: string) => void; onCreateChat: (taskId: string) => Promise<void>;
   onCreateTask: (name: string) => Promise<void>; onRenameTask: (id: string, name: string) => Promise<void>;
   onLoadDemo: () => Promise<void>;
-  onSearch: () => void;
   onDeleteTask: (id: string) => Promise<void>;
   onDeleteChat: (id: string) => Promise<void>;
 };
@@ -64,16 +55,14 @@ export function TaskNavigation(props: Props) {
   </form>;
   return <>
     <button className="new-chat" disabled={disabled} onClick={() => edit('new', '')}><Plus /><span>{t("新建任务")}</span></button>
-    <button className="search-trigger" onClick={props.onSearch}><Search /><span>{t("搜索")}</span><kbd>{modKey} K</kbd></button>
-    <button className="demo-trigger" disabled={disabled} onClick={async () => {
+    <button className="search-trigger" disabled={disabled} onClick={async () => {
       if (disabled) return;
       setPending(true); setDemoPending(true); setError('');
       try { await props.onLoadDemo(); }
       catch (err) { setError(errorText(err)); }
       finally { setPending(false); setDemoPending(false); }
-    }}><Play /><span>{demoPending ? t('正在加载 DEJOA demo…') : t('加载 DEJOA demo')}</span></button>
+    }}><Chip /><span>{demoPending ? t('正在加载 DEJOA demo…') : t('加载 DEJOA demo')}</span></button>
     {form('new')}
-    <div className="nav-label">{t("评估任务")}</div>
     <nav className="task-list" aria-label={t("评估任务")}>
       {props.tasks.map(task => {
         const open = expanded.has(task.id);
@@ -81,14 +70,8 @@ export function TaskNavigation(props: Props) {
         const taskBusy = chats.some(chat => isActiveRun((props.runs[chat.id] ?? chat.activeRun)?.status ?? 'completed'));
         return <section className={`task-group ${props.activeTaskId === task.id ? 'current-task' : ''}`} key={task.id}>
           <div className="task-heading">
-            <button className="task-expand" aria-expanded={open} aria-label={t("{0}聊天列表：{1}", open ? t("收起") : t("展开"), task.name)} onClick={() => setExpanded(prev => { const next = new Set(prev); if (next.has(task.id)) next.delete(task.id); else next.add(task.id); return next; })}>
-              {open ? <ChevronDown /> : <ChevronRight />}
-            </button>
-            <button className="task-name" title={task.name} disabled={props.disabled} aria-current={props.activeTaskId === task.id && props.view !== 'chat' ? 'page' : undefined} onClick={() => {
-              setExpanded(prev => new Set(prev).add(task.id));
-              props.onView(task.id, props.view === 'chat' ? 'architecture' : props.view);
-            }}>
-              <span className="task-glyph" aria-hidden="true" /><span>{task.name}</span>{taskBusy && <RunBadge />}
+            <button className="task-name" aria-expanded={open} title={task.name} onClick={() => setExpanded(prev => { const next = new Set(prev); if (next.has(task.id)) next.delete(task.id); else next.add(task.id); return next; })}>
+              {open ? <ChevronDown /> : <ChevronRight />}<span>{task.name}</span>{taskBusy && <RunBadge />}
             </button>
             <button data-task-actions id={`task-actions-toggle-${task.id}`} className="icon-button" aria-label={t("任务操作：{0}", task.name)} title={t("任务操作")} aria-expanded={actionTask === task.id} aria-controls={`task-actions-${task.id}`} disabled={disabled} onClick={() => setActionTask(previous => previous === task.id ? null : task.id)}><Ellipsis /></button>
           </div>
@@ -111,15 +94,23 @@ export function TaskNavigation(props: Props) {
             }}>{pending ? t("正在删除…") : t("确认删除")}</button><button type="button" className="action-button" disabled={pending} onClick={() => { setDeletingTask(null); setError(''); }}>{t("取消")}</button></div>
           </div>}
           {open && <div className="task-children">
+            {([{ view: 'architecture', icon: Chip }, { view: 'data', icon: Folder }, { view: 'repair', icon: Repair }, { view: 'conclusions', icon: BarChart }] as const).map(item => <button
+              key={item.view} className={`task-resource ${props.activeTaskId === task.id && props.view === item.view ? 'selected' : ''}`}
+              aria-current={props.activeTaskId === task.id && props.view === item.view ? 'page' : undefined}
+              disabled={props.disabled}
+              title={taskViewLabels[item.view]}
+              onClick={() => props.onView(task.id, item.view)}><item.icon /><span>{taskViewLabels[item.view]}</span>
+            </button>)}
+            <div className="task-chat-heading"><span>{t("聊天")}</span><button className="icon-button" disabled={disabled} aria-label={t("在 {0} 中新建聊天", task.name)} onClick={async () => {
+              setPending(true); setError(''); try { await props.onCreateChat(task.id); } catch (err) { setError(errorText(err)); } finally { setPending(false); }
+            }}><Plus /></button></div>
             {chats.map(chat => <div className={`history-item ${props.view === 'chat' && props.activeChatId === chat.id ? 'selected' : ''}`} key={chat.id}>
               <button disabled={props.disabled} title={chat.title} aria-current={props.view === 'chat' && props.activeChatId === chat.id ? 'page' : undefined} onClick={() => props.onChat(chat.id)}>
                 <MessageSquare /><span>{chat.title}</span>{isActiveRun((props.runs[chat.id] ?? chat.activeRun)?.status ?? 'completed') && <RunBadge />}
               </button>
               <DeleteChatButton title={chat.title} disabled={disabled} onDelete={() => void props.onDeleteChat(chat.id)} />
             </div>)}
-            <button className="task-new-chat" disabled={disabled} aria-label={t("在 {0} 中新建聊天", task.name)} onClick={async () => {
-              setPending(true); setError(''); try { await props.onCreateChat(task.id); } catch (err) { setError(errorText(err)); } finally { setPending(false); }
-            }}><Plus /><span>{t("新建聊天")}</span></button>
+            {!chats.length && <p className="history-empty">{t("暂无聊天")}</p>}
           </div>}
         </section>;
       })}
