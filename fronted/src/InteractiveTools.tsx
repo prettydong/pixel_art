@@ -151,7 +151,8 @@ function InteractiveToolCard({ tool, disabled, onSubmit }: {
               const fieldError = ownValue(errors, field.id);
               return (
                 <div className="interactive-tool-field" key={field.id}>
-                  <label htmlFor={fieldId}>{field.label}{field.required ? t("（必填）") : t("（选填）")}</label>
+                  <label htmlFor={fieldId}>{field.label}<span className="interactive-tool-flag">{field.required ? t("（必填）") : t("（选填）")}</span></label>
+                  <div className="interactive-tool-control">
                   <input
                     id={fieldId}
                     name={field.id}
@@ -171,6 +172,7 @@ function InteractiveToolCard({ tool, disabled, onSubmit }: {
                   />
                   {hasRange && <small id={hintId}>{[field.min !== undefined ? t("最小 {0}", field.min) : "", field.max !== undefined ? t("最大 {0}", field.max) : ""].filter(Boolean).join(t("，"))}</small>}
                   {fieldError && <p className="interactive-tool-error" id={fieldErrorId} role="alert">{fieldError}</p>}
+                  </div>
                 </div>
               );
             })}

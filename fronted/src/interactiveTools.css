@@ -1,6 +1,7 @@
 .interactive-tools { display: grid; gap: 10px; min-width: 0; white-space: normal; }
 .interactive-tool { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .interactive-tool fieldset {
+  container-type: inline-size;
   min-width: 0;
   margin: 0;
   padding: 12px 14px 14px;
@@ -26,15 +27,22 @@
 .interactive-tool-option > span { min-width: 0; }
 .interactive-tool-option small, .interactive-tool-field small { display: block; color: var(--muted); font-size: var(--text-xs); }
 .interactive-tool-choice { flex: 0 0 auto; width: 15px; height: 15px; margin: 3px 0 0; cursor: pointer; }
-.interactive-tool-fields { display: flex; flex-wrap: wrap; gap: 10px; }
-.interactive-tool-field { display: flex; flex: 1 1 200px; flex-direction: column; gap: 4px; min-width: 0; font-size: var(--text-sm); color: var(--text-secondary); }
+/* One field per line: label on the left, input with its range hint and error on the right; stacked when the card is narrow. */
+.interactive-tool-fields { display: grid; gap: 8px; }
+.interactive-tool-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 260px); align-items: baseline; gap: 4px 16px; min-width: 0; font-size: var(--text-sm); color: var(--text-secondary); }
+.interactive-tool-flag { margin-left: 6px; color: var(--muted); font-size: var(--text-xs); white-space: nowrap; }
+.interactive-tool-control { display: grid; gap: 4px; min-width: 0; }
 .interactive-tool-field input { width: 100%; min-width: 0; }
+@container (max-width: 480px) { .interactive-tool-field { grid-template-columns: minmax(0, 1fr); } }
 .interactive-tool input[aria-invalid="true"] { border-color: var(--danger); }
 .interactive-tool-field input[type="number"] { appearance: textfield; }
 .interactive-tool-field input[type="number"]::-webkit-inner-spin-button,
 .interactive-tool-field input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .interactive-tool-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
 .interactive-tool-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 32px;
   padding: 5px 12px;
   border: 1px solid var(--line-strong);
@@ -60,7 +68,7 @@
 .solver-card-lists dt { color: var(--muted); }
 .solver-card-lists dd { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; min-width: 0; }
 .solver-card-lists dd span { padding: 1px 8px; border-radius: var(--radius-sm); background: var(--hover); }
-.interactive-tool-actions button svg { width: 14px; height: 14px; vertical-align: -2px; margin: 0 4px; }
+.interactive-tool-actions button .icon { width: 14px; height: 14px; flex-basis: 14px; }
 .architecture-card .interactive-tool-field { margin-bottom: 10px; }
 .architecture-card-definition { margin: 0 0 4px; font-size: var(--text-sm); }
 .architecture-card-definition summary { color: var(--muted); cursor: pointer; }
