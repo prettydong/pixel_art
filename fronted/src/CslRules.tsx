@@ -5,8 +5,8 @@ import type { CslCheckResult, CslRuleReading } from '@pixel/contracts/csl-check'
 import { api, errorText } from './api';
 import { DeleteArchitectureButton } from './DeleteChatButton';
 import { CcrLayoutPreview } from './CcrLayoutPreview';
-import { ARCHITECTURE_TEMPLATES, architectureSummary, parseArchitecture } from './architectureTemplates';
-import { Alert, Check, Pencil, Plus, RefreshCw, X } from './Icons';
+import { architectureSummary } from './architectureTemplates';
+import { Alert, Check, Copy, Pencil, Plus, RefreshCw, X } from './Icons';
 import './ArchitectureEditor.css';
 import './CslRules.css';
 
@@ -43,13 +43,12 @@ function linkIssue(link: Link | null, cpCount: number) {
   if (link.cpCount !== cpCount) return t("架构“{0}”有 {1} col（{2} CP），但本规则集使用 {3} CP", name, link.cols, link.cpCount, cpCount);
   return '';
 }
-/** The linked architecture as the Architecture page shows it: preset, parameters and CCR structure. */
+/** The linked architecture as the Architecture page shows it: parameters and CCR structure. */
 function LinkedArchitecture({ architecture }: { architecture: TaskArchitecture }) {
-  const preset = ARCHITECTURE_TEMPLATES.find(template => template.id === parseArchitecture(architecture.description)?.templateId);
   let summary: string | null = null;
   try { summary = architectureSummary(architecture.description); } catch { /* Out-of-range values: show the definition instead. */ }
   return <details className="csl-architecture">
-    <summary>{t("关联架构：{0}", architecture.name)}{preset ? ` · ${preset.label}` : ''}</summary>
+    <summary>{t("关联架构：{0}", architecture.name)}</summary>
     <div className="csl-architecture-body">
       {summary ? <p className="task-note">{summary}</p> : <pre className="architecture-definition">{architecture.description}</pre>}
       <CcrLayoutPreview description={architecture.description} />
@@ -62,6 +61,15 @@ function ArchitectureSelect({ value, architectures, disabled, onChange }: { valu
     {value && !architectures.some(item => item.id === value) && <option value={value}>{t("已删除的架构")}</option>}
     {architectures.map(item => { const cols = architectureCols(item.description); return <option key={item.id} value={item.id}>{cols === null ? item.name : t("{0} · {1} col", item.name, cols)}</option>; })}
   </select>;
+}
+
+/** Short check script state for the rule set list. */
+function checkerLabel(ruleSet: CslRuleSet) {
+  const checker = ruleSet.checker;
+  if (!checker) return t("尚无检查脚本");
+  if (checker.status === 'coding') return t("正在生成…");
+  if (checker.status === 'failed') return t("检查脚本生成失败");
+  return checker.fingerprint === ruleSet.fingerprint ? t("检查脚本已就绪") : t("需要重新生成");
 }
 
 /** "0-3, 17" style ranges of global CSL (col) indices. */
@@ -144,6 +152,7 @@ export function CslRules({ taskId, architectures, models, modelId, onChat }: Pro
   const [editing, setEditing] = useState<CslRuleSet | 'new' | null>(null);
   const [pending, setPending] = useState(false);
   const [reload, setReload] = useState(0);
+  const [query, setQuery] = useState('');
   const anyCoding = items.some(item => item.checker?.status === 'coding');
   useEffect(() => {
     let alive = true;
@@ -161,19 +170,30 @@ export function CslRules({ taskId, architectures, models, modelId, onChat }: Pro
     return () => clearTimeout(timer);
   }, [anyCoding, items]);
   const selected = items.find(item => item.id === selectedId) ?? items[0];
+  const needle = query.trim().toLowerCase();
+  const shown = needle ? items.filter(item => `${item.name}\n${item.rules}`.toLowerCase().includes(needle)) : items;
   const replace = (next: CslRuleSet) => setItems(previous => previous.some(item => item.id === next.id) ? previous.map(item => item.id === next.id ? next : item) : [...previous, next]);
   async function action(work: () => Promise<void>) {
     if (pending) return; setPending(true); setError('');
     try { await work(); } catch (err) { setError(errorText(err)); } finally { setPending(false); }
   }
+  // A copy needs its own check script; the used lines come along.
+  const duplicate = (item: CslRuleSet) => void action(async () => {
+    const architectureId = architectures.some(architecture => architecture.id === item.architectureId) ? item.architectureId : null;
+    let copy = await api<CslRuleSet>(`/tasks/${taskId}/csl-rules`, { method: 'POST', body: JSON.stringify({ name: t("{0} 副本", item.name).slice(0, 120), cpCount: item.cpCount, rules: item.rules, architectureId }) });
+    if (item.used.length) copy = await api<CslRuleSet>(`/tasks/${taskId}/csl-rules/${copy.id}`, { method: 'PATCH', body: JSON.stringify({ used: item.used }) });
+    replace(copy); setSelectedId(copy.id);
+  });
+  const remove = (item: CslRuleSet) => void action(async () => {
+    await api(`/tasks/${taskId}/csl-rules/${item.id}`, { method: 'DELETE' });
+    setItems(previous => previous.filter(other => other.id !== item.id));
+  });
 
   return <div className="csl-rules">
     {error && <div className="workspace-error" role="alert">{localizeMessage(error)}<button onClick={() => { setError(''); setReload(value => value + 1); }}>{t("重新读取")}</button></div>}
-    {!editing && <div className="panel-actions csl-rule-tabs">
-      {items.length > 1 && <div className="architecture-editor-mode" role="group" aria-label={t("CSL 规则集")}>
-        {items.map(item => <button type="button" key={item.id} className={item.id === selected?.id ? 'selected' : ''} aria-pressed={item.id === selected?.id} onClick={() => setSelectedId(item.id)}>{item.name}</button>)}
-      </div>}
+    {!editing && <div className="panel-actions csl-rule-toolbar">
       <button className="action-button" disabled={pending} onClick={() => setEditing('new')}><Plus />{t("新建规则集")}</button>
+      {items.length > 5 && <input type="search" className="csl-rule-search" value={query} onChange={event => setQuery(event.target.value)} placeholder={t("搜索规则集")} aria-label={t("搜索规则集")} />}
     </div>}
     {editing && <CslRuleEditor initial={editing === 'new' ? undefined : editing} architectures={architectures} pending={pending} onCancel={() => setEditing(null)} onSave={input => action(async () => {
       const result = editing === 'new'
@@ -182,9 +202,38 @@ export function CslRules({ taskId, architectures, models, modelId, onChat }: Pro
       replace(result); setSelectedId(result.id); setEditing(null);
     })} />}
     {!editing && !loading && !items.length && <p className="task-empty">{t("暂无 CSL 规则")}</p>}
+    {!editing && !!items.length && <div className="sheet-frame"><table className="sheet csl-rule-sheet" aria-label={t("CSL 规则集")}>
+      <thead><tr>
+        <th scope="col">{t("规则集")} ({needle ? `${shown.length}/${items.length}` : items.length})</th>
+        <th scope="col" className="sheet-num" style={{ width: 64 }}>CP</th>
+        <th scope="col">{t("架构")}</th>
+        <th scope="col" className="sheet-num" style={{ width: 120 }}>{t("已使用 col")}</th>
+        <th scope="col" className="sheet-optional" style={{ width: 180 }}>{t("检查脚本")}</th>
+        <th scope="col" style={{ width: 112 }}><span className="visually-hidden">{t("操作")}</span></th>
+      </tr></thead>
+      <tbody>
+        {shown.map(item => {
+          const link = architectureLink(item.architectureId, architectures);
+          const issue = linkIssue(link, item.cpCount);
+          const current = item.id === selected?.id;
+          return <tr key={item.id} className={`sheet-row ${current ? 'is-selected' : ''}`} onClick={event => { if (!(event.target as Element).closest('button, a')) setSelectedId(item.id); }}>
+            <th scope="row"><button type="button" className="sheet-toggle" aria-pressed={current} title={item.name} onClick={() => setSelectedId(item.id)}><span>{item.name}</span></button></th>
+            <td className="sheet-num">{item.cpCount}</td>
+            <td className={issue ? 'csl-sheet-issue' : link ? '' : 'sheet-muted'} title={issue || undefined}>{issue && <Alert />}{link ? link.architecture?.name ?? t("已删除的架构") : t("不关联")}</td>
+            <td className="sheet-num">{item.used.length} / {item.cpCount * CSL_PER_CP}</td>
+            <td className={`sheet-optional ${item.checker?.status === 'failed' ? 'error-text' : 'sheet-muted'}`}>{checkerLabel(item)}</td>
+            <td className="architecture-sheet-actions">
+              <button className="icon-button" aria-label={t("{0}：{1}", t("编辑"), item.name)} title={t("编辑")} disabled={pending} onClick={() => setEditing(item)}><Pencil /></button>
+              <button className="icon-button" aria-label={t("{0}：{1}", t("复制"), item.name)} title={t("复制")} disabled={pending} onClick={() => duplicate(item)}><Copy /></button>
+              <DeleteArchitectureButton kind="rules" name={item.name} disabled={pending} onDelete={() => remove(item)} />
+            </td>
+          </tr>;
+        })}
+        {!shown.length && <tr><td colSpan={6} className="sheet-muted">{t("没有匹配的规则集")}</td></tr>}
+      </tbody>
+    </table></div>}
     {!editing && selected && <CslRuleView key={selected.id} taskId={taskId} ruleSet={selected} architectures={architectures} models={models} modelId={modelId} pending={pending} onChat={onChat}
-      onChanged={replace} onError={setError} onEdit={() => setEditing(selected)}
-      onDelete={() => void action(async () => { await api(`/tasks/${taskId}/csl-rules/${selected.id}`, { method: 'DELETE' }); setItems(previous => previous.filter(item => item.id !== selected.id)); })} />}
+      onChanged={replace} onError={setError} />}
   </div>;
 }
 
@@ -230,8 +279,8 @@ function CslRuleEditor({ initial, architectures, pending, onSave, onCancel }: { 
   </form>;
 }
 
-type ViewProps = { taskId: string; ruleSet: CslRuleSet; architectures: TaskArchitecture[]; models: ModelOption[]; modelId: string; pending: boolean; onChat: (id: string) => void; onChanged: (next: CslRuleSet) => void; onError: (message: string) => void; onEdit: () => void; onDelete: () => void };
-function CslRuleView({ taskId, ruleSet, architectures, models, modelId, pending, onChat, onChanged, onError, onEdit, onDelete }: ViewProps) {
+type ViewProps = { taskId: string; ruleSet: CslRuleSet; architectures: TaskArchitecture[]; models: ModelOption[]; modelId: string; pending: boolean; onChat: (id: string) => void; onChanged: (next: CslRuleSet) => void; onError: (message: string) => void };
+function CslRuleView({ taskId, ruleSet, architectures, models, modelId, pending, onChat, onChanged, onError }: ViewProps) {
   const total = ruleSet.cpCount * CSL_PER_CP;
   const checker = ruleSet.checker;
   const current = checker?.status === 'ready' && checker.fingerprint === ruleSet.fingerprint ? checker : null;
@@ -303,11 +352,7 @@ function CslRuleView({ taskId, ruleSet, architectures, models, modelId, pending,
     <div className="csl-rule-heading">
       <h2>{ruleSet.name}</h2>
       <span className="task-note">{t("{0} CP × {1} CSL = {2} col", ruleSet.cpCount, CSL_PER_CP, total)}</span>
-      <label className="csl-engine">{t("架构")}<ArchitectureSelect value={ruleSet.architectureId ?? ''} architectures={architectures} disabled={pending || linking} onChange={id => void relink({ architectureId: id || null })} /></label>
-      <div className="panel-actions">
-        <button className="icon-button" aria-label={t("{0}：{1}", t("编辑"), ruleSet.name)} title={t("编辑")} disabled={pending} onClick={onEdit}><Pencil /></button>
-        <DeleteArchitectureButton kind="rules" name={ruleSet.name} disabled={pending} onDelete={onDelete} />
-      </div>
+      <label className="csl-engine csl-rule-architecture">{t("架构")}<ArchitectureSelect value={ruleSet.architectureId ?? ''} architectures={architectures} disabled={pending || linking} onChange={id => void relink({ architectureId: id || null })} /></label>
     </div>
     {issue && <div className="task-warning csl-link-warning" role="status"><Alert /><span>{issue}</span>
       {link?.cpCount && link.cpCount !== ruleSet.cpCount && <button className="action-button" disabled={pending || linking} onClick={() => void relink({ cpCount: link.cpCount! })}>{t("改为 {0} CP", link.cpCount)}</button>}

@@ -1,5 +1,6 @@
 import { localizeMessage, t, useLanguage } from './i18n';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { architectureCols, cpCountForCols, CSL_PER_CP, MAX_CP_COUNT, type CslRuleSet } from '@pixel/contracts';
 import {
   ARCHITECTURE_TEMPLATES,
   architectureSummary,
@@ -14,8 +15,11 @@ type InitialArchitecture = { name: string; description: string };
 
 type Props = {
   initial?: InitialArchitecture;
+  /** Rule sets from the CSL rules page; null while they load. */
+  ruleSets: CslRuleSet[] | null;
+  initialRuleSetId: string;
   pending: boolean;
-  onSave: (name: string, description: string) => Promise<void>;
+  onSave: (name: string, description: string, ruleSetId: string | null) => Promise<void>;
   onCancel: () => void;
 };
 
@@ -42,7 +46,7 @@ function readableError(error: unknown) {
   return error instanceof Error && error.message ? error.message : t("保存失败，请稍后重试。");
 }
 
-export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props) {
+export function ArchitectureEditor({ initial, ruleSets, initialRuleSetId, pending, onSave, onCancel }: Props) {
   const [language] = useLanguage();
   const draft = initialDraft(initial);
   const [name, setName] = useState(draft.name);
@@ -50,8 +54,8 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
   const [fields, setFields] = useState<ArchitectureFields>(draft.fields);
   const [templateId, setTemplateId] = useState(draft.templateId);
   const [mode, setMode] = useState<Mode>(draft.mode);
-  const [parametersDirty, setParametersDirty] = useState(false);
-  const [confirmTemplateId, setConfirmTemplateId] = useState<string | null>(null);
+  const [ruleSetId, setRuleSetId] = useState(initialRuleSetId);
+  const [confirmDefaults, setConfirmDefaults] = useState(false);
   const [needsPresetForParameters, setNeedsPresetForParameters] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [error, setError] = useState('');
@@ -64,12 +68,13 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
     setFields(next.fields);
     setTemplateId(next.templateId);
     setMode(next.mode);
-    setParametersDirty(false);
-    setConfirmTemplateId(null);
+    setConfirmDefaults(false);
     setNeedsPresetForParameters(false);
     setError('');
     setAdvancedOpen(false);
   }, [initial?.name, initial?.description]);
+  // The select stays disabled until the rule sets load, so this never replaces a choice.
+  useEffect(() => { setRuleSetId(initialRuleSetId); }, [initialRuleSetId]);
 
   const generated = useMemo(() => {
     try {
@@ -79,35 +84,44 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
     }
   }, [fields, templateId, language]);
   const generatedSummary = generated.value ? architectureSummary(generated.value) : null;
+  const ruleSet = ruleSets?.find(item => item.id === ruleSetId);
+  const ruleSetCols = ruleSet ? String(ruleSet.cpCount * CSL_PER_CP) : null;
+
+  // Saving links the rule set, whose CP count then follows this col count.
+  const linkCols = architectureCols(mode === 'parameters' ? generated.value : customDescription);
+  const linkCpCount = linkCols === null ? null : cpCountForCols(linkCols);
+  const linkNote = !ruleSet || linkCols === null ? null
+    : linkCpCount === null ? { warning: true, text: t("{0} col 无法换算为 CP（每 CP {1} col，最多 {2} CP），规则集“{3}”保持 {4} CP", linkCols, CSL_PER_CP, MAX_CP_COUNT, ruleSet.name, ruleSet.cpCount) }
+      : linkCpCount !== ruleSet.cpCount ? { warning: false, text: t("保存后规则集“{0}”改为 {1} CP", ruleSet.name, linkCpCount) } : null;
 
   function changeField(key: keyof ArchitectureFields, value: string) {
     setFields(current => ({ ...current, [key]: value }));
-    setParametersDirty(true);
-    setConfirmTemplateId(null);
+    setConfirmDefaults(false);
     setError('');
   }
 
-  function applyTemplate(id: string) {
-    const template = ARCHITECTURE_TEMPLATES.find(item => item.id === id);
-    if (template && (!name.trim() || ARCHITECTURE_TEMPLATES.some(item => item.name === name))) setName(template.name);
-    setFields(templateFields(id));
-    setTemplateId(id);
-    setParametersDirty(false);
-    setConfirmTemplateId(null);
+  function chooseRuleSet(id: string) {
+    setRuleSetId(id);
+    setError('');
+    const next = ruleSets?.find(item => item.id === id);
+    if (!next || mode !== 'parameters') return;
+    const cols = String(next.cpCount * CSL_PER_CP);
+    // A new architecture's untouched default name follows the col count.
+    if (!initial && name === `${fields.rows}×${fields.cols} CCR`) setName(`${fields.rows}×${cols} CCR`);
+    changeField('cols', cols);
+  }
+
+  function restoreDefaults() {
+    const defaults = templateFields(templateId);
+    setFields(ruleSetCols ? { ...defaults, cols: ruleSetCols } : defaults);
+    setConfirmDefaults(false);
     setNeedsPresetForParameters(false);
     setError('');
   }
 
-  function requestApplyTemplate(id: string) {
-    if (id === templateId) return;
-    const modified = parametersDirty || JSON.stringify(fields) !== JSON.stringify(templateFields(templateId));
-    if (modified) { setConfirmTemplateId(id); return; }
-    applyTemplate(id);
-  }
-
   function switchMode(nextMode: Mode) {
     if (nextMode === mode) return;
-    setConfirmTemplateId(null);
+    setConfirmDefaults(false);
     setNeedsPresetForParameters(false);
     if (nextMode === 'custom') {
       if (generated.error) {
@@ -123,7 +137,6 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
     if (parsed) {
       setFields(parsed.fields);
       setTemplateId(parsed.templateId);
-      setParametersDirty(false);
       setMode('parameters');
       setError('');
       return;
@@ -152,7 +165,7 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
     setError('');
     saving.current = true;
     try {
-      await onSave(trimmedName, description);
+      await onSave(trimmedName, description, ruleSetId || null);
     } catch (reason) {
       setError(readableError(reason));
     } finally { saving.current = false; }
@@ -178,18 +191,20 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
       <label className="architecture-editor-field"><span className="architecture-field-label">{t("名称")}</span>
         <input required maxLength={120} value={name} disabled={pending} onChange={event => { setName(event.target.value); setError(''); }} placeholder={t("架构名称")} />
       </label>
-      {mode === 'parameters' && <label className="architecture-editor-field"><span className="architecture-field-label">{t("预设")}</span>
-        <select value={templateId} disabled={pending} onChange={event => requestApplyTemplate(event.target.value)}>
-          {ARCHITECTURE_TEMPLATES.map(template => <option key={template.id} value={template.id}>{template.label}</option>)}
+      <label className="architecture-editor-field"><span className="architecture-field-label">{t("CSL 规则")}</span>
+        <select value={ruleSetId} disabled={pending || !ruleSets} onChange={event => chooseRuleSet(event.target.value)}>
+          <option value="">{t("不关联")}</option>
+          {ruleSets?.map(item => <option key={item.id} value={item.id}>{t("{0} · {1} CP", item.name, item.cpCount)}</option>)}
         </select>
-      </label>}
+      </label>
     </div>
+    {linkNote && <p className={linkNote.warning ? 'task-warning' : 'task-note'} role="status">{linkNote.text}</p>}
 
     {mode === 'parameters' ? <>
-      {confirmTemplateId && <div className="architecture-editor-confirm" role="status">
-        <p>{t("使用“")}{ARCHITECTURE_TEMPLATES.find(item => item.id === confirmTemplateId)?.label}{t("”替换当前参数？")}</p>
-        <button className="action-button" type="button" disabled={pending} onClick={() => applyTemplate(confirmTemplateId)}>{t("替换")}</button>
-        <button className="action-button" type="button" disabled={pending} onClick={() => setConfirmTemplateId(null)}>{t("取消")}</button>
+      {confirmDefaults && <div className="architecture-editor-confirm" role="status">
+        <p>{t("用默认参数替换当前参数？")}</p>
+        <button className="action-button" type="button" disabled={pending} onClick={restoreDefaults}>{t("替换")}</button>
+        <button className="action-button" type="button" disabled={pending} onClick={() => setConfirmDefaults(false)}>{t("取消")}</button>
       </div>}
       <div className="architecture-editor-core">
         <fieldset className="architecture-editor-section" disabled={pending}>
@@ -223,7 +238,7 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
             <textarea rows={2} maxLength={4000} value={fields.notes} disabled={pending} onChange={event => changeField('notes', event.target.value)} placeholder={t("可选")} />
           </label>
         </div>
-        <div className="panel-actions"><button className="action-button" type="button" disabled={pending} onClick={() => setConfirmTemplateId(templateId)}>{t("恢复当前预设参数")}</button></div>
+        <div className="panel-actions"><button className="action-button" type="button" disabled={pending} onClick={() => setConfirmDefaults(true)}>{t("恢复默认参数")}</button></div>
         {generated.value && <details className="architecture-editor-generated"><summary>{t("查看完整定义")}</summary><pre>{generated.value}</pre></details>}
       </details>
       {generated.value && <details className="architecture-editor-advanced ccr-preview-toggle"><summary>{t("查看 CCR 结构与地址映射")}</summary><CcrLayoutPreview description={generated.value} /></details>}
@@ -233,8 +248,8 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
     </label>}
 
     {needsPresetForParameters && <div className="architecture-editor-confirm" role="status">
-      <p>{t("当前文本无法转为参数配置。使用预设替换？")}</p>
-      <button className="action-button" type="button" disabled={pending} onClick={() => { applyTemplate(templateId); setMode('parameters'); }}>{t("使用预设")}</button>
+      <p>{t("当前文本无法转为参数配置。使用默认参数替换？")}</p>
+      <button className="action-button" type="button" disabled={pending} onClick={() => { restoreDefaults(); setMode('parameters'); }}>{t("使用默认参数")}</button>
       <button className="action-button" type="button" disabled={pending} onClick={() => { setNeedsPresetForParameters(false); setError(''); }}>{t("保留原文")}</button>
     </div>}
     {error && <p role="alert" className="error-text">{localizeMessage(error)}</p>}

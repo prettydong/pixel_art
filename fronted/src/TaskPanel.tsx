@@ -11,7 +11,7 @@ import { CslRules } from './CslRules';
 import { RepairPanel } from './RepairPanel';
 import { SolverConclusions } from './SolverConclusions';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { FileRecord, ModelOption, TaskDetail, TaskArchitecture } from '@pixel/contracts';
+import type { CslRuleSet, FileRecord, ModelOption, TaskDetail, TaskArchitecture } from '@pixel/contracts';
 import { isActiveRun } from '@pixel/contracts';
 import type { Conversation } from './chatTypes';
 import { api, errorText, fileUrl } from './api';
@@ -41,6 +41,16 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
   const [editing, setEditing] = useState<{ id: string; name: string; description: string } | null>(null);
   const [reload, setReload] = useState(0);
   const [expandedArchitectures, setExpandedArchitectures] = useState(() => readExpandedArchitectures(taskId));
+  const [ruleSets, setRuleSets] = useState<CslRuleSet[] | null>(null);
+  const editingId = editing?.id;
+  useEffect(() => {
+    if (!editingId) return;
+    let alive = true; setRuleSets(null);
+    api<{ items: CslRuleSet[] }>(`/tasks/${taskId}/csl-rules`).then(result => { if (alive) setRuleSets(result.items); },
+      err => { if (alive) { setRuleSets([]); setError(errorText(err)); } });
+    return () => { alive = false; };
+  }, [taskId, editingId]);
+  const linkedRuleSetId = (editing && editing.id !== 'new' && ruleSets?.find(item => item.architectureId === editing.id)?.id) || '';
   const panelRef = useRef<HTMLElement>(null);
   const suggestedLayout = useMemo(() => detail?.architectures.map(architecture => ccrDefinition(architecture.description)?.array).find(Boolean), [detail?.architectures]);
   // Each page opens at its top rather than at the previous page's scroll position.
@@ -85,12 +95,18 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
         <button className="action-button" disabled={pending || !!editing} onClick={() => setEditing({ id: 'new', name: '', description: '' })}><Plus />{t("新建架构")}</button>
         {detail && detail.architectures.length > 1 && <button type="button" className="action-button" onClick={() => setExpandedArchitectures(detail.architectures.some(architecture => expandedArchitectures.has(architecture.id)) ? new Set() : new Set(detail.architectures.map(architecture => architecture.id)))}>{detail.architectures.some(architecture => expandedArchitectures.has(architecture.id)) ? t("全部收起") : t("全部展开")}</button>}
       </div>}
-      {editing && <ArchitectureEditor key={editing.id} initial={editing.id === 'new' ? undefined : editing} pending={pending} onCancel={() => setEditing(null)} onSave={async (name, description) => {
+      {editing && <ArchitectureEditor key={editing.id} initial={editing.id === 'new' ? undefined : editing} ruleSets={ruleSets} initialRuleSetId={linkedRuleSetId} pending={pending} onCancel={() => setEditing(null)} onSave={async (name, description, ruleSetId) => {
         if (pending) return;
         setPending(true); setError('');
         try {
-          await api(`/tasks/${taskId}/architectures${editing.id === 'new' ? '' : `/${editing.id}`}`, { method: editing.id === 'new' ? 'POST' : 'PATCH', body: JSON.stringify({ name, description }) });
+          const saved = await api<TaskArchitecture>(`/tasks/${taskId}/architectures${editing.id === 'new' ? '' : `/${editing.id}`}`, { method: editing.id === 'new' ? 'POST' : 'PATCH', body: JSON.stringify({ name, description }) });
           setEditing(null);
+          // The link is stored on the rule set; linking again also makes its CP count follow the saved col count.
+          const link = (id: string, architectureId: string | null) => api(`/tasks/${taskId}/csl-rules/${id}`, { method: 'PATCH', body: JSON.stringify({ architectureId }) });
+          try {
+            if (linkedRuleSetId && linkedRuleSetId !== ruleSetId) await link(linkedRuleSetId, null);
+            if (ruleSetId) await link(ruleSetId, saved.id);
+          } catch (err) { setError(t("架构已保存，但 CSL 规则关联失败：{0}", errorText(err))); }
           await onRefresh().catch(err => setError(t("架构已保存，但刷新失败：{0}", errorText(err))));
           setReload(value => value + 1);
         } finally { setPending(false); }

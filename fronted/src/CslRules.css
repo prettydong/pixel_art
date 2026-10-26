@@ -1,9 +1,13 @@
 .csl-rules { display: grid; gap: 14px; }
-.csl-rule-tabs .architecture-editor-mode { flex-wrap: wrap; }
+.csl-rule-toolbar { justify-content: space-between; }
+.csl-rule-search { flex: 0 1 260px; min-width: 0; }
+.csl-rule-sheet .sheet-toggle span { overflow: hidden; text-overflow: ellipsis; }
+.csl-sheet-issue { color: var(--busy); }
+.csl-sheet-issue .icon { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
 .csl-rule-view { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); }
 .csl-rule-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .csl-rule-heading h2 { margin: 0; font-family: var(--font-serif); font-size: var(--text-lg); font-weight: 500; }
-.csl-rule-heading .panel-actions { margin-left: auto; }
+.csl-rule-heading .csl-rule-architecture { margin-left: auto; }
 .csl-rule-text p { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .csl-checker { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 10px 12px; border-radius: var(--radius); background: var(--hover); }
 .csl-checker-status { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--text-sm); }
