@@ -47,7 +47,7 @@ export function WaferGenerator({ product, disabled, onBusy, onSave }: Props) {
         <button type="submit" className="action-button" disabled={disabled || phase !== 'idle' || product.chipCount > MAX_MAP_CHIPS}>{phase === 'generating' ? t("正在生成…") : phase === 'saving' ? t("正在保存…") : t("生成并保存")}</button>
         {phase === 'generating' && <button type="button" className="action-button" onClick={() => { current.current?.worker.terminate(); current.current?.reject(new Error(t("已取消生成"))); }}>{t("取消生成")}</button>}
       </div>
-      <details><summary>{t("分布参数")}</summary><div className="wafer-generation-fields">{field('strength', t("空间聚集强度"), 0, 30, 0.1)}{field('dispersion', t("离散参数"), 0.2, 100, 0.1)}</div></details>
+      <details><summary>{t("分布参数")}</summary><div className="wafer-generation-fields">{field('strength', t("空间聚集强度（越大，图案越明显）"), 0, 30, 0.1)}{field('dispersion', t("离散参数（越小，chip 间差异越大）"), 0.2, 100, 0.1)}</div></details>
       {product.chipCount > MAX_MAP_CHIPS && <p className="error-text">{t("页面生成最多支持") + " "}{MAX_MAP_CHIPS.toLocaleString(getLanguage())} {" " + t("个 chip。")}</p>}
       {error && <p className="workspace-error" role="alert">{localizeMessage(error)}</p>}
     </form>

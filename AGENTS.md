@@ -62,7 +62,8 @@ This file records the design and collaboration requirements confirmed by the use
 
 ## Language
 
-- The product supports English and Simplified Chinese. Default to English on the first visit; do not automatically switch to Chinese based on the browser language.
+- The product supports English, Simplified Chinese, and Japanese. Default to English on the first visit; do not automatically switch languages based on the browser language.
 - Provide a language switch on the login page and in settings, and remember the selection in the current browser. Switching must still work within the current session when storage is unavailable.
-- Use `fronted/src/i18n.ts` and `fronted/src/locales/en.ts` for interface copy, including labels, statuses, errors, accessibility descriptions, and application-generated prompt templates. Both languages share the same type stacks and layout.
+- Use `fronted/src/i18n.ts`, `fronted/src/locales/en.ts`, and `fronted/src/locales/ja.ts` for interface copy, including labels, statuses, errors, accessibility descriptions, and application-generated prompt templates. All languages share the same type stacks and layout. Load Japanese on demand and keep its catalog aligned with the English source keys. `fronted/src/locales/zh.ts` holds plain-Chinese overrides for server and file-format messages whose Chinese source text must stay unchanged as a lookup key.
+- Users are circuit design engineers, not software developers. Use hardware terms (wafer, chip, region, row, col, spare, yield, repair) and plain words for software concepts: "AI" rather than agent, "repair run" rather than solver job, "planned runs" rather than draft or queue, "output files" rather than artifacts, "version ID" rather than fingerprint. Error messages say what happened and what to do next, and point to an administrator for server configuration.
 - Switching languages must not rewrite user messages, saved names, architecture definitions, uploaded content, or historical model replies. Keep mode identifiers in the API compatible.

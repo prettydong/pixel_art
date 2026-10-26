@@ -34,7 +34,7 @@ export function normalizeTools(value: unknown, prefix: string, seen = new Set<st
   if (value === undefined) return undefined;
   const entries = Array.isArray(value) ? value : [value];
   return entries.map((raw, index) => {
-    const fallback: MessageTool = { id: `${prefix}:unavailable:${index}`, type: "unavailable", title: record(raw) && nonempty(raw.title) ? raw.title : t("无法读取的交互工具"), status: "expired" };
+    const fallback: MessageTool = { id: `${prefix}:unavailable:${index}`, type: "unavailable", title: record(raw) && nonempty(raw.title) ? raw.title : t("无法读取的卡片"), status: "expired" };
     if (!record(raw) || !nonempty(raw.id) || seen.has(raw.id) || !nonempty(raw.title) || (raw.status !== "pending" && raw.status !== "submitted" && raw.status !== "expired") || (raw.description !== undefined && typeof raw.description !== "string")) return fallback;
     seen.add(raw.id);
     if (raw.type === "single" || raw.type === "multi") { if (!validOptions(raw.options)) return fallback; }
@@ -49,7 +49,7 @@ export function normalizeTools(value: unknown, prefix: string, seen = new Set<st
 }
 
 export function toolAnswer(tool: MessageTool): string {
-  if (tool.type === "unavailable") return t("工具数据无法读取");
+  if (tool.type === "unavailable") return t("卡片数据无法读取");
   const result = tool.result;
   if (!result || !validToolResult(tool, result)) return tool.status === "expired" ? t("已失效") : t("待回答");
   if (result.type === "confirm") return result.value ? t("已确认") : t("已取消");
@@ -61,7 +61,7 @@ export function toolAnswer(tool: MessageTool): string {
 
 export function messageMarkdown(message: Message): string {
   const toolText = message.tools?.map(tool => {
-    const lines = [t("交互工具：{0}", tool.title)];
+    const lines = [t("卡片：{0}", tool.title)];
     if (tool.type !== "unavailable" && tool.description) lines.push(tool.description);
     if (tool.type === "single" || tool.type === "multi") lines.push(...tool.options.map(option => `- ${option.label}${option.description ? t("：{0}", option.description) : ""}`));
     if (tool.type === "form") lines.push(...tool.fields.map(field => t("- {0}（{1}{2}{3}{4}）", field.label, field.type === "number" ? t("数字") : t("文本"), field.required ? t("，必填") : "", field.min !== undefined ? t("，最小 {0}", field.min) : "", field.max !== undefined ? t("，最大 {0}", field.max) : "")));
@@ -73,7 +73,8 @@ export function messageMarkdown(message: Message): string {
     const chart = readChartTool(tool);
     return chart ? [localizedChartMarkdown(chart)] : [];
   });
-  return [message.text, ...(charts ?? []), toolText].filter(Boolean).join("\n\n");
+  const references = message.mentions?.length ? t("引用：{0}", message.mentions.map(mention => `${mention.kind === "architecture" ? t("架构") : "Wafer"} ${mention.name}`).join(t("、"))) : "";
+  return [message.text, references, ...(charts ?? []), toolText].filter(Boolean).join("\n\n");
 }
 
 function localizedChartMarkdown(chart: PixelChart): string {

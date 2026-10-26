@@ -24,7 +24,7 @@ export type CardContext = {
 
 export function ChatCard({ tool, context }: { tool: ToolCall; context?: CardContext }) {
   const card = readCardTool(tool);
-  if (!card) return <p className="chart-unavailable">{t("卡片数据无效或不完整，请查看工具详情或让 agent 重新生成。")}</p>;
+  if (!card) return <p className="chart-unavailable">{t("卡片数据无效或不完整，请让 AI 重新生成。")}</p>;
   if (card.kind === 'ask') return <AskCardView id={tool.id} card={card} context={context} />;
   if (card.kind === 'architecture') return <ArchitectureCardView id={tool.id} card={card} context={context} />;
   return <SolverCardView id={tool.id} card={card} context={context} />;
@@ -67,20 +67,20 @@ function SolverCardView({ id, card, context }: { id: string; card: SolverCard; c
 
   function apply() {
     if (!taskId || !data || !current) return;
-    if (current.submission) { setError(t("Solver 有一个提交尚未确认，请先在 Solver 页完成或重试。")); return; }
+    if (current.submission) { setError(t("有一次修补运行的启动尚未确认，请先在修补运行页重试。")); return; }
     const items = pairs.slice(0, MAX_REPAIR_ITEMS).map(({ architecture, dataset }) => ({
       architectureId: architecture.id, architectureName: architecture.name, architectureFingerprint: architecture.fingerprint,
       waferId: dataset.id, waferName: dataset.name,
     }));
-    if (!saveRepairDraft(taskId, { items, submission: null })) setError(t("浏览器无法保存待运行列表；离开此页或刷新可能丢失草稿。"));
+    if (!saveRepairDraft(taskId, { items, submission: null })) setError(t("浏览器无法保存待运行列表；离开或刷新此页后列表会丢失。"));
     applied.add(id); setDone(true);
     context?.onOpenSolver();
   }
 
   const name = (entry: { id: string; item?: { name: string } }) => entry.item?.name ?? (data ? t("未找到：{0}", entry.id) : entry.id);
-  return <section className="interactive-tool solver-card" aria-label={t("Solver 配置")}>
+  return <section className="interactive-tool solver-card" aria-label={t("修补运行配置")}>
     <fieldset>
-      <legend>{t("Solver 配置")}</legend>
+      <legend>{t("修补运行配置")}</legend>
       {card.note && <p className="interactive-tool-description">{card.note}</p>}
       <dl className="solver-card-lists">
         <dt>{t("架构")}</dt>
@@ -89,15 +89,15 @@ function SolverCardView({ id, card, context }: { id: string; card: SolverCard; c
         <dd>{wafers.map(entry => <span key={entry.id} className={entry.item || !data ? '' : 'error-text'}>{name(entry)}</span>)}</dd>
       </dl>
       <p className="interactive-tool-status">
-        {t("{0} 个组合", pairs.length)}
+        {t("{0} 次运行", pairs.length)}
         {missing > 0 && <span className="error-text">{" · " + t("{0} 项不在当前任务中", missing)}</span>}
-        {mismatched > 0 && <span className="error-text">{" · " + t("{0} 个组合尺寸不匹配", mismatched)}</span>}
+        {mismatched > 0 && <span className="error-text">{" · " + t("{0} 次运行尺寸不匹配", mismatched)}</span>}
       </p>
       {error && <p className="interactive-tool-error" role="alert">{error}</p>}
       <div className="interactive-tool-actions">
-        {done ? <button type="button" onClick={() => context?.onOpenSolver()} disabled={!context}><Check />{t("已应用")} · {t("打开 Solver")}<ArrowRight /></button>
+        {done ? <button type="button" onClick={() => context?.onOpenSolver()} disabled={!context}><Check />{t("已应用")} · {t("打开修补运行")}<ArrowRight /></button>
           : <button type="button" className="interactive-tool-submit" disabled={!context || !data || !pairs.length} onClick={apply}>
-            {current?.items.length ? t("替换 Solver 待运行列表（{0}）", current.items.length) : t("应用到 Solver")}
+            {current?.items.length ? t("替换待运行列表（{0}）", current.items.length) : t("加入待运行列表")}
           </button>}
       </div>
     </fieldset>
@@ -151,8 +151,8 @@ function ArchitectureCardView({ id, card, context }: { id: string; card: Archite
       {columns ? <dl className="solver-card-lists architecture-card-values">
         <dt>Region row × col</dt><dd><span>{columns.rows} × {columns.cols}</span></dd>
         <dt>{t("备用 row")}</dt><dd><span>{columns.spareRows}</span></dd>
-        <dt>{t("CCR col/组")}</dt><dd><span>{columns.ccrCols}</span></dd>
-        <dt>{t("CCR 组/段")}</dt><dd><span>{columns.groups}</span></dd>
+        <dt>{t("每组备用 col")}</dt><dd><span>{columns.ccrCols}</span></dd>
+        <dt>{t("每段组数")}</dt><dd><span>{columns.groups}</span></dd>
         <dt>Segment</dt><dd><span>{columns.segments}</span></dd>
       </dl> : <p className="interactive-tool-status">{t("不是标准 CCR 定义，请展开完整定义核对。")}</p>}
       <details className="architecture-card-definition">

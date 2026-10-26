@@ -30,7 +30,7 @@ export function AuthGate({ children }: { children: (user: User) => ReactNode }) 
     <label>{t("密码")}<input name="password" type="password" autoComplete="current-password" defaultValue={DEFAULT_PASSWORD} required maxLength={PASSWORD_MAX_LENGTH} /></label>
     {error && <p role="alert" className="error-text">{localizeMessage(error)}</p>}
     <button className="action-button primary" disabled={busy}>{busy ? t("登录中…") : t("登录")}</button>
-    <a className="action-button" href="?demo=tools">{t("打开本地工具演示")}</a>
-    <a className="action-button" href="?demo=charts">{t("查看图表演示")}</a>
+    <a className="action-button" href="?demo=tools">{t("打开离线演示")}</a>
+    <a className="action-button" href="?demo=charts">{t("查看图表示例")}</a>
   </form></main>;
 }

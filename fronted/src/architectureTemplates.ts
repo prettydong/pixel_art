@@ -47,7 +47,7 @@ function definition(fields: ArchitectureFields, templateId: string) {
   if (!ARCHITECTURE_TEMPLATES.some(template => template.id === templateId)) throw new Error(t("请选择有效的 CCR 预设。"));
   const rows = integer(fields.rows, t("Region row 数"), 1, 1_048_576);
   const cols = integer(fields.cols, t("Region col 数"), 1, 1_048_576);
-  const coordinateBase = integer(fields.coordinateBase, t("坐标起点"), 0, 1);
+  const coordinateBase = integer(fields.coordinateBase, t("地址起点"), 0, 1);
   const spareRows = integer(fields.spareRows, t("Region 全局备用 row 数"), 0, 1_048_576);
   const groups = integer(fields.ccrGroupsPerSegment, t("每 segment 的 CCR 子组数"), 1, 256);
   const entries = fields.ccrSparesPerGroup.split(/[,，]/).map(value => value.trim());
@@ -63,7 +63,7 @@ function definition(fields: ArchitectureFields, templateId: string) {
   if (sectionCount % sectionsPerSegment) throw new Error(t("Section 总数必须能被每 segment 的 section 数整除。"));
   if (sectionGroupSize > subsectionSize * subsectionsPerGroup) throw new Error(t("Segment 映射无效：subsection row 跨度不足以覆盖 section group。"));
   const expectedRows = (sectionCount / subsectionsPerGroup) * sectionGroupSize;
-  if (rows !== expectedRows) throw new Error(t("Segment 映射对应 {0} row，与 Region row 数 {1} 不一致。", expectedRows, rows));
+  if (rows !== expectedRows) throw new Error(t("Segment 划分共覆盖 {0} row，但 Region row 数为 {1}；请修改其中一项使两者一致。", expectedRows, rows));
   if (fields.notes.length > 4000) throw new Error(t("备注不能超过 4000 字符。"));
   return {
     kind: 'pixel-architecture', version: 2, template_id: templateId,
@@ -123,9 +123,13 @@ function numeric(value: unknown): value is number { return typeof value === 'num
 export function parseArchitecture(description: string): { templateId: string; fields: ArchitectureFields } | null {
   try {
     const value: unknown = JSON.parse(description);
-    if (!object(value) || !exactKeys(value, ['kind', 'version', 'template_id', 'model', 'array', 'device', 'notes'])) return null;
+    if (!object(value)) return null;
+    // Earlier DEJOA demo definitions spell the preset key `template`.
+    const templateKey = Object.hasOwn(value, 'template_id') ? 'template_id' : 'template';
+    if (!exactKeys(value, ['kind', 'version', templateKey, 'model', 'array', 'device', 'notes'])) return null;
     if (value.kind !== 'pixel-architecture' || value.version !== 2 || value.model !== 'region-ccr') return null;
-    if (typeof value.template_id !== 'string' || typeof value.notes !== 'string') return null;
+    const templateId = value[templateKey];
+    if (typeof templateId !== 'string' || typeof value.notes !== 'string') return null;
     const array = value.array; const device = value.device;
     if (!object(array) || !exactKeys(array, ['rows', 'cols', 'coordinate_base']) || !Object.values(array).every(numeric)) return null;
     if (!object(device) || !exactKeys(device, ['spare_rows', 'ccr_groups_per_segment', 'ccr_spares_per_group', 'row_layout'])) return null;
@@ -142,8 +146,8 @@ export function parseArchitecture(description: string): { templateId: string; fi
       sectionGroupSize: String(layout.section_group_size), subsectionSize: String(layout.subsection_size),
       subsectionsPerGroup: String(layout.subsections_per_group), notes: value.notes,
     };
-    definition(fields, value.template_id);
-    return { templateId: value.template_id, fields };
+    definition(fields, templateId);
+    return { templateId, fields };
   } catch { return null; }
 }
 

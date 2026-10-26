@@ -159,18 +159,19 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
   }
 
   const advancedSummary = [
-    fields.coordinateBase !== '0' ? t("{0} 基坐标", fields.coordinateBase) : '',
+    fields.coordinateBase !== '0' ? t("地址从 {0} 开始", fields.coordinateBase) : '',
     generated.value ? t("{0} 个 segment", Number(fields.sectionCount) / Number(fields.sectionsPerSegment)) : '',
     fields.notes.trim() ? t("有备注") : '',
   ].filter(Boolean).join(' · ');
-  const advancedError = /坐标起点|Coordinate base|Segment|segment|Section|section|Subsection|subsection|备注|Notes/.test(generated.error);
+  const advancedError = [t('地址起点'), t('备注'), 'Segment', 'segment', 'Section', 'section', 'Subsection', 'subsection']
+    .some(label => generated.error.includes(label));
 
   return <form className="architecture-editor task-architecture-form" onSubmit={event => void submit(event)} aria-busy={pending}>
     <div className="architecture-editor-heading">
       <h2>{initial ? t("编辑 CCR 架构") : t("新建 CCR 架构")}</h2>
       <div className="architecture-editor-mode" role="group" aria-label={t("定义方式")}>
         <button type="button" className={mode === 'parameters' ? 'selected' : ''} aria-pressed={mode === 'parameters'} disabled={pending} onClick={() => switchMode('parameters')}>{t("参数配置")}</button>
-        <button type="button" className={mode === 'custom' ? 'selected' : ''} aria-pressed={mode === 'custom'} disabled={pending} onClick={() => switchMode('custom')}>{t("自定义")}</button>
+        <button type="button" className={mode === 'custom' ? 'selected' : ''} aria-pressed={mode === 'custom'} disabled={pending} onClick={() => switchMode('custom')}>{t("自定义文本")}</button>
       </div>
     </div>
     <div className="architecture-editor-basics">
@@ -210,7 +211,7 @@ export function ArchitectureEditor({ initial, pending, onSave, onCancel }: Props
       <details className="architecture-editor-advanced" open={advancedOpen || advancedError} onToggle={event => setAdvancedOpen(event.currentTarget.open)}>
         <summary>{t("Segment 划分与高级选项")}{advancedSummary ? ` · ${advancedSummary}` : ''}</summary>
         <div className="architecture-editor-fields">
-          <label className="architecture-editor-field"><span className="architecture-field-label">{t("坐标起点")}</span>
+          <label className="architecture-editor-field"><span className="architecture-field-label">{t("地址起点")}</span>
             <select value={fields.coordinateBase} disabled={pending} onChange={event => changeField('coordinateBase', event.target.value)}><option value="0">{t("0（默认）")}</option><option value="1">1</option></select>
           </label>
           <Field label={t("Section 总数")} value={fields.sectionCount} disabled={pending} onChange={value => changeField('sectionCount', value)} />

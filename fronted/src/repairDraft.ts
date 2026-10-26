@@ -1,4 +1,5 @@
 import type { RepairBatchInput } from '@pixel/contracts';
+import type { Language } from './i18n';
 
 export type RepairDraftItem = {
   architectureId: string; architectureName: string; architectureFingerprint: string;
@@ -6,7 +7,7 @@ export type RepairDraftItem = {
 };
 export type RepairDraft = {
   items: RepairDraftItem[];
-  submission: (Pick<RepairBatchInput, 'modelId' | 'idempotencyKey'> & { autoConclusion?: boolean }) | null;
+  submission: (Pick<RepairBatchInput, 'modelId' | 'idempotencyKey'> & { autoConclusion?: boolean; language?: Language }) | null;
 };
 export const MAX_REPAIR_ITEMS = 100;
 export const draftItemKey = (item: { architectureId: string; waferId: string }) => JSON.stringify([item.architectureId, item.waferId]);
@@ -25,7 +26,8 @@ export function readRepairDraft(taskId: string): RepairDraft {
     const submission = items.length === value.items.length && items.length && typeof value.submission?.modelId === 'string'
       && typeof value.submission?.idempotencyKey === 'string'
       && (value.submission.autoConclusion === undefined || typeof value.submission.autoConclusion === 'boolean')
-      ? { modelId: value.submission.modelId, idempotencyKey: value.submission.idempotencyKey, autoConclusion: value.submission.autoConclusion ?? true } : null;
+      ? { modelId: value.submission.modelId, idempotencyKey: value.submission.idempotencyKey, autoConclusion: value.submission.autoConclusion ?? true,
+        language: ['en', 'zh-CN', 'ja'].includes(value.submission.language) ? value.submission.language as Language : undefined } : null;
     return { items, submission };
   } catch { return { items: [], submission: null }; }
 }

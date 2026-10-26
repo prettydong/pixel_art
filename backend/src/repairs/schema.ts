@@ -35,4 +35,9 @@ export function migrateRepairs(db: Db) {
     `);
     db.prepare('INSERT INTO schema_migrations(version,applied_at) VALUES(9,?)').run(Date.now());
   })();
+  if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=11').get()) db.transaction(() => {
+    // Interface language at submission, used to name the AI coding chat.
+    db.exec('ALTER TABLE repair_batches ADD COLUMN language TEXT');
+    db.prepare('INSERT INTO schema_migrations(version,applied_at) VALUES(11,?)').run(Date.now());
+  })();
 }

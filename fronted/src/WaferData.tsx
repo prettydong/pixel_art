@@ -11,12 +11,12 @@ import { api, errorText, fileUrl } from './api';
 import { ChevronDown, ChevronRight, Download, Plus } from './Icons';
 import './WaferData.css';
 
-type Props = { taskId: string; files: FileRecord[]; onChanged: () => Promise<void> };
+type Props = { taskId: string; files: FileRecord[]; onChanged: () => Promise<void>; suggestedLayout?: { rows: number; cols: number } };
 type Decoded = ReturnType<typeof decodeWafer>;
 const sameLayout = (left: ProductRecord, right: Decoded['layout']) => left.chipCount === right.chipCount && left.regionCount === right.regionCount && left.rows === right.rows && left.cols === right.cols;
 const number = (value: string) => Math.max(0, Math.floor(Number(value) || 0));
 
-export function WaferData({ taskId, files, onChanged }: Props) {
+export function WaferData({ taskId, files, onChanged, suggestedLayout }: Props) {
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [productId, setProductId] = useState('');
   const [wafers, setWafers] = useState<WaferRecord[]>([]);
@@ -31,7 +31,12 @@ export function WaferData({ taskId, files, onChanged }: Props) {
   const [error, setError] = useState('');
   const [previewError, setPreviewError] = useState('');
   const [notice, setNotice] = useState('');
-  const [form, setForm] = useState({ name: '', chipCount: '1', regionCount: '1', rows: '1024', cols: '1024' });
+  // New products start from the task architecture's region size so wafers and architectures match.
+  const emptyForm = () => ({ name: '', chipCount: '1', regionCount: '1', rows: String(suggestedLayout?.rows ?? 1024), cols: String(suggestedLayout?.cols ?? 1024) });
+  const [form, setForm] = useState(emptyForm);
+  useEffect(() => {
+    if (suggestedLayout) setForm(value => value.rows === '1024' && value.cols === '1024' ? { ...value, rows: String(suggestedLayout.rows), cols: String(suggestedLayout.cols) } : value);
+  }, [suggestedLayout?.rows, suggestedLayout?.cols]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const product = products.find(item => item.id === productId) ?? null;
@@ -77,7 +82,7 @@ export function WaferData({ taskId, files, onChanged }: Props) {
       const body = { name: form.name.trim(), chipCount: Number(form.chipCount), regionCount: Number(form.regionCount), rows: Number(form.rows), cols: Number(form.cols) };
       validateWaferLayout(body);
       const created = await api<ProductRecord>('/products', { method: 'POST', body: JSON.stringify(body) });
-      setProducts(previous => [...previous, created]); selectProduct(created.id); setForm({ name: '', chipCount: '1', regionCount: '1', rows: '1024', cols: '1024' }); setNotice(t("已创建产品 {0}", created.name));
+      setProducts(previous => [...previous, created]); selectProduct(created.id); setForm(emptyForm()); setNotice(t("已创建产品 {0}", created.name));
     } catch (err) { setError(errorText(err)); } finally { setBusy(false); }
   }
   async function storeWafer(file: File, generation?: GenerationMetadata) {
@@ -87,16 +92,16 @@ export function WaferData({ taskId, files, onChanged }: Props) {
       if (file.size > MAX_WAFER_BYTES) throw new Error(t("文件超过 {0} MB 限制", (MAX_WAFER_BYTES / 1024 / 1024).toFixed(0)));
       const parsed = decodeWafer(new Uint8Array(await file.arrayBuffer()));
       if (!sameLayout(product, parsed.layout)) throw new Error(t("文件布局与当前产品定义不一致，未上传"));
-      setNotice(t("正在上传并关联当前任务…"));
+      setNotice(t("正在上传并加入本任务…"));
       const upload = new FormData(); upload.append('file', file);
       const uploaded = await api<FileRecord>('/uploads', { method: 'POST', body: upload });
       const waferName = file.name.replace(/\.pwafer$/i, '').trim().slice(0, 120) || 'wafer';
       const created = await api<WaferRecord>(`/products/${encodeURIComponent(product.id)}/wafers`, { method: 'POST', body: JSON.stringify({ fileId: uploaded.id, name: waferName, generation }) });
       setWafers(previous => [...previous, created]); setWaferId(created.id); setDecoded(parsed); setChip(0); setRegion(0);
       try { await api(`/tasks/${encodeURIComponent(taskId)}/files`, { method: 'POST', body: JSON.stringify({ fileId: uploaded.id }) }); }
-      catch (attachError) { setNotice(t("已登记 {0}，但未关联当前任务：{1}", created.name, errorText(attachError))); return; }
-      try { await onChanged(); setNotice(t("已保存 {0}，并关联到当前任务", created.name)); }
-      catch (refreshError) { setNotice(t("已登记并关联 {0}，但页面刷新失败：{1}", created.name, errorText(refreshError))); }
+      catch (attachError) { setNotice(t("已保存 {0}，但未能加入本任务：{1}", created.name, errorText(attachError))); return; }
+      try { await onChanged(); setNotice(t("已保存 {0}，并加入本任务", created.name)); }
+      catch (refreshError) { setNotice(t("已保存 {0} 并加入本任务，但页面刷新失败：{1}", created.name, errorText(refreshError))); }
   }
   async function importWafer(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]; event.target.value = ''; if (!file || !product || busy || productsLoading || wafersLoading) return;
@@ -106,11 +111,11 @@ export function WaferData({ taskId, files, onChanged }: Props) {
   }
   async function attachWafer(wafer: WaferRecord) {
     if (busy || attachedFileIds.has(wafer.fileId)) return;
-    setBusy(true); setError(''); setNotice(t("正在关联到当前任务…"));
+    setBusy(true); setError(''); setNotice(t("正在加入本任务…"));
     try {
       await api(`/tasks/${encodeURIComponent(taskId)}/files`, { method: 'POST', body: JSON.stringify({ fileId: wafer.fileId }) });
-      try { await onChanged(); setNotice(t("已关联到当前任务")); }
-      catch (refreshError) { setNotice(t("已关联当前任务，但页面刷新失败：{0}", errorText(refreshError))); }
+      try { await onChanged(); setNotice(t("已加入本任务")); }
+      catch (refreshError) { setNotice(t("已加入本任务，但页面刷新失败：{0}", errorText(refreshError))); }
     }
     catch (err) { setError(errorText(err)); setNotice(''); } finally { setBusy(false); }
   }
@@ -140,7 +145,7 @@ export function WaferData({ taskId, files, onChanged }: Props) {
     {!products.length && !productsLoading && <><p className="task-empty">{t("暂无产品。")}</p>{productForm(true)}</>}
     {!!products.length && <div className="wafer-selector">
       <label>{t("产品")}<select disabled={busy || productsLoading} value={productId} onChange={event => selectProduct(event.target.value)}>{products.map(item => <option value={item.id} key={item.id}>{item.name}{products.some(other => other.id !== item.id && other.name === item.name) ? ` · ${item.chipCount.toLocaleString(language)} × ${item.regionCount.toLocaleString(language)} · ${item.rows.toLocaleString(language)} × ${item.cols.toLocaleString(language)}` : ''}</option>)}</select></label>
-      {product && <span className="wafer-layout">{product.chipCount.toLocaleString(language)} chips · {product.regionCount.toLocaleString(language)} regions/chip · {product.rows.toLocaleString(language)} × {product.cols.toLocaleString(language)}</span>}
+      {product && <span className="wafer-layout">{t("{0} chip · 每 chip {1} 个 region · region {2} row × {3} col", product.chipCount.toLocaleString(language), product.regionCount.toLocaleString(language), product.rows.toLocaleString(language), product.cols.toLocaleString(language))}</span>}
     </div>}
     {product && <div className="wafer-actions"><input hidden type="file" accept=".pwafer,application/octet-stream" ref={inputRef} onChange={importWafer} />
       <button className="action-button" disabled={busy || wafersLoading} onClick={() => inputRef.current?.click()}><Plus />{t("导入 .pwafer")}</button>
@@ -148,7 +153,7 @@ export function WaferData({ taskId, files, onChanged }: Props) {
     {product && <WaferGenerator key={product.id} product={product} disabled={busy || wafersLoading} onBusy={setBusy} onSave={async (file, generation) => { try { await storeWafer(file, generation); } catch (err) { setNotice(''); throw err; } }} />}
     {notice && <p className="wafer-notice" role="status">{localizeMessage(notice)}</p>}{error && <p className="workspace-error" role="alert">{localizeMessage(error)}</p>}
     {product && <div className="sheet-frame"><table className="sheet">
-      <thead><tr><th scope="col">Wafer ({wafers.length})</th><th scope="col">{t("来源")}</th><th scope="col" className="sheet-num">{t("总 fail")}</th><th scope="col" className="sheet-num sheet-optional">{t("非空 region")}</th><th scope="col" className="sheet-num sheet-optional">{t("占比")}</th><th scope="col">{t("当前任务")}</th></tr></thead>
+      <thead><tr><th scope="col">Wafer ({wafers.length})</th><th scope="col">{t("来源")}</th><th scope="col" className="sheet-num">{t("总 fail")}</th><th scope="col" className="sheet-num sheet-optional">{t("有 fail 的 region")}</th><th scope="col" className="sheet-num sheet-optional">{t("占比")}</th><th scope="col">{t("本任务")}</th></tr></thead>
       <tbody>
         {wafers.map(item => {
           const open = item.id === waferId;
@@ -160,7 +165,7 @@ export function WaferData({ taskId, files, onChanged }: Props) {
               <td className="sheet-num">{item.failCount.toLocaleString(language)}</td>
               <td className="sheet-num sheet-optional">{item.occupiedRegionCount.toLocaleString(language)} / {totalRegions.toLocaleString(language)}</td>
               <td className="sheet-num sheet-muted sheet-optional">{totalRegions ? `${(item.occupiedRegionCount / totalRegions * 100).toFixed(1)}%` : '–'}</td>
-              <td>{attached ? <span className="sheet-muted">{t("已关联")}</span> : <button className="action-button" disabled={busy} onClick={() => void attachWafer(item)}>{t("关联到当前任务")}</button>}</td>
+              <td>{attached ? <span className="sheet-muted">{t("已加入")}</span> : <button className="action-button" disabled={busy} onClick={() => void attachWafer(item)}>{t("加入本任务")}</button>}</td>
             </tr>
             {open && <tr className="sheet-detail"><td colSpan={6}><div className="wafer-browser">
               <div className="wafer-actions"><span className={`data-badge ${item.synthetic ? 'data-badge-warn' : ''}`}>{item.synthetic ? t("合成数据") : t("导入数据")}</span><a className="action-button" href={fileUrl(item.file)} download><Download />{t("下载")}</a></div>
@@ -170,7 +175,7 @@ export function WaferData({ taskId, files, onChanged }: Props) {
                 <StatTile label={t("最大 fail / chip")} value={chipStats.maximum.toLocaleString(language)} />
               </div>}
               {item.generation && <div className="data-limit">
-                <p>{t("合成数据 ·") + " "}{t(SPATIAL_PATTERNS.find(pattern => pattern.id === item.generation?.pattern)?.label ?? item.generation.pattern)} {" " + t("· 种子") + " "}{item.generation.seed} {" " + t("· 未使用实测数据拟合")}</p>
+                <p>{t("合成数据 ·") + " "}{t(SPATIAL_PATTERNS.find(pattern => pattern.id === item.generation?.pattern)?.label ?? item.generation.pattern)} {" " + t("· 随机种子") + " "}{item.generation.seed} {" " + t("· 未使用实测数据拟合")}</p>
                 <details><summary>{t("分布参数")}</summary><p>{t("均值") + " "}{item.generation.meanFails / product.regionCount} {" " + t("fail/region · 强度") + " "}{item.generation.strength} {" " + t("· 离散") + " "}{item.generation.dispersion}</p></details>
               </div>}
               {decoded && chipStats && <WaferHeatmap key={item.id} decoded={decoded} stats={chipStats} selected={chip} onSelect={setChipIndex} />}

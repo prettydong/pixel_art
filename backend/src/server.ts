@@ -5,7 +5,7 @@ import staticFiles from "@fastify/static";
 import { ZodError } from "zod";
 import { randomUUID } from "node:crypto";
 import { createWriteStream, existsSync, statSync, unlinkSync, renameSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { changePasswordSchema, createConversationSchema, createRunSchema, idSchema, loginSchema, updateConversationSchema } from "@pixel/contracts";
 import type { Db } from "./db/index.js";
@@ -21,6 +21,7 @@ import { createTask, registerTaskRoutes, taskRow } from "./tasks/index.js";
 import { registerDataRoutes } from "./data/index.js";
 import { registerDemoRoutes } from './demos/index.js';
 import { registerRepairRoutes } from "./repairs/index.js";
+import { registerMentionRoutes } from "./mentions/index.js";
 import type { Runs } from "./runs/index.js";
 
 export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
@@ -77,6 +78,7 @@ export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
   registerTaskRoutes(app, db);
   registerDataRoutes(app, db);
   registerDemoRoutes(app, db);
+  registerMentionRoutes(app, db);
   app.get("/api/models", async request => { currentUser(db, request); return { items: models.models.map(({ id, label, provider, model }) => ({ id, label, provider, model })) }; });
   app.get("/api/conversations", async request => {
     const user = currentUser(db, request); const q = String((request.query as Record<string, unknown>).q ?? "").slice(0, 200);
@@ -180,7 +182,14 @@ export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
   app.get("/api/admin/usage", async request => { requireAdmin(currentUser(db, request)); return queryUsage(db, request.query as Record<string, unknown>); });
   app.get("/api/health", async () => ({ ok: true }));
   if (existsSync(config.frontendDir)) {
-    await app.register(staticFiles, { root: config.frontendDir, prefix: "/", wildcard: false });
+    await app.register(staticFiles, {
+      root: config.frontendDir, prefix: "/", wildcard: false, preCompressed: true,
+      setHeaders(reply, path) {
+        // Vite filenames include content hashes; HTML must revalidate to discover a new release.
+        reply.header("Cache-Control", path.startsWith(join(config.frontendDir, "assets") + sep)
+          ? "public, max-age=31536000, immutable" : "public, max-age=0, must-revalidate");
+      },
+    });
     app.setNotFoundHandler((request, reply) => { if (request.url.startsWith("/api") || request.method !== "GET" || !(request.headers.accept ?? "").includes("text/html")) return reply.code(404).send({ error: { code: "NOT_FOUND", message: "资源不存在" } }); return reply.sendFile("index.html"); });
   }
   return app;

@@ -5,15 +5,17 @@ import { ArchitectureDrawingProgress, findArchitectureDrawing, statusText } from
 import { ArchitectureEditor } from './ArchitectureEditor';
 import { DeleteArchitectureButton } from './DeleteChatButton';
 import { ArchitectureCells, ArchitectureHeaders } from './ArchitectureColumns';
+import { ccrDefinition } from './architectureTemplates';
 import { WaferData } from './WaferData';
 import { RepairPanel } from './RepairPanel';
 import { SolverConclusions } from './SolverConclusions';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { FileRecord, ModelOption, TaskDetail, TaskArchitecture } from '@pixel/contracts';
 import { isActiveRun } from '@pixel/contracts';
 import type { Conversation } from './chatTypes';
 import { api, errorText, fileUrl } from './api';
 import { MarkdownMessage } from './MarkdownMessage';
+import { isAppRequest } from './UserMessageText';
 import { StatTile } from './StatTile';
 import { groupReplyMessages } from './replyMessages';
 import { Alert, Brush, ChevronDown, ChevronRight, Download, Pencil, Plus, RefreshCw } from './Icons';
@@ -27,8 +29,8 @@ function readExpandedArchitectures(taskId: string): Set<string> {
   } catch { return new Set(); }
 }
 
-type Props = { taskId: string; view: Exclude<TaskView, 'chat'>; revision: number; conversations: Conversation[]; connections: Record<string, string>; models: ModelOption[]; modelId: string; onRefresh: () => Promise<void>; onChat: (id: string) => void; onRepairChat: (id: string) => Promise<void>; onCreateChat: (taskId: string) => Promise<void>; onGeneratePreview: (architecture: TaskArchitecture) => Promise<void>; previewAvailable: boolean };
-export function TaskPanel({ taskId, view, revision, conversations, connections, models, modelId, onRefresh, onChat, onRepairChat, onCreateChat, onGeneratePreview, previewAvailable }: Props) {
+type Props = { taskId: string; view: Exclude<TaskView, 'chat'>; revision: number; conversations: Conversation[]; connections: Record<string, string>; models: ModelOption[]; modelId: string; onRefresh: () => Promise<void>; onChat: (id: string) => void; onRepairChat: (id: string) => Promise<void>; onCreateChat: (taskId: string) => Promise<void>; onGeneratePreview: (architecture: TaskArchitecture) => Promise<void>; previewAvailable: boolean; onOpenView: (view: Exclude<TaskView, 'chat'>) => void };
+export function TaskPanel({ taskId, view, revision, conversations, connections, models, modelId, onRefresh, onChat, onRepairChat, onCreateChat, onGeneratePreview, previewAvailable, onOpenView }: Props) {
   const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -38,6 +40,10 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
   const [editing, setEditing] = useState<{ id: string; name: string; description: string } | null>(null);
   const [reload, setReload] = useState(0);
   const [expandedArchitectures, setExpandedArchitectures] = useState(() => readExpandedArchitectures(taskId));
+  const panelRef = useRef<HTMLElement>(null);
+  const suggestedLayout = useMemo(() => detail?.architectures.map(architecture => ccrDefinition(architecture.description)?.array).find(Boolean), [detail?.architectures]);
+  // Each page opens at its top rather than at the previous page's scroll position.
+  useLayoutEffect(() => { panelRef.current?.scrollTo({ top: 0 }); }, [view]);
   useEffect(() => {
     try { localStorage.setItem(`pixel:expanded-architectures:${taskId}`, JSON.stringify([...expandedArchitectures])); }
     catch { /* Storage restrictions must not prevent folding in this session. */ }
@@ -64,8 +70,11 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
   const uploads = detail?.id === taskId ? detail.files.filter(file => file.kind === 'upload') : [];
   const artifacts = detail?.files.filter(file => file.kind === 'artifact') ?? [];
   const chats = conversations.filter(chat => chat.taskId === taskId);
+  // Diagram and repair-code chats belong to the Architecture and Repair runs pages, not the yield summary.
+  const resultChats = chats.filter(chat => !chat.messages.some(message => message.role === 'user' && isAppRequest(message.text)));
+  const resultArtifacts = artifacts.filter(file => resultChats.some(chat => chat.id === file.conversationId));
   const downloads = (files: FileRecord[]) => <ul className="task-files">{files.map(file => <li key={file.id}><a href={fileUrl(file)} download><Download /><span>{file.name}</span></a></li>)}</ul>;
-  return <section className="task-panel" aria-label={taskViewLabels[view]} aria-busy={loading || pending}>
+  return <section ref={panelRef} className="task-panel" aria-label={taskViewLabels[view]} aria-busy={loading || pending}>
     {/* The top bar already shows the task and view; keep the heading for assistive technology only. */}
     <h1 className="visually-hidden">{taskViewLabels[view]}{detail ? ` · ${detail.name}` : ''}</h1>
     {loading && !detail && <p role="status">{t("正在读取任务资料…")}</p>}
@@ -95,11 +104,12 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
         const previewReady = !!drawing && !!architecture.previews?.some(preview => preview.file.conversationId === drawing.conversation.id && preview.createdAt >= drawing.run.createdAt);
         const open = expandedArchitectures.has(architecture.id);
         const issues = [...new Set(architecture.previewIssues ?? [])].map(localizeMessage).join(' ');
-        const status = `${drawing || starting ? statusText(drawing?.run, starting, previewReady) : architecture.previews?.length ? t("{0} 份 Agent 绘图", architecture.previews.length) : t("尚无预览")}${drawingActive && drawing && connections[drawing.conversation.id] ? ` · ${connections[drawing.conversation.id]}` : ''}`;
+        const status = `${drawing || starting ? statusText(drawing?.run, starting, previewReady) : architecture.previews?.length ? t("{0} 份 AI 示意图", architecture.previews.length) : t("尚无预览")}${drawingActive && drawing && connections[drawing.conversation.id] ? ` · ${connections[drawing.conversation.id]}` : ''}`;
+        const answer = drawing && !isActiveRun(drawing.run.status) ? drawing.conversation.messages.filter(message => message.role === 'assistant' && message.runId === drawing.run.id && message.text.trim()).at(-1)?.text : undefined;
         const progress = <ArchitectureDrawingProgress key={starting ? 'starting' : drawing?.run.id ?? 'idle'} drawing={drawing} starting={starting} connection={drawing ? connections[drawing.conversation.id] : undefined} previewReady={previewReady} onOpenChat={onChat} />;
         return <Fragment key={architecture.id}>
           <tr className={`sheet-row ${open ? 'is-open' : ''}`} onClick={event => { if (!(event.target as Element).closest('button, a')) toggleArchitecture(architecture.id); }}>
-            <th scope="row"><button type="button" className="sheet-toggle" aria-expanded={open} aria-label={t("{0}架构：{1}", open ? t("折叠") : t("展开"), architecture.name)} title={architecture.name} onClick={() => toggleArchitecture(architecture.id)}>{open ? <ChevronDown /> : <ChevronRight />}<span>{architecture.name}</span></button>{architecture.sourceFile && <span className="data-badge">{t("快照")}</span>}</th><ArchitectureCells description={architecture.description} region />
+            <th scope="row"><button type="button" className="sheet-toggle" aria-expanded={open} aria-label={t("{0}架构：{1}", open ? t("折叠") : t("展开"), architecture.name)} title={architecture.name} onClick={() => toggleArchitecture(architecture.id)}>{open ? <ChevronDown /> : <ChevronRight />}<span>{architecture.name}</span></button>{architecture.sourceFile && <span className="data-badge">{t("来自文件")}</span>}</th><ArchitectureCells description={architecture.description} region />
             <td className={`sheet-optional ${drawing?.run.error || issues ? 'error-text' : 'sheet-muted'}`} title={[drawing?.run.error, issues].filter(Boolean).join(' · ') || status}>{issues && <Alert />}{status}</td>
             <td className="architecture-sheet-actions">
               {(() => {
@@ -116,7 +126,8 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
           {open && <tr className="sheet-detail"><td colSpan={9}><div>
             {issues && <p className="task-warning" role="status">{issues}</p>}
             <CcrLayoutPreview description={architecture.description} />
-            {drawingActive || drawing?.run.error || (drawing && !previewReady) ? progress : drawing ? <details className="architecture-record-details"><summary>{t("绘制记录 ·") + " "}{statusText(drawing.run, false, previewReady)}</summary>{progress}</details> : null}
+            {answer && previewReady && !drawing?.run.error && <MarkdownMessage text={answer} />}
+            {drawingActive || drawing?.run.error || (drawing && !previewReady) ? progress : drawing ? <details className="architecture-record-details"><summary>{t("AI 绘图记录 ·") + " "}{statusText(drawing.run, false, previewReady)}</summary>{progress}</details> : null}
             {!!architecture.previews?.length && <ArchitecturePreview previews={architecture.previews} />}
             <details className="architecture-record-details"><summary>{t("定义与来源")}</summary><pre className="architecture-definition">{architecture.description}</pre>
             {architecture.sourceConversationId && <button className="action-button" onClick={() => onChat(architecture.sourceConversationId!)}>{t("查看来源聊天")}</button>}
@@ -126,17 +137,17 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
         </Fragment>; })}</tbody>
       </table></div>}
     </>}
-    {view === 'data' && <WaferData key={taskId} taskId={taskId} files={uploads} onChanged={async () => { await onRefresh(); setReload(value => value + 1); }} />}
-    {view === 'repair' && detail && <RepairPanel taskId={taskId} architectures={detail.architectures} models={models} modelId={modelId} onChat={onRepairChat} />}
+    {view === 'data' && <WaferData key={taskId} taskId={taskId} files={uploads} suggestedLayout={suggestedLayout} onChanged={async () => { await onRefresh(); setReload(value => value + 1); }} />}
+    {view === 'repair' && detail && <RepairPanel taskId={taskId} architectures={detail.architectures} models={models} modelId={modelId} onChat={onRepairChat} onOpenView={onOpenView} />}
     {view === 'conclusions' && <>
-      <SolverConclusions key={taskId} taskId={taskId} revision={revision} models={models} />
-      {artifacts.length > 0 && <div className="stat-tiles">
-        <StatTile label={t("执行产物")} value={String(artifacts.length)} />
-        <StatTile label={t("报告")} value={String(detail?.reports.length ?? 0)} />
-        <StatTile label={t("含产物的聊天")} value={String(new Set(artifacts.map(file => file.conversationId)).size)} />
+      <SolverConclusions key={taskId} taskId={taskId} revision={revision} models={models} onOpenRuns={() => onOpenView('repair')} />
+      {resultArtifacts.length > 0 && <div className="stat-tiles">
+        <StatTile label={t("输出文件")} value={String(resultArtifacts.length)} />
+        <StatTile label={t("报告")} value={String(detail?.reports.filter(report => resultArtifacts.some(file => file.id === report.fileId)).length ?? 0)} />
+        <StatTile label={t("含输出文件的聊天")} value={String(new Set(resultArtifacts.map(file => file.conversationId)).size)} />
       </div>}
-      {chats.map(chat => {
-        const files = artifacts.filter(file => file.conversationId === chat.id);
+      {resultChats.map(chat => {
+        const files = resultArtifacts.filter(file => file.conversationId === chat.id);
         if (!files.length) return null;
         const reports = detail?.reports.filter(report => files.some(file => file.id === report.fileId)) ?? [];
         const reply = groupReplyMessages(chat.messages).filter(message => message.role === 'assistant' && message.text).at(-1);
@@ -144,7 +155,7 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
           <div className="task-record-heading"><h2>{chat.title}</h2><button className="action-button" onClick={() => onChat(chat.id)}>{t("打开聊天")}</button></div>
           {reports.map((report, index) => <details className="task-conclusion" open={index === 0} key={report.fileId}><summary>{files.find(file => file.id === report.fileId)?.name}</summary><MarkdownMessage text={report.text} /></details>)}
           {!reports.length && reply && <details className="task-conclusion" open><summary>{t("最近回复")}</summary><MarkdownMessage text={reply.text} /></details>}
-          <details open><summary>{t("执行产物（")}{files.length}{t("）")}</summary>{downloads(files)}</details>
+          <details open><summary>{t("输出文件（")}{files.length}{t("）")}</summary>{downloads(files)}</details>
         </article>;
       })}
     </>}

@@ -5,13 +5,13 @@ import { toolAnswer } from "./chatTools";
 import { requestId } from "./api";
 
 export type DemoReply = { text: string; tools?: MessageTool[] };
-const notice = () => t("> 本地工具演示：仅记录输入并模拟回复，未连接模型、读取附件或执行评估计算。");
+const notice = () => t("> 离线演示：只记录你的选择并显示示例回复；未连接 AI，不读取附件，也不执行计算。");
 const base = (title: string) => ({ id: requestId(), title, status: "pending" as const });
 const escapeCell = (value: unknown) => String(value).replace(/[\\`*_{}\[\]<>()#!~|]/g, "\\$&").replace(/\r?\n/g, " ");
 
 export function initialDemoReply(mode: Mode): DemoReply {
   if (mode === "数据分析") return {
-    text: t("## 数据分析准备\n\n{0}\n\n请先选择本轮的**分析目标**，提交后再选择统计指标。\n\n- [ ] 选择分析目标\n- [ ] 确定统计指标\n\n任务列表用于展示进度，请使用下方工具回答。", notice()),
+    text: t("## 数据分析准备\n\n{0}\n\n请先选择本轮的**分析目标**，提交后再选择统计指标。\n\n- [ ] 选择分析目标\n- [ ] 确定统计指标\n\n请在下方卡片中回答，任务列表会显示进度。", notice()),
     tools: [{ ...base(t("选择分析目标")), type: "single", options: [
       { value: "distribution", label: t("失效分布"), description: t("观察失效地址的分布") },
       { value: "clusters", label: t("聚集特征"), description: t("查看 row / col 聚集情况") },
@@ -39,7 +39,7 @@ export function initialDemoReply(mode: Mode): DemoReply {
 export function nextDemoReply(tool: InteractiveTool, result: ToolResult, conversation: Conversation): DemoReply {
   const answer = toolAnswer({ ...tool, status: "submitted", result });
   if (tool.type === "single") return {
-    text: t("## 选择统计指标\n\n已记录目标：**{0}**。\n\n至少选择一项指标，再生成配置摘要。\n\n{1}", escapeCell(answer), notice()),
+    text: t("## 选择统计指标\n\n已记录目标：**{0}**。\n\n至少选择一项指标，随后会显示你的选择摘要。\n\n{1}", escapeCell(answer), notice()),
     tools: [{ ...base(t("选择统计指标")), type: "multi", options: [
       { value: "count", label: t("失效数量") }, { value: "ratio", label: t("失效占比") },
       { value: "rows", label: t("row 分布") }, { value: "columns", label: t("col 分布") },

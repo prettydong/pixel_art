@@ -55,12 +55,12 @@ export function PixiDrawPreview({ preview, heading }: { preview: ArchitecturePre
       const PIXI = await import('pixi.js');
       await document.fonts.ready;
       if (cancelled) return;
-      if (!preview.draw) throw new Error(t("缺少 Agent draw 函数"));
+      if (!preview.draw) throw new Error(t("绘图脚本缺少 draw 函数"));
       const url = URL.createObjectURL(new Blob([preview.draw.source], { type: 'text/javascript' }));
       let draw: (ctx: DrawContext) => void;
       try {
         const module = await import(/* @vite-ignore */ url);
-        if (typeof module.draw !== 'function') throw new Error(t("draw.mjs 必须导出 draw(ctx) 函数"));
+        if (typeof module.draw !== 'function') throw new Error(t("绘图脚本缺少 draw 函数，请重新绘制示意图"));
         draw = module.draw;
       } finally { URL.revokeObjectURL(url); }
       if (cancelled) return;
@@ -167,7 +167,7 @@ export function PixiDrawPreview({ preview, heading }: { preview: ArchitecturePre
           const omitted = declutterArchitectureLabels(labels, width, height);
           setOmittedLabels(previous => previous.length === omitted.length && previous.every((value, index) => value === omitted[index]) ? previous : omitted);
           app.render(); setStatus({ step, lines, scale }); setReady(true); setError(''); canvas.style.visibility = 'visible';
-        } catch (err) { canvas.style.visibility = 'hidden'; setOmittedLabels([]); setError(err instanceof Error ? err.message : t("draw 执行失败")); setReady(false); }
+        } catch (err) { canvas.style.visibility = 'hidden'; setOmittedLabels([]); setError(err instanceof Error ? err.message : t("绘图脚本运行失败")); setReady(false); }
       };
       const schedule = () => { if (!frame) frame = requestAnimationFrame(paint); };
       const fit = () => {
@@ -201,7 +201,7 @@ export function PixiDrawPreview({ preview, heading }: { preview: ArchitecturePre
         if (fitting) fit(); else schedule();
       }); resize.observe(host);
       const theme = new MutationObserver(() => { app.renderer.resize(width, height, getRenderResolution()); schedule(); }); theme.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-      const lost = (event: Event) => { event.preventDefault(); setError(t("图形上下文丢失，请重新打开预览")); setReady(false); };
+      const lost = (event: Event) => { event.preventDefault(); setError(t("示意图显示中断，请重新打开预览")); setReady(false); };
       canvas.addEventListener('webglcontextlost', lost);
       cleanup = () => {
         controls.current = null; cancelAnimationFrame(frame); resize.disconnect(); theme.disconnect();
@@ -234,14 +234,14 @@ export function PixiDrawPreview({ preview, heading }: { preview: ArchitecturePre
     </details>}
     {/* The agent's narrative repeats its assumptions; keep it with the technical details when assumptions exist. */}
     {scene.assumptions.length > 0 ? <DrawingAssumptions items={scene.assumptions} /> : <p className="task-note">{scene.description}</p>}
-    <details className="drawing-record"><summary>{t("绘图细节（说明、指纹、配色、源码）")}</summary>
+    <details className="drawing-record"><summary>{t("绘图细节（说明、版本号、配色、脚本）")}</summary>
       {scene.assumptions.length > 0 && <p className="task-note">{scene.description}</p>}
-      <p>{t("架构指纹：")}<code>{scene.fingerprint}</code></p>
-      <p>{t("draw SHA256：")}<code>{preview.draw?.sha256}</code></p>
-      <div className="drawing-table"><table><thead><tr><th>{t("区域 / 分割线")}</th><th>{t("尺寸与位置（Agent 记录）")}</th><th>{t("颜色角色")}</th></tr></thead><tbody>{drawing.records.map((record, i) => <tr key={i}><td>{record.label}</td><td>{record.geometry}</td><td>{record.color}</td></tr>)}</tbody></table></div>
+      <p>{t("架构版本号：")}<code>{scene.fingerprint}</code></p>
+      <p>{t("绘图脚本校验码：")}<code>{preview.draw?.sha256}</code></p>
+      <div className="drawing-table"><table><thead><tr><th>{t("区域 / 分割线")}</th><th>{t("尺寸与位置（AI 记录）")}</th><th>{t("颜色角色")}</th></tr></thead><tbody>{drawing.records.map((record, i) => <tr key={i}><td>{record.label}</td><td>{record.geometry}</td><td>{record.color}</td></tr>)}</tbody></table></div>
       <div className="drawing-table"><table><thead><tr><th>{t("颜色角色")}</th><th>{t("主题变量")}</th><th>{t("亮色记录")}</th><th>{t("暗色记录")}</th></tr></thead><tbody>{Object.entries(scene.palette).map(([role, token]) => <tr key={role}><td>{role}</td><td>{token}</td><td>{preview.themeSnapshot[token]?.light}</td><td>{preview.themeSnapshot[token]?.dark}</td></tr>)}</tbody></table></div>
-      <details><summary>{t("查看 Agent draw 源码")}</summary><pre className="draw-source"><code>{preview.draw?.source}</code></pre></details>
-      <div className="panel-actions">{preview.draw && <a className="action-button" href={fileUrl(preview.draw.file)} download>{t("下载 draw.mjs")}</a>}<a className="action-button" href={fileUrl(preview.file)} download>{t("下载场景 JSON")}</a><a className="action-button" href={fileUrl(preview.recipe)} download>{t("下载生成脚本")}</a></div>
+      <details><summary>{t("查看绘图脚本")}</summary><pre className="draw-source"><code>{preview.draw?.source}</code></pre></details>
+      <div className="panel-actions">{preview.draw && <a className="action-button" href={fileUrl(preview.draw.file)} download>{t("下载绘图脚本")}</a>}<a className="action-button" href={fileUrl(preview.file)} download>{t("下载绘图数据（JSON）")}</a><a className="action-button" href={fileUrl(preview.recipe)} download>{t("下载生成脚本")}</a></div>
     </details>
   </div>;
 }

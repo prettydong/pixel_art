@@ -70,17 +70,21 @@ export function startSheetResize() {
   return () => { document.removeEventListener('pointerdown', start); document.removeEventListener('dblclick', restore); };
 }
 
-// Ref callback for a `.sheet-pinned` table: keeps its leading columns' sticky offsets (--pin-N) in step with their widths.
+// Ref callback for a `.sheet-pinned` table: keeps its leading columns' sticky offsets (--pin-N) in step with their widths,
+// and the visible frame width (--frame-width) so expanded detail rows stay in view.
 export function pinColumns(count: number) {
   return (table: HTMLTableElement | null) => {
     if (!table) return;
     const cells = headerCells(table).slice(0, count);
+    const frame = table.parentElement;
     const update = () => {
       let left = 0;
       cells.forEach((cell, index) => { table.style.setProperty(`--pin-${index}`, `${left}px`); left += cell.getBoundingClientRect().width; });
+      if (frame) table.style.setProperty('--frame-width', `${frame.clientWidth}px`);
     };
     const observer = new ResizeObserver(update);
     cells.forEach(cell => observer.observe(cell));
+    if (frame) observer.observe(frame);
     update();
     return () => observer.disconnect();
   };

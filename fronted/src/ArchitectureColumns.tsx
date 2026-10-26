@@ -5,8 +5,8 @@ import { architectureColumns } from './architectureTemplates';
 export function ArchitectureHeaders({ region = false }: { region?: boolean }) {
   return <>
     <th scope="col" className="sheet-num">{t("备用 row")}</th>
-    <th scope="col" className="sheet-num">{t("CCR col/组")}</th>
-    <th scope="col" className="sheet-num sheet-optional">{t("CCR 组/段")}</th>
+    <th scope="col" className="sheet-num">{t("每组备用 col")}</th>
+    <th scope="col" className="sheet-num sheet-optional">{t("每段组数")}</th>
     <th scope="col" className="sheet-num sheet-optional">Segment</th>
     {region && <><th scope="col" className="sheet-num sheet-optional">Row</th><th scope="col" className="sheet-num sheet-optional">Col</th></>}
   </>;

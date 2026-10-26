@@ -1,5 +1,26 @@
 # Local deployment
 
+## macOS workspace runtime
+
+The current local workspace is `/Volumes/app/repair_algo_project`. The backend
+listens on `127.0.0.1:3000` and serves `fronted/dist`. The browser's existing
+port `5173` uses `npm run start:fronted`, which streams requests to that backend,
+including API calls, downloads and SSE. Daily use should serve the production
+build rather than Vite's development module graph. Use
+`npm run dev -w pixel-chat-fronted -- --port 5174` when a separate development
+server with hot reload is needed.
+
+Production builds generate Brotli and gzip alternatives for JavaScript and CSS.
+The backend negotiates these encodings and caches hashed assets for one year;
+HTML revalidates on each visit. Build into a release staging directory, retain
+the previous assets for open tabs, and back up the runtime sources and build
+before publishing. The local backend currently runs under `tsx watch`, so
+copying backend source also requests a reload: confirm no active agent runs or
+Solver jobs before publishing those files. Keep the frontend proxy running
+during routine releases.
+
+## Linux gateway deployment
+
 - Browser URL: http://124.223.31.42:12300/proxy/20002/
 - Allowed browser origin: http://124.223.31.42:12300
 - Bind address: 127.0.0.1:20002

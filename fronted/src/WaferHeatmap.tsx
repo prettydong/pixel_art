@@ -67,7 +67,7 @@ export function WaferHeatmap({ decoded, stats: statistics, selected, onSelect }:
         })}
       </svg> : <p>{t("圆盘预览上限：")}{MAX_MAP_CHIPS.toLocaleString(getLanguage())} chip</p>}</div>
       <div className="wafer-map-key"><div className="wafer-legend" aria-label={t("fail 数量图例")}><span><i style={{ background: 'var(--wafer-0)' }} />0</span>{bands.map(band => <span key={band.color}><i style={{ background: `var(--wafer-${band.color})` }} />{band.low === band.high ? band.low.toLocaleString(getLanguage()) : `${band.low.toLocaleString(getLanguage())}–${band.high.toLocaleString(getLanguage())}`}</span>)}</div>
-        <p role="status">Chip {active.toLocaleString(getLanguage())}{cell ? t(" · 网格 ({0}, {1})", cell.x, cell.y) : ''}<br />{(counts[active] ?? 0).toLocaleString(getLanguage())} fail · {decoded.layout.regionCount} regions</p>
+        <p role="status">Chip {active.toLocaleString(getLanguage())}{cell ? t(" · 网格 ({0}, {1})", cell.x, cell.y) : ''}<br />{t("{0} fail · {1} 个 region", (counts[active] ?? 0).toLocaleString(getLanguage()), decoded.layout.regionCount)}</p>
       </div>
     </div>
   </section>;

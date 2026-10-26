@@ -9,7 +9,7 @@ import { requestId } from "./api";
 const STORAGE_KEY = "pixel-chat-tools-v1";
 const legacyModes: Record<string, Mode> = { 灵感搭子: "数据分析", 代码伙伴: "产品架构设置", 深度思考: "修补规则设计" };
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
-const newConversation = (): Conversation => ({ id: requestId(), title: t("新的工具演示"), mode: "数据分析", updated: Date.now(), messages: [], activeRun: null, lastRun: null });
+const newConversation = (): Conversation => ({ id: requestId(), title: t("新的离线演示对话"), mode: "数据分析", updated: Date.now(), messages: [], activeRun: null, lastRun: null });
 
 function readSaved(): Conversation[] {
   try {

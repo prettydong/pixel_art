@@ -7,6 +7,7 @@
   "scripts": {
     "build": "npm run build -w @pixel/contracts && npm run build -w pixel-chat-fronted && npm run build -w pixel-chat-backend",
     "start": "npm run start -w pixel-chat-backend",
+    "start:fronted": "node scripts/serve-fronted.mjs",
     "dev:backend": "npm run dev -w pixel-chat-backend",
     "dev:fronted": "npm run dev -w pixel-chat-fronted",
     "admin:create": "npm run admin:create -w pixel-chat-backend"

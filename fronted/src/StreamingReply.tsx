@@ -25,7 +25,7 @@ function ToolDetails({ tool, pending }: { tool: ToolCall; pending: boolean }) {
   const dotState = tool.status === 'running' ? (pending ? 'is-running' : 'is-interrupted') : tool.status === 'completed' ? '' : tool.status === 'failed' ? 'is-failed' : 'is-interrupted';
   const status = tool.status === 'running' ? (pending ? t("执行中") : t("已中断")) : tool.status === 'completed' ? t("完成") : tool.status === 'failed' ? t("失败") : t("已中断");
   return <ProcessDetails className="inline-tool" label={<><span className={`tool-dot ${dotState}`} aria-hidden="true" /><span className="tool-name">{tool.name}</span><span className={tool.status === 'failed' ? 'error-text' : ''}>{status}</span>{tool.durationMs !== undefined && <span>{(tool.durationMs / 1000).toFixed(1)} s</span>}</>}>
-    {tool.input !== undefined && <div><div className="detail-label">{t("调用参数")}</div><pre>{tool.input}</pre></div>}
+    {tool.input !== undefined && <div><div className="detail-label">{t("输入参数")}</div><pre>{tool.input}</pre></div>}
     {tool.text !== undefined && <div><div className="detail-label">{tool.status === 'running' && pending ? t("实时输出") : t("执行结果")}</div><pre>{tool.text || t("工具未返回文本输出。")}</pre></div>}
     {tool.text === undefined && <p className="detail-label">{tool.status === 'running' && pending ? t("等待工具输出…") : t("没有可用的执行输出记录。")}</p>}
   </ProcessDetails>;
@@ -68,17 +68,17 @@ function ProcessGroup({ items, pending }: { items: ProcessItem[]; pending: boole
   const interrupted = tools.filter(tool => tool.status === 'interrupted' || (!pending && tool.status === 'running')).length;
   const running = pending && items.some(item => item.kind === 'tool' ? item.tool.status === 'running' : !item.segment.generation?.finished);
   return <ProcessDetails className="process-group" keepMounted label={<>
-    <span className="process-group-title">{t("思考与工具")}</span>
-    {reasoningCount > 0 && <span>{reasoningCount} {" " + t("段思考")}</span>}
-    {tools.length > 0 && <span>{tools.length} {" " + t("次调用")}</span>}
+    <span className="process-group-title">{t("思考与操作")}</span>
+    {reasoningCount > 0 && <span>{t("{0} 段思考", reasoningCount)}</span>}
+    {tools.length > 0 && <span>{t("{0} 次操作", tools.length)}</span>}
     {running && <span className="process-group-status">{t("进行中")}</span>}
-    {failed > 0 && <span className="error-text">{failed} {" " + t("次失败")}</span>}
-    {interrupted > 0 && <span>{interrupted} {" " + t("次中断")}</span>}
+    {failed > 0 && <span className="error-text">{t("{0} 次失败", failed)}</span>}
+    {interrupted > 0 && <span>{t("{0} 次中断", interrupted)}</span>}
   </>}>
     {items.map(item => item.kind === 'tool'
       ? <ToolDetails key={item.key} tool={item.tool} pending={pending} />
       : <ProcessDetails key={item.key} className="reasoning-details" label={<span>{t("思考过程")}{pending && !item.segment.generation?.finished ? t(" · 生成中") : ''}</span>}>
-        <p className="detail-label">{t("模型返回的思考内容")}</p>
+        <p className="detail-label">{t("AI 的思考内容")}</p>
         <MarkdownMessage text={item.segment.reasoning!} />
       </ProcessDetails>)}
   </ProcessDetails>;
@@ -96,7 +96,7 @@ function GenerationStats({ message }: { message: ReplyMessage }) {
   return <div className="generation-stats" title={t("平均速度 = 输出 token / 模型调用耗时。包含首 token 等待，排除工具执行耗时；无用量统计时按字符估算，最终以模型返回为准。")}>
     <span>{estimated ? t("估算 ") : ''}{speed} token/s</span>
     <span>{estimated ? t("约 ") : ''}{tokens.toLocaleString(getLanguage())} token</span>
-    <span>{t("模型耗时") + " "}{(duration / 1000).toFixed(1)} s</span>
+    <span>{t("AI 用时") + " "}{(duration / 1000).toFixed(1)} s</span>
   </div>;
 }
 
@@ -114,5 +114,5 @@ export function StreamingReply({ message, pending, cards }: { message: ReplyMess
 
 function ChartResult({ tool }: { tool: ToolCall }) {
   const chart = useMemo(() => readChartTool(tool), [tool.name, tool.status, tool.text]);
-  return chart ? <Chart chart={chart} /> : <p className="chart-unavailable">{t("图表数据无效或不完整，请查看工具详情或让 agent 重新生成。")}</p>;
+  return chart ? <Chart chart={chart} /> : <p className="chart-unavailable">{t("图表数据无效或不完整，请让 AI 重新生成。")}</p>;
 }

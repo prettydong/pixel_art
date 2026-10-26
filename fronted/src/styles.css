@@ -145,6 +145,12 @@
   --wafer-0: #3a3935;
 }
 
+/* Japanese glyphs use installed system fonts; layout and type sizes stay shared. */
+:root:lang(ja) {
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans CJK JP", system-ui, sans-serif;
+  --font-serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK JP", serif;
+}
+
 * { box-sizing: border-box; }
 * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 @supports selector(::-webkit-scrollbar) {
@@ -156,10 +162,8 @@
   ::-webkit-scrollbar-corner { background: transparent; }
 }
 /* Reserve scrollbar space so content does not shift when a scrollbar appears; centered columns reserve both edges to stay centered. */
-:is(.history-list, .task-list, .sheet-scroll, .usage-sheet, .model-dropdown, .reply-details-body, .run-context, .attachments, .architecture-definition, .draw-source, .modal) { scrollbar-gutter: stable; }
+:is(.history-list, .task-list, .sheet-frame, .model-dropdown, .reply-details-body, .run-context, .attachments, .architecture-definition, .draw-source, .modal) { scrollbar-gutter: stable; }
 :is(.messages, .task-panel, .card-stage) { scrollbar-gutter: stable both-edges; }
-/* Browsers without scrollbar-gutter: an always-on, transparent track keeps the main columns from jumping when a section opens. */
-@supports not (scrollbar-gutter: stable) { :is(.messages, .task-panel, .card-stage, .history-list, .task-list) { overflow-y: scroll; } }
 html, body, #root { height: 100%; }
 body {
   margin: 0;
@@ -353,6 +357,15 @@ select option { background: var(--panel); color: var(--text); }
 .message.user .message-content { align-self: flex-end; max-width: min(85%, 640px); padding: 10px 14px; border-radius: var(--radius-lg); background: var(--user-bubble); color: var(--text); }
 .message.user .message-files { justify-content: flex-end; }
 .user-message-text { display: block; }
+.task-start { display: grid; gap: 12px; justify-items: start; max-width: 520px; margin: 48px auto 0; padding: 0 16px; }
+.task-start h2 { margin: 0; font-family: var(--font-serif); font-size: var(--text-lg); font-weight: 500; }
+.task-start p { margin: 0; color: var(--text-secondary); }
+.task-start-form { display: flex; gap: 8px; width: 100%; flex-wrap: wrap; }
+.task-start-form input { flex: 1 1 220px; min-width: 0; }
+.app-chat-note { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px 14px; border-radius: var(--radius); background: var(--accent-soft); }
+.app-request-details { margin-top: 6px; color: var(--muted); font-size: var(--text-sm); }
+.app-request-details summary { cursor: pointer; }
+.app-request-details > span { display: block; margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .reply-flow { display: grid; gap: 10px; min-width: 0; }
 .reply-details { min-width: 0; color: var(--muted); }
 .reply-details summary { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 4px 8px; margin-left: -8px; border-radius: var(--radius-sm); cursor: pointer; list-style: none; font-size: var(--text-sm); width: fit-content; max-width: calc(100% + 8px); }
@@ -807,12 +820,17 @@ select option { background: var(--panel); color: var(--text); }
 .sheet-note > td { padding-top: 0; white-space: normal; }
 .sheet-empty > td { color: var(--muted); }
 .sheet-scroll { max-height: min(420px, 55dvh); overflow-y: auto; }
+/* Keep this after the overflow shorthands above so older browsers retain the reserved track. */
+@supports not (scrollbar-gutter: stable) {
+  :is(.messages, .task-panel, .card-stage, .history-list, .task-list, .sheet-frame) { overflow-y: scroll; }
+}
 /* Pinned leading columns (see pinColumns): opaque so scrolled cells pass underneath, with a rule on the last one. */
 .sheet-pinned > * > tr:not(.sheet-detail) > :nth-child(-n + 3) { position: sticky; z-index: 1; background-color: var(--panel); }
 .sheet-pinned > thead > tr:not(.sheet-detail) > :nth-child(-n + 3) { z-index: 2; background-color: var(--bg); }
 .sheet-pinned > * > tr:not(.sheet-detail) > :nth-child(1) { left: var(--pin-0, 0); }
+.sheet-pinned .sheet-detail > td > div { position: sticky; left: 30px; width: calc(var(--frame-width, 100%) - 42px); min-width: 0; }
 .sheet-pinned > * > tr:not(.sheet-detail) > :nth-child(2) { left: var(--pin-1, 0); }
 .sheet-pinned > * > tr:not(.sheet-detail) > :nth-child(3) { left: var(--pin-2, 0); box-shadow: inset -1px 0 0 var(--line); }
 .sheet-pinned > tbody > .sheet-row:hover > :nth-child(-n + 3) { background: linear-gradient(var(--hover), var(--hover)) var(--panel); }
-@media (max-width: 640px) { .sheet-optional { display: none; } .sheet-detail > td { padding-left: 12px; } }
+@media (max-width: 640px) { .sheet-optional { display: none; } .sheet-detail > td { padding-left: 12px; } .sheet-pinned .sheet-detail > td > div { left: 12px; width: calc(var(--frame-width, 100%) - 24px); } }
 :root[data-motion="on"] .sheet-detail > td > div { animation: fade-down 200ms ease-out both; }

@@ -16,7 +16,10 @@ export const resetPasswordSchema = z.object({ password: passwordSchema.default(D
 export const changePasswordSchema = z.object({ currentPassword: passwordSchema, password: passwordSchema }).strict();
 export const createConversationSchema = z.object({ title: z.string().trim().min(1).max(120).default("新的评估对话"), mode: modeSchema.default("数据分析"), taskId: idSchema.optional() }).strict();
 export const updateConversationSchema = z.object({ title: z.string().trim().min(1).max(120).optional(), mode: modeSchema.optional(), taskId: idSchema.optional() }).strict();
-export const createRunSchema = z.object({ text: z.string().trim().min(1).max(100000), mode: modeSchema, modelId: z.string().min(1).max(256), fileIds: z.array(idSchema).max(20).default([]), idempotencyKey: idSchema }).strict();
+/** An "@" reference in a chat message to one of the task's architectures or attached wafers. */
+export const mentionSchema = z.object({ kind: z.enum(["architecture", "wafer"]), id: idSchema }).strict();
+export type MentionRef = z.infer<typeof mentionSchema>;
+export const createRunSchema = z.object({ text: z.string().trim().min(1).max(100000), mode: modeSchema, modelId: z.string().min(1).max(256), fileIds: z.array(idSchema).max(20).default([]), mentions: z.array(mentionSchema).max(20).optional(), idempotencyKey: idSchema }).strict();
 export type CreateRunInput = z.infer<typeof createRunSchema>;
 export type User = { id: string; username: string; role: "admin" | "user"; enabled: boolean; createdAt: number };
 export type ModelOption = { id: string; label: string; provider: string; model: string };
@@ -25,7 +28,11 @@ export type FileRecord = { id: string; conversationId: string | null; name: stri
 export type ToolCall = { id: string; name: string; status: "running" | "completed" | "failed" | "interrupted"; text?: string; input?: string; durationMs?: number; updatedAt?: number };
 /** Per-model-call throughput; elapsed time includes first-token latency, excludes tool execution. */
 export type Generation = { startedAt: number; updatedAt: number; outputTokens: number; estimated: boolean; finished: boolean };
-export type Message = { id: string; role: "user" | "assistant"; text: string; files: FileRecord[]; runId: string; createdAt: number; toolCalls?: ToolCall[]; reasoning?: string; generation?: Generation };
+/** What a mention pointed to when the message was sent; later edits to the architecture or wafer do not change it. */
+export type Mention =
+  | { kind: "architecture"; id: string; name: string; fingerprint: string; description: string }
+  | { kind: "wafer"; id: string; name: string; productName: string; chipCount: number; regionCount: number; rows: number; cols: number; synthetic: boolean; failCount: number; occupiedRegionCount: number };
+export type Message = { id: string; role: "user" | "assistant"; text: string; files: FileRecord[]; runId: string; createdAt: number; toolCalls?: ToolCall[]; reasoning?: string; generation?: Generation; mentions?: Mention[] };
 export const runStatuses = ["starting", "running", "cancelling", "completed", "failed", "cancelled", "interrupted"] as const;
 export type RunStatus = typeof runStatuses[number];
 export const isActiveRun = (status: RunStatus) => status === "starting" || status === "running" || status === "cancelling";
@@ -64,7 +71,8 @@ export type TaskArchitecture = { fingerprint: string; previews?: ArchitecturePre
 export type TaskDetail = EvaluationTask & { architectures: TaskArchitecture[]; reports: { fileId: string; text: string }[]; files: FileRecord[] };
 export type DemoTask = { task: EvaluationTask; architectures: TaskArchitecture[]; wafers: { id: string; name: string }[] };
 
-const repairBatchCommon = { modelId: z.string().min(1).max(256), idempotencyKey: idSchema, autoConclusion: z.boolean().default(true) };
+// language only names the AI coding chat; it is not part of the request identity.
+const repairBatchCommon = { modelId: z.string().min(1).max(256), idempotencyKey: idSchema, autoConclusion: z.boolean().default(true), language: z.enum(['en', 'zh-CN', 'ja']).optional() };
 export const repairBatchSchema = z.union([
   z.object({ pairs: z.array(z.object({ architectureId: idSchema, waferId: idSchema }).strict()).min(1).max(100), ...repairBatchCommon }).strict(),
   z.object({ architectureIds: z.array(idSchema).min(1).max(100), waferIds: z.array(idSchema).min(1).max(100), ...repairBatchCommon }).strict(),
@@ -87,6 +95,8 @@ export type RepairJob = {
   status: RepairJobStatus; modelId: string; conversationId: string | null; runId: string | null;
   createdAt: number; startedAt: number | null; finishedAt: number | null;
   processedRegions: number; totalRegions: number; error: string | null; summary: RepairSummary | null;
+  /** Non-empty result files that can be downloaded; absent from older servers. */
+  files?: string[];
 };
 export type RepairConclusion = { batchId: string; updatedAt: number; jobs: RepairJob[] };
 export type RepairPanelData = { datasets: RepairDataset[]; jobs: RepairJob[]; conclusion?: RepairConclusion | null };

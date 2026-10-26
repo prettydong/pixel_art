@@ -16,8 +16,10 @@ export function findArchitectureDrawing(conversations: Conversation[], architect
     const promptMatches = conversation.messages.some(message =>
       message.role === 'user' && message.runId === run.id
       && ((message.text.startsWith(drawingPrompt) && message.text.includes('架构预览'))
-        || message.text.startsWith('Independently design and generate a Pixi architecture preview for architecture '))
-      && (!architectureId || message.text.includes(t("（ID：{0}，", architectureId))
+        || message.text.startsWith('Independently design and generate a Pixi architecture preview for architecture ')
+        || message.text.startsWith('Generate a Pixi architecture preview for architecture ')
+        || (message.text.startsWith('現在のタスクのアーキテクチャ ') && message.text.includes('Pixi アーキテクチャプレビュー')))
+      && (!architectureId || message.text.includes(`（ID：${architectureId}，`)
         || message.text.includes(`(ID: ${architectureId},`)));
     return promptMatches ? [{ conversation, run }] : [];
   });
@@ -32,15 +34,15 @@ function tail(value: string, maximum: number) {
 }
 
 export function statusText(run: Run | undefined, starting: boolean, previewReady: boolean) {
-  if (!run) return starting ? t("正在启动绘制 Agent…") : t("等待绘制任务");
+  if (!run) return starting ? t("正在启动 AI 绘图…") : t("等待绘制任务");
   switch (run.status) {
-    case 'starting': return t("Agent 正在启动绘制…");
-    case 'running': return t("Agent 正在绘制…");
-    case 'cancelling': return t("Agent 正在取消…");
-    case 'completed': return previewReady ? t("预览已生成") : t("Agent 已结束，尚未发现有效预览；请查看绘制聊天。");
-    case 'failed': return t("Agent 绘制失败");
-    case 'cancelled': return t("Agent 已取消");
-    case 'interrupted': return t("Agent 已中断");
+    case 'starting': return t("AI 正在准备绘制…");
+    case 'running': return t("AI 正在绘制…");
+    case 'cancelling': return t("正在取消 AI 绘图…");
+    case 'completed': return previewReady ? t("预览已生成") : t("AI 已结束，但没有生成可用的示意图；请打开绘制聊天查看原因。");
+    case 'failed': return t("AI 绘图失败");
+    case 'cancelled': return t("AI 绘图已取消");
+    case 'interrupted': return t("AI 绘图已中断");
   }
 }
 
@@ -104,9 +106,9 @@ export function ArchitectureDrawingProgress({ drawing, starting = false, connect
   const noVisibleOutput = !visibleText && !tools.length;
   if (!drawing && !starting) return null;
 
-  return <section className="architecture-drawing-progress" aria-label={t("Agent 绘制进度")} aria-busy={starting || active}>
+  return <section className="architecture-drawing-progress" aria-label={t("AI 绘图进度")} aria-busy={starting || active}>
     <div className="architecture-drawing-progress-heading">
-      <div><h3>{t("Agent 绘制进度")}</h3><p role="status" className={run?.status === 'failed' ? 'error-text' : 'architecture-drawing-status'}>{localizeMessage(state)}</p></div>
+      <div><h3>{t("AI 绘图进度")}</h3><p role="status" className={run?.status === 'failed' ? 'error-text' : 'architecture-drawing-status'}>{localizeMessage(state)}</p></div>
       {run && <span className="architecture-drawing-elapsed">{t("已用时") + " "}{elapsedText(run.createdAt, active ? now : (run.finishedAt ?? run.createdAt))}</span>}
       {!run && starting && <span className="architecture-drawing-elapsed">{t("已等待") + " "}{elapsedText(startedLocally.current, now)}</span>}
     </div>
@@ -114,7 +116,7 @@ export function ArchitectureDrawingProgress({ drawing, starting = false, connect
       {connection && <span>{t("连接：")}{localizeMessage(connection)}</span>}
       {error && <span className="error-text">{localizeMessage(error)}</span>}
     </div>}
-    <div className="architecture-drawing-output" ref={outputRef} onScroll={observeScroll} tabIndex={0} role="log" aria-live="off" aria-label={t("Agent 绘制输出")}>
+    <div className="architecture-drawing-output" ref={outputRef} onScroll={observeScroll} tabIndex={0} role="log" aria-live="off" aria-label={t("AI 绘图输出")}>
       {visibleText && <div className="architecture-drawing-text">{visibleText}</div>}
       {!visibleText && hasGenerationOnly && active && <p className="architecture-drawing-waiting">{t("正在生成…")}</p>}
       {noVisibleOutput && (!hasGenerationOnly || !active) && <p className="architecture-drawing-waiting">{active || starting ? t("等待首段输出…") : t("无文字输出")}</p>}
@@ -123,7 +125,7 @@ export function ArchitectureDrawingProgress({ drawing, starting = false, connect
         {tool.text !== undefined ? <pre>{tail(tool.text, 1000) || t("无文本输出")}</pre> : <p>{t("无工具输出")}</p>}
       </details>)}
     </div>
-    {!following && <button type="button" className="action-button architecture-drawing-follow" onClick={follow}>{t("继续跟随输出")}</button>}
+    {!following && <button type="button" className="action-button architecture-drawing-follow" onClick={follow}>{t("跳到最新输出")}</button>}
     {drawing && <button type="button" className="action-button" onClick={() => onOpenChat(drawing.conversation.id)}>{t("查看绘制聊天")}</button>}
   </section>;
 }

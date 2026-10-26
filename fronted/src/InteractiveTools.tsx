@@ -189,7 +189,7 @@ function InteractiveToolCard({ tool, disabled, onSubmit }: {
           </div>
         )}
         {tool.status === "submitted" && <p className="interactive-tool-result" role="status">{resultSummary(tool)}</p>}
-        {tool.status === "expired" && <p className="interactive-tool-status">{t("此工具已失效，无法继续提交。")}</p>}
+        {tool.status === "expired" && <p className="interactive-tool-status">{t("此卡片已失效，无法再提交。")}</p>}
       </fieldset>
     </form>
   );
@@ -201,7 +201,7 @@ export function InteractiveTools({ tools, disabled = false, onSubmit }: Interact
       {tools.map((tool) => tool.type === "unavailable" ? (
         <section className="interactive-tool interactive-tool-unavailable" key={tool.id}>
           <h3>{tool.title}</h3>
-          <p className="interactive-tool-status">{t("工具格式未知或记录损坏，无法操作。")}</p>
+          <p className="interactive-tool-status">{t("此卡片无法读取。")}</p>
         </section>
       ) : <InteractiveToolCard key={tool.id} tool={tool} disabled={disabled} onSubmit={onSubmit} />)}
     </div>

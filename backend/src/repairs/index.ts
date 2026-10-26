@@ -28,6 +28,8 @@ const sha256 = (bytes: string | Buffer) => createHash('sha256').update(bytes).di
 const errorMessage = (error: unknown) => error instanceof Error ? error.message.slice(0, 4000) : '求解执行失败';
 
 /** A durable single-worker queue bounds compiler/solver load and reuses one generated device per batch architecture. */
+const repairFiles = ['dev.hpp', 'result.jsonl', 'manifest.json', 'compile.log'];
+
 class Repairs {
   private closing = false;
   private processing?: Promise<void>;
@@ -46,12 +48,18 @@ class Repairs {
     const program = this.program(row.program_id);
     const architecture = JSON.parse(program.architecture_json) as ArchitectureSnapshot;
     const dataset = JSON.parse(row.dataset_json) as RepairDataset;
+    // Offer the coding chat only while it still exists; a deleted chat would only answer "not found".
+    const chatAvailable = !!program.conversation_id && !!this.db.prepare('SELECT 1 FROM conversations WHERE id=? AND deleted_at IS NULL').get(program.conversation_id);
+    // Offer only result files that exist and have content; a run that failed early has none.
+    const files = !['completed', 'failed', 'cancelled', 'interrupted'].includes(row.status) ? [] : repairFiles.filter(name => {
+      try { const stat = statSync(resolve(this.directory(row), name)); return stat.isFile() && stat.size > 0; } catch { return false; }
+    });
     return {
       id: row.id, taskId: row.task_id, batchId: row.batch_id, architectureId: architecture.id, architectureName: architecture.name,
       architectureFingerprint: architecture.fingerprint, inputHash: row.input_hash, waferId: dataset.id, waferName: dataset.name, productName: dataset.productName,
-      synthetic: dataset.synthetic, status: row.status, modelId: row.model_id, conversationId: program.conversation_id, runId: program.run_id,
+      synthetic: dataset.synthetic, status: row.status, modelId: row.model_id, conversationId: chatAvailable ? program.conversation_id : null, runId: program.run_id,
       createdAt: row.created_at, startedAt: row.started_at, finishedAt: row.finished_at, processedRegions: row.processed_regions,
-      totalRegions: dataset.chipCount * dataset.regionCount, error: row.error, summary: row.summary_json ? JSON.parse(row.summary_json) as RepairSummary : null,
+      totalRegions: dataset.chipCount * dataset.regionCount, error: row.error, summary: row.summary_json ? JSON.parse(row.summary_json) as RepairSummary : null, files,
     };
   }
   private datasets(taskId: string, userId: string): RepairDataset[] {
@@ -136,7 +144,7 @@ class Repairs {
     }
     const batchId = randomUUID(); const now = Date.now();
     this.db.transaction(() => {
-      this.db.prepare('INSERT INTO repair_batches(id,task_id,user_id,request_key,request_hash,created_at,auto_conclusion) VALUES(?,?,?,?,?,?,?)').run(batchId, taskId, userId, input.idempotencyKey, requestHash, now, input.autoConclusion === false ? 0 : 1);
+      this.db.prepare('INSERT INTO repair_batches(id,task_id,user_id,request_key,request_hash,created_at,auto_conclusion,language) VALUES(?,?,?,?,?,?,?,?)').run(batchId, taskId, userId, input.idempotencyKey, requestHash, now, input.autoConclusion === false ? 0 : 1, input.language ?? null);
       for (const architecture of architectures) {
         const programId = randomUUID();
         this.db.prepare('INSERT INTO repair_programs(id,batch_id,architecture_json) VALUES(?,?,?)').run(programId, batchId, JSON.stringify(architecture));
@@ -217,7 +225,10 @@ class Repairs {
     this.phase(row.id, 'coding');
     const architecture = JSON.parse(previous.architecture_json) as ArchitectureSnapshot;
     const conversationId = randomUUID();
-    this.db.prepare('INSERT INTO conversations(id,user_id,title,mode,updated_at,task_id) VALUES(?,?,?,?,?,?)').run(conversationId, row.user_id, `C++ 架构编码 · ${architecture.name}`.slice(0, 120), '修补规则设计', Date.now(), row.task_id);
+    // Name the coding chat in the interface language the run was started in.
+    const language = (this.db.prepare('SELECT language FROM repair_batches WHERE id=?').get(row.batch_id) as { language: string | null } | undefined)?.language;
+    const titlePrefix = language === 'en' ? 'Repair code' : language === 'ja' ? '修復コード' : '修补代码';
+    this.db.prepare('INSERT INTO conversations(id,user_id,title,mode,updated_at,task_id) VALUES(?,?,?,?,?,?)').run(conversationId, row.user_id, `${titlePrefix} · ${architecture.name}`.slice(0, 120), '修补规则设计', Date.now(), row.task_id);
     this.db.prepare("UPDATE repair_programs SET status='coding',conversation_id=? WHERE id=?").run(conversationId, row.program_id);
     try {
       const workspace = ensureWorkspace(row.user_id, conversationId);
@@ -253,7 +264,7 @@ class Repairs {
   }
   download(taskId: string, userId: string, id: string, name: string) {
     taskRow(this.db, taskId, userId); const row = this.row(id);
-    if (row.task_id !== taskId || row.user_id !== userId || !['dev.hpp', 'result.jsonl', 'manifest.json', 'compile.log'].includes(name)) throw missing();
+    if (row.task_id !== taskId || row.user_id !== userId || !repairFiles.includes(name)) throw missing();
     const directory = this.directory(row);
     let filename: string;
     try { filename = securePath(config.dataDir, relative(config.dataDir, resolve(directory, name))); } catch { throw missing(); }

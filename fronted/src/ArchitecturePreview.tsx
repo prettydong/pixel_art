@@ -12,7 +12,7 @@ export function ArchitecturePreview({ previews }: { previews: PreviewRecord[] })
   const preview = previews.find(item => item.file.id === selected) ?? previews[0];
   if (!preview) return null;
   // The badge marks the drawing as agent-authored; it shares one line with the version picker and grid facts.
-  const heading = <><span className="data-badge">{t("Agent 绘图")}</span>
+  const heading = <><span className="data-badge">{t("AI 绘图")}</span>
     {previews.length > 1 && <select aria-label={t("预览版本")} value={preview.file.id} onChange={event => setSelected(event.target.value)}>{previews.map((item, index) => <option key={item.file.id} value={item.file.id}>{t("版本") + " "}{previews.length - index} · {new Date(item.createdAt).toLocaleString(getLanguage())}</option>)}</select>}</>;
   return <div className="architecture-preview">
     {preview.scene.draw ? <PixiDrawPreview key={preview.file.id} preview={preview} heading={heading} /> : <>
@@ -74,7 +74,7 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
             const label = new Text({ text: node.text, resolution: getRenderResolution(), style: { fontFamily: canvasFontFamily, fontSize: 12, fontWeight: '400', fill: color(node.color) } });
             label.roundPixels = true; label.position.set(node.x, node.y);
             if (Math.ceil(label.width) > node.width || Math.ceil(label.height) > node.height) {
-              label.destroy(); throw new Error(t("文字超出预留尺寸：{0}，请让Agent调整布局", node.id));
+              label.destroy(); throw new Error(t("文字超出预留区域：{0}，请重新绘制示意图以调整布局", node.id));
             }
             app.stage.addChild(label);
           } else if (node.type === 'grid') {
@@ -90,7 +90,7 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
       const redraw = () => { try { paint(); } catch (err) { canvas.style.visibility = 'hidden'; setReady(false); setError(err instanceof Error ? err.message : t("预览绘制失败")); } };
       const observer = new MutationObserver(() => { app.renderer.resize(scene.canvas.width, scene.canvas.height, getRenderResolution()); redraw(); });
       observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-      const lost = (event: Event) => { event.preventDefault(); setError(t("图形上下文丢失，请重新打开预览")); setReady(false); };
+      const lost = (event: Event) => { event.preventDefault(); setError(t("示意图显示中断，请重新打开预览")); setReady(false); };
       canvas.addEventListener('webglcontextlost', lost);
       cleanup = () => { observer.disconnect(); canvas.removeEventListener('webglcontextlost', lost); app.destroy(); };
       redraw();
@@ -106,12 +106,12 @@ function LegacyArchitecturePreview({ previews }: { previews: PreviewRecord[] }) 
     {error && <p role="alert" className="error-text">{localizeMessage(error)}</p>}
     {!ready && !error && visible && <p role="status">{t("正在绘制…")}</p>}
     {scene.assumptions.length > 0 ? <DrawingAssumptions items={scene.assumptions} /> : <p className="task-note">{scene.description}</p>}
-    <details className="drawing-record"><summary>{t("绘图记录 ·") + " "}{scene.canvas.width} × {scene.canvas.height} {" " + t("格 ·") + " "}{scene.nodes.length} {" " + t("个图元")}</summary>
+    <details className="drawing-record"><summary>{t("绘图记录 ·") + " "}{scene.canvas.width} × {scene.canvas.height} {" " + t("格 ·") + " "}{scene.nodes.length} {" " + t("个图形")}</summary>
       {scene.assumptions.length > 0 && <p className="task-note">{scene.description}</p>}
-      <p>{t("架构指纹：")}<code>{scene.fingerprint}</code></p>
+      <p>{t("架构版本号：")}<code>{scene.fingerprint}</code></p>
       <div className="drawing-table"><table><thead><tr><th>{t("颜色角色")}</th><th>{t("主题变量")}</th><th>{t("亮色记录")}</th><th>{t("暗色记录")}</th></tr></thead><tbody>{Object.entries(scene.palette).map(([role, token]) => <tr key={role}><td>{role}</td><td>{token}</td><td>{preview.themeSnapshot[token]?.light}</td><td>{preview.themeSnapshot[token]?.dark}</td></tr>)}</tbody></table></div>
       <div className="drawing-table"><table><thead><tr><th>{t("区域 / 分割线")}</th><th>{t("起点")}</th><th>{t("尺寸 / 网格")}</th><th>{t("颜色角色")}</th></tr></thead><tbody>{scene.nodes.filter(node => node.type !== 'text').map(node => <tr key={node.id}><td>{node.label || node.id}</td><td>{node.x}, {node.y}</td><td>{node.type === 'grid' ? t("{0} × {1}；单元 {2} × {3}；线宽 {4}", node.rows, node.cols, node.cellWidth, node.cellHeight, node.lineWidth) : `${node.width} × ${node.height}`}</td><td>{node.type === 'grid' ? node.lineColor : node.type === 'rect' ? node.fill : node.color}</td></tr>)}</tbody></table></div>
-      <div className="panel-actions"><a className="action-button" href={fileUrl(preview.file)} download>{t("下载场景 JSON")}</a><a className="action-button" href={fileUrl(preview.recipe)} download>{t("下载 Agent 脚本")}</a></div>
+      <div className="panel-actions"><a className="action-button" href={fileUrl(preview.file)} download>{t("下载绘图数据（JSON）")}</a><a className="action-button" href={fileUrl(preview.recipe)} download>{t("下载生成脚本")}</a></div>
     </details>
   </div>;
 }

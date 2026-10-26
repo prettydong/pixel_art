@@ -44,7 +44,7 @@ The frontend defaults to http://localhost:5173 and accesses the backend through 
 
 ## Features and Boundaries
 
-The interface defaults to English. Switch to Simplified Chinese on the login page or in settings; the choice is saved in the current browser. Switching languages does not translate or rewrite existing conversations, user-defined names, or uploaded materials.
+The interface defaults to English. Switch to Simplified Chinese or Japanese on the login page or in settings; the choice is saved in the current browser and also works within the session when storage is unavailable. Japanese translations load on demand. Switching languages does not translate or rewrite existing conversations, user-defined names, or uploaded materials.
 
 Frontend messages support GFM Markdown. The local demo for single choice, multiple choice, confirm/cancel, and forms is available at `?demo=tools`, or from the login page or model menu. It does not call the backend; its history is stored separately in the browser. See [frontend tools](FRONTEND_TOOLS.md) for component interfaces, demo flows, and manual acceptance checks.
 

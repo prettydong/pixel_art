@@ -97,7 +97,7 @@ function loadDejoa(db: Db, userId: string, requestKey: string): DemoTask {
       }
       for (const [rows, cols] of [[128, 2], [64, 2], [128, 1]]) {
         createTaskArchitecture(db, task.id, userId, { name: `DEJOA · R${rows} C${cols}`, description: JSON.stringify({
-          kind: 'pixel-architecture', version: 2, template: 'ccr-segmented', model: 'region-ccr',
+          kind: 'pixel-architecture', version: 2, template_id: 'ccr-segmented', model: 'region-ccr',
           array: { rows: layout.rows, cols: layout.cols, coordinate_base: 0 },
           device: { spare_rows: rows, ccr_groups_per_segment: 8, ccr_spares_per_group: Array(8).fill(cols), row_layout: {
             section_count: 16, sections_per_segment: 1, section_group_size: 2048, subsection_size: 2048, subsections_per_group: 1,

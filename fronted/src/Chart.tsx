@@ -10,6 +10,8 @@ export const Chart = memo(function Chart({ chart, yRange, colorIndices, compact 
   useLanguage();
   const id = useId();
   const table = chartTable(chart);
+  // The shared table helper writes Chinese default labels and brackets; show them in the current language.
+  const headers = table.headers.map(header => ['系列', '标签', '分类'].includes(header) ? t(header) : header.replace(/（([^（）]*)）$/, (_match, unit: string) => t("（{0}）", unit)));
   const label = t(Object.values(chartTools).find(tool => tool.kind === chart.kind)!.label);
   if (chart.kind === 'scatter') { table.headers[0] = t('系列'); table.headers[1] = t('标签'); }
   else if (chart.kind !== 'heatmap' && !chart.xLabel) table.headers[0] = t('分类');
@@ -22,7 +24,7 @@ export const Chart = memo(function Chart({ chart, yRange, colorIndices, compact 
       <div className="chart-table-scroll" tabIndex={0} role="region" aria-label={t("{0}原始数据", chart.title)}>
         <table>
           <caption>{chart.title}{chart.unit ? t("（{0}）", chart.unit) : ''}</caption>
-          <thead><tr>{table.headers.map((header, index) => <th key={index} scope="col">{header}</th>)}</tr></thead>
+          <thead><tr>{headers.map((header, index) => <th key={index} scope="col">{header}</th>)}</tr></thead>
           <tbody>{table.rows.map((row, index) => <tr key={index}>{row.map((cell, column) => column === 0 ? <th key={column} scope="row">{cell}</th> : <td key={column}>{cell ?? t("缺失")}</td>)}</tr>)}</tbody>
         </table>
       </div>

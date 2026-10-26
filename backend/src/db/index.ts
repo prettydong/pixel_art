@@ -2,6 +2,7 @@ import { migrateTasks } from "../tasks/index.js";
 import { migrateProducts } from "../data/index.js";
 import { migrateRepairs } from "../repairs/schema.js";
 import { migrateDemos } from '../demos/index.js';
+import { migrateMentions } from '../mentions/index.js';
 import Database from "better-sqlite3";
 import { createServer } from "node:net";
 import { createHash } from "node:crypto";
@@ -34,7 +35,7 @@ export function openDatabase() {
     CREATE INDEX IF NOT EXISTS usage_user_date ON usage(user_id,created_at);
     INSERT OR IGNORE INTO schema_migrations(version,applied_at) VALUES(1,${Date.now()});
   `);
-  try { migrateUserWorkspaces(db); migrateSessionCwds(db); migrateTasks(db); migrateProducts(db); migrateRepairs(db); migrateDemos(db); }
+  try { migrateUserWorkspaces(db); migrateSessionCwds(db); migrateTasks(db); migrateProducts(db); migrateRepairs(db); migrateDemos(db); migrateMentions(db); }
   catch (error) { db.close(); throw error; }
   return db;
 }

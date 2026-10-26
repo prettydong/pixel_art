@@ -7,7 +7,7 @@ import { errorText } from './api';
 import { DeleteChatButton } from './DeleteChatButton';
 
 export type TaskView = 'chat' | 'architecture' | 'data' | 'repair' | 'conclusions';
-export const taskViewLabels = { get chat() { return t("聊天"); }, get architecture() { return t("架构"); }, get data() { return t("数据"); }, get repair() { return t("任务求解"); }, get conclusions() { return t("执行结论"); } };
+export const taskViewLabels = { get chat() { return t("聊天"); }, get architecture() { return t("架构"); }, get data() { return t("Wafer 数据"); }, get repair() { return t("修补运行"); }, get conclusions() { return t("良率汇总"); } };
 type Props = {
   tasks: EvaluationTask[]; conversations: Conversation[]; runs: Record<string, Run>;
   activeTaskId: string; activeChatId: string; view: TaskView; disabled: boolean; loading: boolean;
@@ -61,7 +61,7 @@ export function TaskNavigation(props: Props) {
       try { await props.onLoadDemo(); }
       catch (err) { setError(errorText(err)); }
       finally { setPending(false); setDemoPending(false); }
-    }}><Chip /><span>{demoPending ? t('正在加载 DEJOA demo…') : t('加载 DEJOA demo')}</span></button>
+    }}><Chip /><span>{demoPending ? t('正在加载 DEJOA 演示…') : t('加载 DEJOA 演示')}</span></button>
     {form('new')}
     <nav className="task-list" aria-label={t("评估任务")}>
       {props.tasks.map(task => {
@@ -122,4 +122,26 @@ export function TaskNavigation(props: Props) {
 
 export function RunBadge() {
   return <span className="run-badge" role="img" aria-label={t("运行中")} title={t("运行中")} />;
+}
+
+/** Shown in the main area until the first task exists. */
+export function TaskStart({ disabled, onCreateTask, onLoadDemo }: { disabled: boolean; onCreateTask: (name: string) => Promise<void>; onLoadDemo: () => Promise<void> }) {
+  const [name, setName] = useState('');
+  const [pending, setPending] = useState<'task' | 'demo' | null>(null);
+  const [error, setError] = useState('');
+  async function run(kind: 'task' | 'demo', work: () => Promise<void>) {
+    if (disabled || pending) return;
+    setPending(kind); setError('');
+    try { await work(); } catch (err) { setError(errorText(err)); } finally { setPending(null); }
+  }
+  return <section className="task-start" aria-labelledby="task-start-heading">
+    <h2 id="task-start-heading">{t("开始一项评估")}</h2>
+    <p>{t("每个任务包含架构和 wafer 数据；随后启动修补运行，并在良率汇总中比较结果。")}</p>
+    <form className="task-start-form" onSubmit={event => { event.preventDefault(); if (name.trim()) void run('task', () => onCreateTask(name.trim())); }}>
+      <input aria-label={t("新任务名称")} placeholder={t("输入任务名")} required maxLength={120} value={name} disabled={disabled || !!pending} onChange={event => setName(event.target.value)} />
+      <button className="action-button primary" disabled={disabled || !!pending || !name.trim()}><Plus />{t("新建任务")}</button>
+    </form>
+    <button type="button" className="action-button" disabled={disabled || !!pending} onClick={() => void run('demo', onLoadDemo)}><Chip />{pending === 'demo' ? t('正在加载 DEJOA 演示…') : t('加载 DEJOA 演示')}</button>
+    {error && <p className="error-text" role="alert">{localizeMessage(error)}</p>}
+  </section>;
 }

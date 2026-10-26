@@ -23,12 +23,12 @@ export default function pixelChatCards(pi) {
 
   pi.registerTool({
     name: "pixel_configure_solver",
-    label: "配置 Solver",
-    description: "提出一组 Solver 运行组合（架构 × wafer 全组合），聊天中显示配置卡片，由用户点击应用到 Solver 待运行列表。不会启动求解。",
-    promptSnippet: "提出 Solver 架构 × wafer 组合",
+    label: "配置修补运行",
+    description: "提出一组修补运行（架构 × wafer 全组合），聊天中显示配置卡片，由用户点击加入“修补运行”页的待运行列表。不会启动修补。",
+    promptSnippet: "提出修补运行的架构 × wafer 组合",
     promptGuidelines: [
-      "用户要求配置、准备或比较 Solver 运行组合时，调用 pixel_configure_solver，architectureIds 与 waferIds 必须来自 PIXEL_TASK_CONTEXT 的 architectures[].id 和 wafers[].id，不要猜测 ID。",
-      "pixel_configure_solver 只生成待应用的配置卡片；说明用户需点击应用并在 Solver 页手动运行，不要声称已运行或已有结果。",
+      "用户要求配置、准备或比较修补运行组合时，调用 pixel_configure_solver，architectureIds 与 waferIds 必须来自 PIXEL_TASK_CONTEXT 的 architectures[].id 和 wafers[].id，不要猜测 ID。",
+      "pixel_configure_solver 只生成待应用的配置卡片；说明用户需点击卡片加入待运行列表，并在“修补运行”页手动启动，不要声称已运行或已有结果。",
     ],
     parameters: cardParametersFor("solver"),
     async execute(_toolCallId, parameters, signal) {
