@@ -26,6 +26,7 @@ import { SidebarResizeHandle } from './SidebarResizeHandle';
 import { Thinking } from "./Thinking";
 import { sparkBurst, sparkBurstFrom } from "./fun";
 import { EvaluationDiagram } from './EvaluationDiagram';
+import { TopicPlan, planFields, type PlanField } from './TopicPlan';
 import { MentionIcon, MentionPicker, MentionTables } from './Mentions';
 import { activeMentions, filterMentions, mentionKey, mentionQuery, unmention, type MentionQuery } from './mentionText';
 import {
@@ -169,8 +170,8 @@ export default function Workspace({ user, demoMode = false }: { user: User; demo
   // Without a conversation (still loading, or no task exists) there is nothing to type into.
   const noConversation = !demoMode && !active.id;
   const showCards = !noConversation && !active.messages.length && enteredId !== active.id;
-  // An entered, empty conversation gives the remaining height to the draft.
-  const fillComposer = !showCards && !visibleMessages.length;
+  // An entered, empty conversation shows the chosen direction's plan above the normal-size composer.
+  const planPanel = !showCards && !visibleMessages.length ? evaluationPanels.find(panel => panel.mode === active.mode) : undefined;
   const sidebarVisible = compact ? mobileOpen : !sidebarCollapsed;
   // "@" references the chat's own task; the offline demo has no task to reference.
   const mentionTaskId = demoMode ? '' : active.taskId ?? '';
@@ -248,6 +249,13 @@ export default function Workspace({ user, demoMode = false }: { user: User; demo
     return () => { alive = false; };
   }, [mentionOpen, mentionTaskId, taskState.revision]);
   useEffect(() => { setMentionIndex(0); }, [mentionMenu?.start, mentionMenu?.query]);
+  // The composer grows with its text; CSS caps it at 40% of the window height.
+  useLayoutEffect(() => {
+    const element = inputRef.current;
+    if (!element) return;
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
+  }, [draft, active.id, showCards, taskView]);
   useLayoutEffect(() => {
     const caret = pendingCaret.current;
     if (caret === null) return;
@@ -304,6 +312,29 @@ export default function Workspace({ user, demoMode = false }: { user: User; demo
     setDraft(draft.slice(0, mentionMenu.start) + token + after);
     setMentions(previous => [...previous.filter(mention => mentionKey(mention) !== mentionKey(option)), option]);
     setMentionMenu(null);
+  }
+  /** Puts the caret at the end of a plan point's line in the draft, adding the line if it was removed. */
+  function focusPlanField(field: PlanField) {
+    const element = inputRef.current;
+    if (!element) return;
+    const lines = draft.split('\n');
+    let offset = 0;
+    for (const [index, line] of lines.entries()) {
+      if (line.trimStart().startsWith(field.prefix)) {
+        // A blank "Field:" line gets the space an answer needs; full-width "：" needs none.
+        const spaced = line.endsWith(':') ? ' ' : '';
+        const caret = offset + line.length + spaced.length;
+        element.focus();
+        if (spaced) { lines[index] = line + spaced; pendingCaret.current = caret; setDraft(lines.join('\n')); }
+        else element.setSelectionRange(caret, caret);
+        return;
+      }
+      offset += line.length + 1;
+    }
+    const addition = `${draft && !draft.endsWith('\n') ? '\n' : ''}${field.prefix}${field.prefix.endsWith(':') ? ' ' : ''}`;
+    pendingCaret.current = draft.length + addition.length;
+    setDraft(draft + addition);
+    element.focus();
   }
   function startMention() {
     const element = inputRef.current;
@@ -727,7 +758,10 @@ export default function Workspace({ user, demoMode = false }: { user: User; demo
                   </div>
                 </section>
               </div>
-            ) : !fillComposer && (
+            ) : planPanel ? (
+              <TopicPlan kind={planPanel.kind} icon={planPanel.icon} title={t(planPanel.mode)} outcome={planPanel.outcome}
+                draft={draft} fields={planFields(planPanel.prompt)} onField={focusPlanField} />
+            ) : (
               <section
                 className="messages"
                 ref={messagesRef}
@@ -793,7 +827,7 @@ export default function Workspace({ user, demoMode = false }: { user: User; demo
               {(currentRun || submitting || uploading) && <div className="run-status" role="status">{uploading ? t("附件上传中") : submitting ? t("正在提交…") : `${statusLabel[currentRun!.status]}${busy && connections[active.id] ? ` · ${localizeMessage(connections[active.id])}` : ''}`}{currentRun?.error && <span className="error-text">{localizeMessage(currentRun.error)}</span>}</div>}
 
             </div>
-            <div className={`composer-area ${fillComposer ? "fill" : ""}`}>
+            <div className="composer-area">
               <div className="composer">
                 {mentionOpen && <MentionPicker id="mention-picker" options={mentionOptions.items} matches={mentionMatches}
                   loading={mentionOptions.loading} error={mentionOptions.error ? localizeMessage(mentionOptions.error) : ''}

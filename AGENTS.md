@@ -46,7 +46,7 @@ This file records the design and collaboration requirements confirmed by the use
 
 - Conversation content (messages, composer, run status) is centered at `--chat-width` (820 px) with the scroll area spanning the full main width; task panels (architecture, data, Solver, conclusions) use the full width up to 1200 px. Do not add large empty welcome areas.
 - Baseline: sidebar 272 px by default (resizable, 20% of the window clamped to 220–320 px), top bar 48 px, composer as a rounded card with a bottom toolbar.
-- In an empty conversation, use the remaining area for editing the draft. After the conversation begins, the message area fills the remaining height and scrolls independently, with a compact input box at the bottom.
+- The input box never fills the page. In an empty conversation with a chosen direction, the area above it shows that direction's topic plan (`fronted/src/TopicPlan.tsx`): the starter prompt's points, ticked off as the draft fills them in, and clicking one moves the caret to it. The input box keeps its normal size and grows with its text up to 40% of the window height. After the conversation begins, the message area fills the remaining height and scrolls independently, with the same input box at the bottom.
 - Place mode, attachment, and engine selectors in the same compact toolbar, allowing wrapping in small windows. Collapse the sidebar on narrow screens (below 760 px) instead of shrinking content.
 - User messages appear as right-aligned bubbles; assistant replies are plain text without avatars or name labels (names remain available to screen readers).
 - Remove purely decorative small text, slogans, cards, and status bars. Do not reintroduce marketing copy, duplicate avatars, or nonfunctional modules that occupy space.

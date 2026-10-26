@@ -1115,7 +1115,11 @@ export const english = {
   "引用的架构和 wafer": "Referenced architectures and wafers",
   "移除引用 {0}": "Remove reference {0}",
   "引用：{0}": "References: {0}",
-  "引用的架构或 wafer 已不在当前任务中，请重新选择": "A referenced architecture or wafer is no longer in this task. Type @ and choose it again."
+  "引用的架构或 wafer 已不在当前任务中，请重新选择": "A referenced architecture or wafer is no longer in this task. Type @ and choose it again.",
+  "主题计划": "Topic plan",
+  "已填写 {0}/{1}": "{0}/{1} filled",
+  "在输入框中填写此项": "Fill this in the message box",
+  "已填写": "Filled"
 } as const;
 
 export type TranslationKey = keyof typeof english;

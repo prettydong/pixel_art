@@ -410,16 +410,14 @@ select option { background: var(--panel); color: var(--text); }
 
 /* Composer */
 .composer-area { flex: 0 0 auto; width: 100%; max-width: calc(var(--chat-width) + 32px); margin: 0 auto; padding: 4px 16px 16px; display: flex; flex-direction: column; min-height: 0; }
-.composer-area.fill { flex: 1 1 auto; padding-top: 24px; }
 .composer {
   flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px 10px 8px 14px;
   border: 1px solid var(--line-strong); border-radius: var(--radius-xl);
   background: var(--panel); box-shadow: var(--shadow-md);
 }
 .composer:focus-within { border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong)); }
-.composer textarea { display: block; flex: 1; width: 100%; min-height: 48px; max-height: 40dvh; padding: 2px 4px 0 0; margin: 0 0 6px; border: 0; border-radius: 0; outline: none; resize: none; background: transparent; box-shadow: none; font-size: 15px; line-height: 1.55; }
+.composer textarea { display: block; flex: 0 0 auto; width: 100%; min-height: 48px; max-height: 40dvh; padding: 2px 4px 0 0; margin: 0 0 6px; border: 0; border-radius: 0; outline: none; resize: none; background: transparent; box-shadow: none; font-size: 15px; line-height: 1.55; }
 .composer textarea:focus-visible { box-shadow: none; }
-.composer-area.fill textarea { max-height: none; }
 .composer-bottom { flex: 0 0 auto; display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin-left: -6px; }
 .composer-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-width: 0; }
 .mode-trigger, .model-trigger { display: flex; align-items: center; gap: 4px; min-height: 30px; padding: 4px 8px; border-radius: var(--radius); color: var(--muted); font-size: var(--text-sm); }

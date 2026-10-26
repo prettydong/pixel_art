@@ -1,4 +1,4 @@
-/* "@" picker: opens above the composer; inside it when the composer fills the page. */
+/* "@" picker: opens above the composer. */
 .composer { position: relative; }
 .mention-picker {
   position: absolute; z-index: 20; left: 0; right: 0; bottom: calc(100% + 6px);
@@ -6,7 +6,6 @@
   border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--elevated); box-shadow: var(--shadow-lg);
   font-size: var(--text-sm);
 }
-.composer-area.fill .mention-picker { left: 8px; right: 8px; bottom: 48px; }
 .mention-picker-note { margin: 0; padding: 8px 10px; color: var(--muted); }
 .mention-group { display: grid; grid-template-columns: minmax(0, 1fr) repeat(var(--mention-columns), auto); }
 .mention-group + .mention-group { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
