@@ -773,8 +773,8 @@ export default function Workspace({ user, demoMode = false }: { user: User; demo
                 aria-busy={busy}
               >
                 {appChatKind && active.taskId && <div className="app-chat-note">
-                  <span>{appChatKind === 'drawing' ? t("这是 AI 绘制架构示意图的记录；示意图显示在架构页。") : t("这是 AI 编写修补代码的记录；修补结果显示在修补运行页。")}</span>
-                  <button className="action-button" onClick={() => openTask(active.taskId!, appChatKind === 'drawing' ? 'architecture' : 'repair')}>{appChatKind === 'drawing' ? t("前往架构页") : t("前往修补运行页")}</button>
+                  <span>{appChatKind === 'drawing' ? t("这是 AI 绘制架构示意图的记录；示意图显示在架构页。") : appChatKind === 'csl-check' ? t("这是 AI 编写 CSL 规则检查脚本的记录；检查结果显示在 CSL 规则页。") : t("这是 AI 编写修补代码的记录；修补结果显示在修补运行页。")}</span>
+                  <button className="action-button" onClick={() => openTask(active.taskId!, appChatKind === 'drawing' ? 'architecture' : appChatKind === 'csl-check' ? 'rules' : 'repair')}>{appChatKind === 'drawing' ? t("前往架构页") : appChatKind === 'csl-check' ? t("前往 CSL 规则页") : t("前往修补运行页")}</button>
                 </div>}
                 {visibleMessages.map((m, index) => (
                   <article key={m.id} className={`message ${m.role}`}>

@@ -26,13 +26,14 @@ export function DeleteChatButton({ title, disabled, onDelete }: { title: string;
   >{armed ? t("删除") : <Trash2 />}</button>;
 }
 
-export function DeleteArchitectureButton({ name, disabled, onDelete }: { name: string; disabled: boolean; onDelete: () => void }) {
+export function DeleteArchitectureButton({ name, disabled, onDelete, kind = 'architecture' }: { name: string; disabled: boolean; onDelete: () => void; kind?: 'architecture' | 'rules' }) {
   const [armed, setArmed] = useArmedDelete(disabled);
+  const rules = kind === 'rules';
   return <button
     className={`icon-button delete-architecture ${armed ? 'armed' : ''}`}
     disabled={disabled}
-    aria-label={armed ? t("确认删除架构：{0}", name) : t("删除架构：{0}", name)}
-    title={armed ? t("再次点击确认删除") : t("删除架构")}
+    aria-label={armed ? (rules ? t("确认删除规则集：{0}", name) : t("确认删除架构：{0}", name)) : rules ? t("删除规则集：{0}", name) : t("删除架构：{0}", name)}
+    title={armed ? t("再次点击确认删除") : rules ? t("删除规则集") : t("删除架构")}
     onBlur={() => setArmed(false)}
     onClick={() => { if (armed) { setArmed(false); onDelete(); } else setArmed(true); }}
   >{armed ? <Check /> : <Trash2 />}</button>;

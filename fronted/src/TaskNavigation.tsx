@@ -2,12 +2,12 @@ import { localizeMessage, t } from './i18n';
 import { useEffect, useState } from 'react';
 import { isActiveRun, type EvaluationTask, type Run } from '@pixel/contracts';
 import type { Conversation } from './chatTypes';
-import { BarChart, ChevronDown, ChevronRight, Chip, Ellipsis, Folder, MessageSquare, Plus, Repair } from './Icons';
+import { BarChart, ChevronDown, ChevronRight, Chip, CslLines, Ellipsis, Folder, MessageSquare, Plus, Repair } from './Icons';
 import { errorText } from './api';
 import { DeleteChatButton } from './DeleteChatButton';
 
-export type TaskView = 'chat' | 'architecture' | 'data' | 'repair' | 'conclusions';
-export const taskViewLabels = { get chat() { return t("聊天"); }, get architecture() { return t("架构"); }, get data() { return t("Wafer 数据"); }, get repair() { return t("修补运行"); }, get conclusions() { return t("良率汇总"); } };
+export type TaskView = 'chat' | 'architecture' | 'rules' | 'data' | 'repair' | 'conclusions';
+export const taskViewLabels = { get chat() { return t("聊天"); }, get architecture() { return t("架构"); }, get rules() { return t("CSL 规则"); }, get data() { return t("Wafer 数据"); }, get repair() { return t("修补运行"); }, get conclusions() { return t("良率汇总"); } };
 type Props = {
   tasks: EvaluationTask[]; conversations: Conversation[]; runs: Record<string, Run>;
   activeTaskId: string; activeChatId: string; view: TaskView; disabled: boolean; loading: boolean;
@@ -94,7 +94,7 @@ export function TaskNavigation(props: Props) {
             }}>{pending ? t("正在删除…") : t("确认删除")}</button><button type="button" className="action-button" disabled={pending} onClick={() => { setDeletingTask(null); setError(''); }}>{t("取消")}</button></div>
           </div>}
           {open && <div className="task-children">
-            {([{ view: 'architecture', icon: Chip }, { view: 'data', icon: Folder }, { view: 'repair', icon: Repair }, { view: 'conclusions', icon: BarChart }] as const).map(item => <button
+            {([{ view: 'architecture', icon: Chip }, { view: 'rules', icon: CslLines }, { view: 'data', icon: Folder }, { view: 'repair', icon: Repair }, { view: 'conclusions', icon: BarChart }] as const).map(item => <button
               key={item.view} className={`task-resource ${props.activeTaskId === task.id && props.view === item.view ? 'selected' : ''}`}
               aria-current={props.activeTaskId === task.id && props.view === item.view ? 'page' : undefined}
               disabled={props.disabled}

@@ -100,3 +100,23 @@ export type RepairJob = {
 };
 export type RepairConclusion = { batchId: string; updatedAt: number; jobs: RepairJob[] };
 export type RepairPanelData = { datasets: RepairDataset[]; jobs: RepairJob[]; conclusion?: RepairConclusion | null };
+
+/** A col plane (CP) holds CSL_PER_CP column select lines (CSL); each CSL selects one col, so CSL index = col index. */
+export const CSL_PER_CP = 64;
+export const MAX_CP_COUNT = 64;
+const cslIndexSchema = z.number().int().min(0).max(CSL_PER_CP * MAX_CP_COUNT - 1);
+export const cslRuleSetSchema = z.object({ name: z.string().trim().min(1).max(120), cpCount: z.number().int().min(1).max(MAX_CP_COUNT), rules: z.string().trim().min(1).max(20000) }).strict();
+export const cslRuleUpdateSchema = z.object({ name: cslRuleSetSchema.shape.name.optional(), cpCount: cslRuleSetSchema.shape.cpCount.optional(), rules: cslRuleSetSchema.shape.rules.optional(), used: z.array(cslIndexSchema).max(CSL_PER_CP * MAX_CP_COUNT).optional() }).strict();
+export const cslCheckerRequestSchema = z.object({ modelId: z.string().min(1).max(256), language: z.enum(['en', 'zh-CN', 'ja']).optional() }).strict();
+export type CslRuleSetInput = z.infer<typeof cslRuleSetSchema>;
+export type CslCheckerStatus = 'coding' | 'ready' | 'failed';
+/** The AI-written check script; it applies only while `fingerprint` matches the rule set's current fingerprint. */
+export type CslChecker = {
+  status: CslCheckerStatus; fingerprint: string; modelId: string; conversationId: string | null; runId: string | null;
+  source: string | null; sha256: string | null; error: string | null; createdAt: number;
+};
+export type CslRuleSet = {
+  id: string; taskId: string; name: string; cpCount: number; cslPerCp: number; rules: string;
+  /** Global CSL indices (cp * cslPerCp + csl) the user marked as used. */
+  used: number[]; fingerprint: string; updatedAt: number; checker: CslChecker | null;
+};

@@ -1,0 +1,44 @@
+.csl-rules { display: grid; gap: 14px; }
+.csl-rule-tabs .architecture-editor-mode { flex-wrap: wrap; }
+.csl-rule-view { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); }
+.csl-rule-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.csl-rule-heading h2 { margin: 0; font-family: var(--font-serif); font-size: var(--text-lg); font-weight: 500; }
+.csl-rule-heading .panel-actions { margin-left: auto; }
+.csl-rule-text p { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.csl-checker { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 10px 12px; border-radius: var(--radius); background: var(--hover); }
+.csl-checker-status { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--text-sm); }
+.csl-checker-status .icon { flex: 0 0 auto; color: var(--muted); }
+.csl-engine { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--text-secondary); }
+.csl-engine select { max-width: 220px; }
+:root[data-motion="on"] .csl-checker .is-spinning { animation: icon-spin 1.2s linear infinite; }
+.csl-rule-reading ol { display: grid; gap: 8px; margin: 8px 0; padding-left: 20px; }
+.csl-rule-reading li p { margin: 2px 0 0; }
+.csl-rule-reading strong { font-family: var(--font-mono); font-size: var(--text-sm); }
+.csl-source { max-height: 360px; overflow: auto; margin: 8px 0 0; padding: 10px 12px; border-radius: var(--radius); background: var(--code-bg); font-family: var(--font-mono); font-size: var(--text-xs); }
+.csl-selection { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 8px; }
+.csl-selection .architecture-editor-field { flex: 1 1 320px; }
+.csl-selection input { font-family: var(--font-mono); }
+.csl-selection input[aria-invalid="true"] { border-color: var(--danger); }
+.csl-selection .error-text { flex-basis: 100%; margin: 0; font-size: var(--text-sm); }
+.csl-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 20px; font-size: var(--text-xs); color: var(--text-secondary); }
+.csl-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.csl-legend .csl-hover { margin-left: auto; font-family: var(--font-mono); color: var(--text); }
+.csl-swatch { display: inline-block; width: 16px; height: 3px; border-radius: 2px; background: var(--line-strong); }
+.csl-swatch.is-used { background: var(--accent); }
+.csl-swatch.is-violation { background: var(--danger); }
+.csl-swatch.is-blocked { background: repeating-linear-gradient(90deg, var(--muted) 0 3px, transparent 3px 5px); opacity: .6; }
+.csl-map { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 12px 6px; user-select: none; }
+.csl-cp { min-width: 0; }
+.csl-cp-label { display: flex; justify-content: space-between; gap: 4px; padding: 0 4px 4px; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary); }
+.csl-cp svg { display: block; cursor: pointer; border-radius: var(--radius-sm); background: var(--input-surface); box-shadow: inset 0 0 0 1px var(--line); }
+.csl-line { stroke: var(--line-strong); stroke-width: 3; stroke-linecap: round; pointer-events: none; }
+.csl-line.is-used { stroke: var(--accent); }
+.csl-line.is-violation { stroke: var(--danger); }
+.csl-line.is-blocked { stroke: var(--muted); stroke-dasharray: 3 3; opacity: .55; }
+.csl-cp svg:hover .csl-line:not(.is-used):not(.is-violation) { stroke-opacity: .85; }
+.csl-result p { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.csl-result-ok { color: var(--success); font-weight: 500; }
+.csl-result-bad { color: var(--danger); font-weight: 500; }
+.csl-result .task-note { font-weight: 400; }
+.csl-violations { display: grid; gap: 4px; margin: 8px 0 0; padding: 8px 12px 8px 28px; border-radius: var(--radius); background: var(--danger-soft); font-size: var(--text-sm); }
+.csl-violations strong { font-family: var(--font-mono); }

@@ -27,6 +27,10 @@
     "./chat-cards": {
       "types": "./chat-cards.d.ts",
       "default": "./chat-cards.js"
+    },
+    "./csl-check": {
+      "types": "./csl-check.d.ts",
+      "default": "./csl-check.js"
     }
   },
   "scripts": {

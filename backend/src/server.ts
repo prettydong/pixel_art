@@ -22,6 +22,7 @@ import { registerDataRoutes } from "./data/index.js";
 import { registerDemoRoutes } from './demos/index.js';
 import { registerRepairRoutes } from "./repairs/index.js";
 import { registerMentionRoutes } from "./mentions/index.js";
+import { registerCslRoutes } from "./csl/index.js";
 import type { Runs } from "./runs/index.js";
 
 export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
@@ -79,6 +80,7 @@ export async function createServer(db: Db, runs: Runs, models: ModelConfig) {
   registerDataRoutes(app, db);
   registerDemoRoutes(app, db);
   registerMentionRoutes(app, db);
+  registerCslRoutes(app, db, runs, models);
   app.get("/api/models", async request => { currentUser(db, request); return { items: models.models.map(({ id, label, provider, model }) => ({ id, label, provider, model })) }; });
   app.get("/api/conversations", async request => {
     const user = currentUser(db, request); const q = String((request.query as Record<string, unknown>).q ?? "").slice(0, 200);
