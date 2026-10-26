@@ -3,18 +3,18 @@ import { spawn } from 'node:child_process';
 import { readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { FastifyInstance } from 'fastify';
-import { CSL_PER_CP, cslCheckerRequestSchema, cslRuleSetSchema, cslRuleUpdateSchema, idSchema, isActiveRun, type CslCheckerStatus, type CslRuleSet } from '@pixel/contracts';
+import { architectureCols, cpCountForCols, CSL_PER_CP, cslCheckerRequestSchema, cslRuleSetSchema, cslRuleUpdateSchema, idSchema, isActiveRun, type CslCheckerStatus, type CslRuleSet } from '@pixel/contracts';
 import { currentUser } from '../auth/index.js';
 import { config, projectRoot, type ModelConfig } from '../config.js';
 import { runRow } from '../conversations/index.js';
 import type { Db } from '../db/index.js';
 import { HttpError, missing } from '../errors.js';
 import type { Runs } from '../runs/index.js';
-import { taskRow } from '../tasks/index.js';
+import { taskDetail, taskRow } from '../tasks/index.js';
 import { ensureDirectory, ensureWorkspace, securePath } from '../workspace/index.js';
 
 type Row = {
-  id: string; task_id: string; name: string; cp_count: number; rules: string; used_json: string; created_at: number; updated_at: number;
+  id: string; task_id: string; name: string; cp_count: number; rules: string; used_json: string; created_at: number; updated_at: number; architecture_id: string | null;
   checker_status: CslCheckerStatus | null; checker_fingerprint: string | null; checker_model_id: string | null; checker_conversation_id: string | null;
   checker_run_id: string | null; checker_source: string | null; checker_sha256: string | null; checker_error: string | null; checker_created_at: number | null;
 };
@@ -39,11 +39,16 @@ export function migrateCslRules(db: Db) {
     `);
     db.prepare('INSERT INTO schema_migrations(version,applied_at) VALUES(12,?)').run(Date.now());
   })();
+  if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=13').get()) db.transaction(() => {
+    // Not a foreign key: architectures can be deleted or come from output files, and the link then only warns.
+    db.exec('ALTER TABLE task_csl_rules ADD COLUMN architecture_id TEXT');
+    db.prepare('INSERT INTO schema_migrations(version,applied_at) VALUES(13,?)').run(Date.now());
+  })();
 }
 
 function publicRuleSet(row: Row): CslRuleSet {
   return {
-    id: row.id, taskId: row.task_id, name: row.name, cpCount: row.cp_count, cslPerCp: CSL_PER_CP, rules: row.rules,
+    id: row.id, taskId: row.task_id, name: row.name, cpCount: row.cp_count, cslPerCp: CSL_PER_CP, rules: row.rules, architectureId: row.architecture_id,
     used: JSON.parse(row.used_json) as number[], fingerprint: fingerprint(row.cp_count, row.rules), updatedAt: row.updated_at,
     checker: row.checker_status ? {
       status: row.checker_status, fingerprint: row.checker_fingerprint!, modelId: row.checker_model_id!, conversationId: row.checker_conversation_id,
@@ -83,6 +88,14 @@ class CslRules {
     if (!row) throw missing();
     return row;
   }
+  /** The linked architecture's CP count when its col count allows one; otherwise the given count. */
+  private cpCount(task: ReturnType<typeof taskRow>, architectureId: string | null, fallback: number, required: boolean) {
+    if (!architectureId) return fallback;
+    const architecture = taskDetail(this.db, task).architectures.find(item => item.id === architectureId);
+    if (!architecture) { if (required) throw new HttpError(400, 'ARCHITECTURE_NOT_FOUND', '所选架构不在当前任务中'); return fallback; }
+    const cols = architectureCols(architecture.description);
+    return (cols !== null ? cpCountForCols(cols) : null) ?? fallback;
+  }
   list(taskId: string, userId: string) {
     const task = taskRow(this.db, taskId, userId);
     return (this.db.prepare('SELECT * FROM task_csl_rules WHERE task_id=? ORDER BY created_at,id').all(task.id) as Row[]).map(publicRuleSet);
@@ -91,8 +104,10 @@ class CslRules {
     const body = cslRuleSetSchema.parse(input);
     const task = taskRow(this.db, taskId, userId);
     const id = randomUUID(); const now = Date.now();
+    const architectureId = body.architectureId ?? null;
+    const cpCount = this.cpCount(task, architectureId, body.cpCount, true);
     this.db.transaction(() => {
-      this.db.prepare('INSERT INTO task_csl_rules(id,task_id,name,cp_count,rules,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').run(id, task.id, body.name, body.cpCount, body.rules, now, now);
+      this.db.prepare('INSERT INTO task_csl_rules(id,task_id,name,cp_count,rules,created_at,updated_at,architecture_id) VALUES(?,?,?,?,?,?,?,?)').run(id, task.id, body.name, cpCount, body.rules, now, now, architectureId);
       this.db.prepare('UPDATE tasks SET updated_at=? WHERE id=?').run(now, task.id);
     })();
     return publicRuleSet(this.row(task.id, id));
@@ -101,10 +116,13 @@ class CslRules {
     const body = cslRuleUpdateSchema.parse(input);
     const task = taskRow(this.db, taskId, userId);
     const row = this.row(task.id, id);
-    const cpCount = body.cpCount ?? row.cp_count;
+    const architectureId = body.architectureId !== undefined ? body.architectureId : row.architecture_id;
+    // Saving only the used lines leaves the CP count alone, even if the architecture changed since.
+    const cpCount = body.architectureId !== undefined || body.cpCount !== undefined
+      ? this.cpCount(task, architectureId, body.cpCount ?? row.cp_count, body.architectureId !== undefined) : row.cp_count;
     // Lines beyond a reduced CP count no longer exist.
     const used = [...new Set(body.used ?? JSON.parse(row.used_json) as number[])].filter(value => value < cpCount * CSL_PER_CP).sort((a, b) => a - b);
-    this.db.prepare('UPDATE task_csl_rules SET name=?,cp_count=?,rules=?,used_json=?,updated_at=? WHERE id=?').run(body.name ?? row.name, cpCount, body.rules ?? row.rules, JSON.stringify(used), Date.now(), row.id);
+    this.db.prepare('UPDATE task_csl_rules SET name=?,cp_count=?,rules=?,used_json=?,architecture_id=?,updated_at=? WHERE id=?').run(body.name ?? row.name, cpCount, body.rules ?? row.rules, JSON.stringify(used), architectureId, Date.now(), row.id);
     return publicRuleSet(this.row(task.id, id));
   }
   async remove(taskId: string, userId: string, id: string) {

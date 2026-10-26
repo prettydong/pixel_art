@@ -105,8 +105,9 @@ export type RepairPanelData = { datasets: RepairDataset[]; jobs: RepairJob[]; co
 export const CSL_PER_CP = 64;
 export const MAX_CP_COUNT = 64;
 const cslIndexSchema = z.number().int().min(0).max(CSL_PER_CP * MAX_CP_COUNT - 1);
-export const cslRuleSetSchema = z.object({ name: z.string().trim().min(1).max(120), cpCount: z.number().int().min(1).max(MAX_CP_COUNT), rules: z.string().trim().min(1).max(20000) }).strict();
-export const cslRuleUpdateSchema = z.object({ name: cslRuleSetSchema.shape.name.optional(), cpCount: cslRuleSetSchema.shape.cpCount.optional(), rules: cslRuleSetSchema.shape.rules.optional(), used: z.array(cslIndexSchema).max(CSL_PER_CP * MAX_CP_COUNT).optional() }).strict();
+// A linked architecture sets the CP count from its col count when that is a whole number of CPs.
+export const cslRuleSetSchema = z.object({ name: z.string().trim().min(1).max(120), cpCount: z.number().int().min(1).max(MAX_CP_COUNT), rules: z.string().trim().min(1).max(20000), architectureId: idSchema.nullable().optional() }).strict();
+export const cslRuleUpdateSchema = z.object({ name: cslRuleSetSchema.shape.name.optional(), cpCount: cslRuleSetSchema.shape.cpCount.optional(), rules: cslRuleSetSchema.shape.rules.optional(), architectureId: idSchema.nullable().optional(), used: z.array(cslIndexSchema).max(CSL_PER_CP * MAX_CP_COUNT).optional() }).strict();
 export const cslCheckerRequestSchema = z.object({ modelId: z.string().min(1).max(256), language: z.enum(['en', 'zh-CN', 'ja']).optional() }).strict();
 export type CslRuleSetInput = z.infer<typeof cslRuleSetSchema>;
 export type CslCheckerStatus = 'coding' | 'ready' | 'failed';
@@ -116,7 +117,18 @@ export type CslChecker = {
   source: string | null; sha256: string | null; error: string | null; createdAt: number;
 };
 export type CslRuleSet = {
-  id: string; taskId: string; name: string; cpCount: number; cslPerCp: number; rules: string;
+  id: string; taskId: string; name: string; cpCount: number; cslPerCp: number; rules: string; architectureId: string | null;
   /** Global CSL indices (cp * cslPerCp + csl) the user marked as used. */
   used: number[]; fingerprint: string; updatedAt: number; checker: CslChecker | null;
 };
+/** Col count from an architecture definition's `array.cols`; null for free-text definitions. */
+export function architectureCols(description: string): number | null {
+  try {
+    const cols = (JSON.parse(description) as { array?: { cols?: unknown } } | null)?.array?.cols;
+    return typeof cols === 'number' && Number.isSafeInteger(cols) && cols > 0 ? cols : null;
+  } catch { return null; }
+}
+/** CP count for a col count, or null when it is not a whole number of CPs within MAX_CP_COUNT. */
+export function cpCountForCols(cols: number): number | null {
+  return cols % CSL_PER_CP === 0 && cols / CSL_PER_CP <= MAX_CP_COUNT ? cols / CSL_PER_CP : null;
+}

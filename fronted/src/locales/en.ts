@@ -1188,7 +1188,20 @@ export const english = {
   "检查脚本缺少 check 函数": "The check script has no check function.",
   "检查脚本对同一选择给出不同结果": "The check script gave different results for the same selection.",
   "检查脚本运行过慢": "The check script is too slow.",
-  "检查脚本尚未载入": "The check script has not loaded yet."
+  "检查脚本尚未载入": "The check script has not loaded yet.",
+  "关联的架构已不在当前任务中": "The linked architecture is no longer in this task. Choose another one or set the CP count by hand.",
+  "架构“{0}”的 col 数无法读取，CP 数量需手动填写": "The col count of architecture “{0}” cannot be read. Enter the CP count by hand.",
+  "架构“{0}”有 {1} col，不是 {2} 的整数倍": "Architecture “{0}” has {1} col, which is not a multiple of {2}. Enter the CP count by hand.",
+  "架构“{0}”有 {1} col，超过 {2} CP 上限": "Architecture “{0}” has {1} col, more than the {2} CP limit. Enter the CP count by hand.",
+  "架构“{0}”有 {1} col（{2} CP），但本规则集使用 {3} CP": "Architecture “{0}” has {1} col ({2} CP), but this rule set uses {3} CP.",
+  "不关联": "Not linked",
+  "已删除的架构": "Deleted architecture",
+  "{0} · {1} col": "{0} · {1} col",
+  "由架构的 col 数决定": "Set by the architecture's col count",
+  "{0} col ÷ {1} CSL = {2} CP": "{0} col ÷ {1} CSL = {2} CP",
+  "改为 {0} CP": "Use {0} CP",
+  "所选架构不在当前任务中": "The chosen architecture is not in this task. Reload the page and choose again.",
+  "关联架构：{0}": "Linked architecture: {0}"
 } as const;
 
 export type TranslationKey = keyof typeof english;

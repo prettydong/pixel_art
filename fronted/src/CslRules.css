@@ -42,3 +42,8 @@
 .csl-result .task-note { font-weight: 400; }
 .csl-violations { display: grid; gap: 4px; margin: 8px 0 0; padding: 8px 12px 8px 28px; border-radius: var(--radius); background: var(--danger-soft); font-size: var(--text-sm); }
 .csl-violations strong { font-family: var(--font-mono); }
+.csl-link-warning { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; color: var(--busy); background: var(--busy-soft); }
+.csl-link-warning .icon { flex: 0 0 auto; }
+.csl-link-warning .action-button { margin-left: auto; }
+.csl-architecture-body { display: grid; gap: 10px; margin-top: 8px; }
+.csl-architecture-body p { margin: 0; }

@@ -1,14 +1,16 @@
 import { localizeMessage, getLanguage, t } from './i18n';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { CSL_PER_CP, MAX_CP_COUNT, type CslRuleSet, type ModelOption } from '@pixel/contracts';
+import { architectureCols, cpCountForCols, CSL_PER_CP, MAX_CP_COUNT, type CslRuleSet, type ModelOption, type TaskArchitecture } from '@pixel/contracts';
 import type { CslCheckResult, CslRuleReading } from '@pixel/contracts/csl-check';
 import { api, errorText } from './api';
 import { DeleteArchitectureButton } from './DeleteChatButton';
+import { CcrLayoutPreview } from './CcrLayoutPreview';
+import { ARCHITECTURE_TEMPLATES, architectureSummary, parseArchitecture } from './architectureTemplates';
 import { Alert, Check, Pencil, Plus, RefreshCw, X } from './Icons';
 import './ArchitectureEditor.css';
 import './CslRules.css';
 
-type Props = { taskId: string; models: ModelOption[]; modelId: string; onChat: (id: string) => void };
+type Props = { taskId: string; architectures: TaskArchitecture[]; models: ModelOption[]; modelId: string; onChat: (id: string) => void };
 const PITCH = 5;
 const GROUP = 16;
 const GROUP_GAP = 4;
@@ -21,6 +23,46 @@ function lineAt(y: number) {
   return group * GROUP + Math.max(0, Math.min(GROUP - 1, Math.floor((y - group * span) / PITCH)));
 }
 const lineName = (index: number) => `CP${Math.floor(index / CSL_PER_CP)} CSL${index % CSL_PER_CP}`;
+
+type Link = { architecture?: TaskArchitecture; cols: number | null; cpCount: number | null };
+/** The linked architecture and the CP count its col count gives, if any. */
+function architectureLink(id: string | null | undefined, architectures: TaskArchitecture[]): Link | null {
+  if (!id) return null;
+  const architecture = architectures.find(item => item.id === id);
+  const cols = architecture ? architectureCols(architecture.description) : null;
+  return { architecture, cols, cpCount: cols === null ? null : cpCountForCols(cols) };
+}
+/** Why the CP count does not follow the linked architecture; empty when it does. */
+function linkIssue(link: Link | null, cpCount: number) {
+  if (!link) return '';
+  const name = link.architecture?.name ?? '';
+  if (!link.architecture) return t("关联的架构已不在当前任务中");
+  if (link.cols === null) return t("架构“{0}”的 col 数无法读取，CP 数量需手动填写", name);
+  if (link.cols % CSL_PER_CP) return t("架构“{0}”有 {1} col，不是 {2} 的整数倍", name, link.cols, CSL_PER_CP);
+  if (link.cpCount === null) return t("架构“{0}”有 {1} col，超过 {2} CP 上限", name, link.cols, MAX_CP_COUNT);
+  if (link.cpCount !== cpCount) return t("架构“{0}”有 {1} col（{2} CP），但本规则集使用 {3} CP", name, link.cols, link.cpCount, cpCount);
+  return '';
+}
+/** The linked architecture as the Architecture page shows it: preset, parameters and CCR structure. */
+function LinkedArchitecture({ architecture }: { architecture: TaskArchitecture }) {
+  const preset = ARCHITECTURE_TEMPLATES.find(template => template.id === parseArchitecture(architecture.description)?.templateId);
+  let summary: string | null = null;
+  try { summary = architectureSummary(architecture.description); } catch { /* Out-of-range values: show the definition instead. */ }
+  return <details className="csl-architecture">
+    <summary>{t("关联架构：{0}", architecture.name)}{preset ? ` · ${preset.label}` : ''}</summary>
+    <div className="csl-architecture-body">
+      {summary ? <p className="task-note">{summary}</p> : <pre className="architecture-definition">{architecture.description}</pre>}
+      <CcrLayoutPreview description={architecture.description} />
+    </div>
+  </details>;
+}
+function ArchitectureSelect({ value, architectures, disabled, onChange }: { value: string; architectures: TaskArchitecture[]; disabled: boolean; onChange: (id: string) => void }) {
+  return <select value={value} disabled={disabled} onChange={event => onChange(event.target.value)}>
+    <option value="">{t("不关联")}</option>
+    {value && !architectures.some(item => item.id === value) && <option value={value}>{t("已删除的架构")}</option>}
+    {architectures.map(item => { const cols = architectureCols(item.description); return <option key={item.id} value={item.id}>{cols === null ? item.name : t("{0} · {1} col", item.name, cols)}</option>; })}
+  </select>;
+}
 
 /** "0-3, 17" style ranges of global CSL (col) indices. */
 function formatSelection(used: number[]) {
@@ -94,7 +136,7 @@ function useChecker(source: string | null) {
   return { ...state, check };
 }
 
-export function CslRules({ taskId, models, modelId, onChat }: Props) {
+export function CslRules({ taskId, architectures, models, modelId, onChat }: Props) {
   const [items, setItems] = useState<CslRuleSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -133,31 +175,36 @@ export function CslRules({ taskId, models, modelId, onChat }: Props) {
       </div>}
       <button className="action-button" disabled={pending} onClick={() => setEditing('new')}><Plus />{t("新建规则集")}</button>
     </div>}
-    {editing && <CslRuleEditor initial={editing === 'new' ? undefined : editing} pending={pending} onCancel={() => setEditing(null)} onSave={input => action(async () => {
+    {editing && <CslRuleEditor initial={editing === 'new' ? undefined : editing} architectures={architectures} pending={pending} onCancel={() => setEditing(null)} onSave={input => action(async () => {
       const result = editing === 'new'
         ? await api<CslRuleSet>(`/tasks/${taskId}/csl-rules`, { method: 'POST', body: JSON.stringify(input) })
         : await api<CslRuleSet>(`/tasks/${taskId}/csl-rules/${editing.id}`, { method: 'PATCH', body: JSON.stringify(input) });
       replace(result); setSelectedId(result.id); setEditing(null);
     })} />}
     {!editing && !loading && !items.length && <p className="task-empty">{t("暂无 CSL 规则")}</p>}
-    {!editing && selected && <CslRuleView key={selected.id} taskId={taskId} ruleSet={selected} models={models} modelId={modelId} pending={pending} onChat={onChat}
+    {!editing && selected && <CslRuleView key={selected.id} taskId={taskId} ruleSet={selected} architectures={architectures} models={models} modelId={modelId} pending={pending} onChat={onChat}
       onChanged={replace} onError={setError} onEdit={() => setEditing(selected)}
       onDelete={() => void action(async () => { await api(`/tasks/${taskId}/csl-rules/${selected.id}`, { method: 'DELETE' }); setItems(previous => previous.filter(item => item.id !== selected.id)); })} />}
   </div>;
 }
 
-function CslRuleEditor({ initial, pending, onSave, onCancel }: { initial?: CslRuleSet; pending: boolean; onSave: (input: { name: string; cpCount: number; rules: string }) => Promise<void>; onCancel: () => void }) {
+type RuleInput = { name: string; cpCount: number; rules: string; architectureId: string | null };
+function CslRuleEditor({ initial, architectures, pending, onSave, onCancel }: { initial?: CslRuleSet; architectures: TaskArchitecture[]; pending: boolean; onSave: (input: RuleInput) => Promise<void>; onCancel: () => void }) {
   const [name, setName] = useState(initial?.name ?? t("CSL 规则"));
+  // A new rule set starts linked to the first architecture whose col count gives a CP count.
+  const [architectureId, setArchitectureId] = useState(() => initial ? initial.architectureId ?? '' : architectures.find(item => architectureLink(item.id, architectures)?.cpCount)?.id ?? '');
   const [cpCount, setCpCount] = useState(String(initial?.cpCount ?? 16));
   const [rules, setRules] = useState(initial?.rules ?? '');
   const [error, setError] = useState('');
-  const count = Number(cpCount);
-  const countValid = /^\d+$/.test(cpCount) && count >= 1 && count <= MAX_CP_COUNT;
+  const link = architectureLink(architectureId, architectures);
+  const derived = link?.cpCount ?? null;
+  const count = derived ?? Number(cpCount);
+  const countValid = derived !== null || (/^\d+$/.test(cpCount) && count >= 1 && count <= MAX_CP_COUNT);
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!countValid) { setError(t("CP 数量必须是 1–{0} 的整数", MAX_CP_COUNT)); return; }
     if (!name.trim() || !rules.trim()) return;
-    void onSave({ name: name.trim(), cpCount: count, rules: rules.trim() });
+    void onSave({ name: name.trim(), cpCount: count, rules: rules.trim(), architectureId: architectureId || null });
   }
   return <form className="architecture-editor csl-rule-editor" onSubmit={submit} aria-busy={pending}>
     <div className="architecture-editor-heading"><h2>{initial ? t("编辑 CSL 规则") : t("新建 CSL 规则")}</h2></div>
@@ -165,11 +212,15 @@ function CslRuleEditor({ initial, pending, onSave, onCancel }: { initial?: CslRu
       <label className="architecture-editor-field"><span className="architecture-field-label">{t("名称")}</span>
         <input required maxLength={120} value={name} disabled={pending} onChange={event => setName(event.target.value)} />
       </label>
+      <label className="architecture-editor-field"><span className="architecture-field-label">{t("架构")}</span>
+        <ArchitectureSelect value={architectureId} architectures={architectures} disabled={pending} onChange={id => { setArchitectureId(id); setError(''); }} />
+      </label>
       <label className="architecture-editor-field"><span className="architecture-field-label">{t("CP 数量")}</span>
-        <input required inputMode="numeric" value={cpCount} disabled={pending} aria-invalid={!countValid} onChange={event => { setCpCount(event.target.value); setError(''); }} />
+        <input required inputMode="numeric" value={derived ?? cpCount} disabled={pending} readOnly={derived !== null} aria-invalid={!countValid} title={derived !== null ? t("由架构的 col 数决定") : undefined} onChange={event => { setCpCount(event.target.value); setError(''); }} />
       </label>
     </div>
-    <p className="task-note">{countValid ? t("{0} CP × {1} CSL = {2} col", count, CSL_PER_CP, count * CSL_PER_CP) : t("每个 CP 有 {0} 条 CSL，每条 CSL 对应 1 个 col", CSL_PER_CP)}</p>
+    {link && derived === null && <p className="task-warning csl-link-warning" role="status"><Alert />{linkIssue(link, count)}</p>}
+    <p className="task-note">{derived !== null && link?.cols ? t("{0} col ÷ {1} CSL = {2} CP", link.cols, CSL_PER_CP, derived) : countValid ? t("{0} CP × {1} CSL = {2} col", count, CSL_PER_CP, count * CSL_PER_CP) : t("每个 CP 有 {0} 条 CSL，每条 CSL 对应 1 个 col", CSL_PER_CP)}</p>
     <label className="architecture-editor-field"><span className="architecture-field-label">{t("规则")}</span>
       <textarea required rows={8} maxLength={20000} value={rules} disabled={pending} onChange={event => setRules(event.target.value)} placeholder={t("例如：同一 CP 中 CSL n 已使用时，CSL n+32 不能使用。")} />
     </label>
@@ -179,8 +230,8 @@ function CslRuleEditor({ initial, pending, onSave, onCancel }: { initial?: CslRu
   </form>;
 }
 
-type ViewProps = { taskId: string; ruleSet: CslRuleSet; models: ModelOption[]; modelId: string; pending: boolean; onChat: (id: string) => void; onChanged: (next: CslRuleSet) => void; onError: (message: string) => void; onEdit: () => void; onDelete: () => void };
-function CslRuleView({ taskId, ruleSet, models, modelId, pending, onChat, onChanged, onError, onEdit, onDelete }: ViewProps) {
+type ViewProps = { taskId: string; ruleSet: CslRuleSet; architectures: TaskArchitecture[]; models: ModelOption[]; modelId: string; pending: boolean; onChat: (id: string) => void; onChanged: (next: CslRuleSet) => void; onError: (message: string) => void; onEdit: () => void; onDelete: () => void };
+function CslRuleView({ taskId, ruleSet, architectures, models, modelId, pending, onChat, onChanged, onError, onEdit, onDelete }: ViewProps) {
   const total = ruleSet.cpCount * CSL_PER_CP;
   const checker = ruleSet.checker;
   const current = checker?.status === 'ready' && checker.fingerprint === ruleSet.fingerprint ? checker : null;
@@ -192,7 +243,18 @@ function CslRuleView({ taskId, ruleSet, models, modelId, pending, onChat, onChan
   const [checkError, setCheckError] = useState('');
   const [saveError, setSaveError] = useState('');
   const [hover, setHover] = useState<number | null>(null);
+  const [linking, setLinking] = useState(false);
   const used = ruleSet.used;
+  const link = architectureLink(ruleSet.architectureId, architectures);
+  const issue = linkIssue(link, ruleSet.cpCount);
+  async function relink(body: { architectureId?: string | null; cpCount?: number }) {
+    if (linking) return; setLinking(true); onError('');
+    // Send unsaved used lines first so the reply does not bring back an older selection.
+    clearTimeout(saveTimer.current);
+    const next = unsaved.current; unsaved.current = null;
+    try { onChanged(await api<CslRuleSet>(`/tasks/${taskId}/csl-rules/${ruleSet.id}`, { method: 'PATCH', body: JSON.stringify(next ? { ...body, used: next } : body) })); }
+    catch (err) { onError(errorText(err)); } finally { setLinking(false); }
+  }
   useEffect(() => { setEngine(previous => models.some(item => item.id === previous) ? previous : modelId); }, [modelId, models]);
 
   // Save the plan shortly after the last change; flush on leaving the page.
@@ -241,11 +303,16 @@ function CslRuleView({ taskId, ruleSet, models, modelId, pending, onChat, onChan
     <div className="csl-rule-heading">
       <h2>{ruleSet.name}</h2>
       <span className="task-note">{t("{0} CP × {1} CSL = {2} col", ruleSet.cpCount, CSL_PER_CP, total)}</span>
+      <label className="csl-engine">{t("架构")}<ArchitectureSelect value={ruleSet.architectureId ?? ''} architectures={architectures} disabled={pending || linking} onChange={id => void relink({ architectureId: id || null })} /></label>
       <div className="panel-actions">
         <button className="icon-button" aria-label={t("{0}：{1}", t("编辑"), ruleSet.name)} title={t("编辑")} disabled={pending} onClick={onEdit}><Pencil /></button>
         <DeleteArchitectureButton kind="rules" name={ruleSet.name} disabled={pending} onDelete={onDelete} />
       </div>
     </div>
+    {issue && <div className="task-warning csl-link-warning" role="status"><Alert /><span>{issue}</span>
+      {link?.cpCount && link.cpCount !== ruleSet.cpCount && <button className="action-button" disabled={pending || linking} onClick={() => void relink({ cpCount: link.cpCount! })}>{t("改为 {0} CP", link.cpCount)}</button>}
+    </div>}
+    {link?.architecture && <LinkedArchitecture architecture={link.architecture} />}
     <details className="csl-rule-text" open={!current}><summary>{t("规则原文")}</summary><p>{ruleSet.rules}</p></details>
 
     <div className="csl-checker">

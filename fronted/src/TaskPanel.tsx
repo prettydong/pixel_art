@@ -138,7 +138,7 @@ export function TaskPanel({ taskId, view, revision, conversations, connections, 
         </Fragment>; })}</tbody>
       </table></div>}
     </>}
-    {view === 'rules' && <CslRules key={taskId} taskId={taskId} models={models} modelId={modelId} onChat={onChat} />}
+    {view === 'rules' && <CslRules key={taskId} taskId={taskId} architectures={detail?.architectures ?? []} models={models} modelId={modelId} onChat={onChat} />}
     {view === 'data' && <WaferData key={taskId} taskId={taskId} files={uploads} suggestedLayout={suggestedLayout} onChanged={async () => { await onRefresh(); setReload(value => value + 1); }} />}
     {view === 'repair' && detail && <RepairPanel taskId={taskId} architectures={detail.architectures} models={models} modelId={modelId} onChat={onRepairChat} onOpenView={onOpenView} />}
     {view === 'conclusions' && <>
